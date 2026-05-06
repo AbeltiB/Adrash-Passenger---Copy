@@ -1,10 +1,20 @@
 export const ENDPOINTS = {
   AUTH: {
+    LOGIN:         '/auth/login',
     SEND_OTP:      '/auth/send-otp',
     VERIFY_OTP:    '/auth/verify-otp',
     REFRESH:       '/auth/refresh',
     LOGOUT:        '/auth/logout',
+    ME:            '/auth/me',
     SETUP_PROFILE: '/auth/setup-profile',
+  },
+  AGREEMENTS: {
+    LIST:      '/agreements',
+    DETAIL:    (agreementId: string) => `/agreements/${agreementId}`,
+    CREATE:    '/agreements',
+    UPDATE:    (agreementId: string) => `/agreements/${agreementId}`,
+    SIGN:      (agreementId: string) => `/agreements/${agreementId}/sign`,
+    SIGNED_ME: '/agreements/signed/me',
   },
   ROUTES: {
     SEARCH:           '/routes/search',

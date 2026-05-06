@@ -40,7 +40,7 @@ export default function SplashScreen() {
         })}
 
         <Pressable style={styles.cta} onPress={() => router.push('/(auth)/phone')}>
-          <Text style={styles.ctaText}>Continue</Text>
+          <Text style={styles.ctaText}>Sign In</Text>
         </Pressable>
       </View>
     </SafeAreaView>

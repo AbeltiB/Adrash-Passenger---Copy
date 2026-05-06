@@ -9,11 +9,16 @@ const KEYS = {
 
 export async function storeTokens(tokens: AuthTokens): Promise<void> {
     const expiresAt = Date.now() + tokens.expiresIn * 1_000;
-    await Promise.all([
+    const writes = [
         SecureStore.setItemAsync(KEYS.ACCESS, tokens.accessToken),
-        SecureStore.setItemAsync(KEYS.REFRESH, tokens.refreshToken),
         SecureStore.setItemAsync(KEYS.EXPIRY, String(expiresAt)),
-    ]);
+    ];
+
+    if (tokens.refreshToken) {
+        writes.push(SecureStore.setItemAsync(KEYS.REFRESH, tokens.refreshToken));
+    }
+
+    await Promise.all(writes);
 }
 
 export async function getAccessToken(): Promise<string | null> {

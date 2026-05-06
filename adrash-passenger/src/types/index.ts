@@ -1,31 +1,86 @@
 import type { ApiResponse, ApiError, ApiMeta } from '../api/types';
 
-// Re-export envelope types
+// Re-export envelope types used by legacy endpoints that still wrap responses.
 export type { ApiResponse, ApiError, ApiMeta };
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
+export type UserRole = 'ADMIN' | 'USER' | string;
+
 export interface User {
     id: string;
-    firstName: string;
-    lastName: string;
-    phoneNumber: string;
-    createdAt: string;
+    username: string;
+    roles: UserRole[];
+}
+
+export interface LoginRequest {
+    username: string;
+    password: string;
+}
+
+export interface LoginResponse {
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+}
+
+export interface RefreshTokenRequest { refresh_token: string }
+export interface RefreshTokenResponse {
+    access_token: string;
+    expires_in: number;
 }
 
 export interface AuthTokens {
     accessToken: string;
-    refreshToken: string;
+    refreshToken?: string;
     expiresIn: number; // seconds
 }
+
 
 export interface OtpSendRequest { phoneNumber: string }
 export interface OtpVerifyRequest { phoneNumber: string; otp: string }
 export interface OtpVerifyResponse {
-    tokens: AuthTokens;
+    tokens: AuthTokens | LoginResponse;
     user: User;
-    isNewUser: boolean;
+    isNewUser?: boolean;
 }
 export interface SetupProfileRequest { firstName: string; lastName: string }
+
+// ─── Agreements ───────────────────────────────────────────────────────────────
+export type AgreementStatus = 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'INACTIVE' | string;
+
+export interface AgreementSummary {
+    id: string;
+    title: string;
+    status: AgreementStatus;
+    startDate: string;
+    endDate: string;
+}
+
+export interface AgreementDocument {
+    id: string;
+    title: string;
+    content: string;
+    status: AgreementStatus;
+    signed: boolean;
+}
+
+export interface CreateAgreementRequest {
+    title: string;
+    content: string;
+    startDate: string;
+    endDate: string;
+}
+
+export interface UpdateAgreementRequest {
+    title: string;
+    content: string;
+    status: 'ACTIVE' | 'INACTIVE';
+}
+
+export interface SignAgreementResponse {
+    agreementId: string;
+    signedAt: string;
+}
 
 // ─── Route / Search ───────────────────────────────────────────────────────────
 export interface RouteSearchParams {
@@ -169,29 +224,7 @@ export interface PaymentStatusResponse {
     bookingId: string;
 }
 
-// ─── Trips ────────────────────────────────────────────────────────────────────
-export type TripTab = 'upcoming' | 'completed' | 'cancelled';
-
-export interface Trip extends Booking {
-    canCancel: boolean;
-    canReview: boolean;
-    hasReview: boolean;
-}
-
-export interface SubmitReviewRequest {
-    bookingId: string;
-    rating: number;       // 1-5
-    comment?: string;
-}
-
-export interface CancellationInfo {
-    canCancel: boolean;
-    reason?: string;
-    refundAmount: number; // ETB
-    refundPolicy: string;
-}
-
-// ─── Tracking ─────────────────────────────────────────────────────────────────
+// ─── Trips / Tracking ─────────────────────────────────────────────────────────
 export interface BusLocation {
     busId: string;
     latitude: number;

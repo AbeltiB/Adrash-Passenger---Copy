@@ -13,7 +13,7 @@ export default function SetupScreen() {
 
   const finish = () => {
     setAuthenticated(true);
-    router.replace('/(tabs)');
+    router.replace('/(auth)/agreement');
   };
 
   return (

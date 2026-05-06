@@ -18,7 +18,8 @@ function getErrorMessage(error: unknown): string {
 export default function AgreementScreen() {
   const acceptAgreement = useAuthStore((state) => state.acceptAgreement);
   const agreements = useAgreements('ACTIVE');
-  const activeAgreementId = agreements.data?.[0]?.id;
+  const activeAgreement = agreements.data?.[0];
+  const activeAgreementId = activeAgreement?.id;
   const agreement = useAgreement(activeAgreementId);
   const signAgreement = useSignAgreement();
 
@@ -69,7 +70,9 @@ export default function AgreementScreen() {
             <View style={styles.metaCard}>
               <Text style={styles.documentTitle}>{document.title}</Text>
               <Text style={styles.metaText}>Status: {document.status}</Text>
-              <Text style={styles.metaText}>Valid: {document.startDate} to {document.endDate}</Text>
+              {activeAgreement ? (
+                <Text style={styles.metaText}>Valid: {activeAgreement.startDate} to {activeAgreement.endDate}</Text>
+              ) : null}
               <Text style={styles.metaText}>Signature: {document.signed ? 'Already signed' : 'Required'}</Text>
             </View>
             <Text style={styles.contentText}>{document.content}</Text>
