@@ -50,13 +50,7 @@ const INIT: Omit<BookingState, keyof { [K in keyof BookingState as BookingState[
 export const useBookingStore = create<BookingState>()(
     persist(
         (set) => ({
-            selectedRoute: null,
-            selectedSeats: [],
-            selectedPickup: null,
-            passengers: [],
-            fareBreakdown: null,
-            selectedProvider: null,
-            currentBookingId: null,
+            ...INIT,
 
             setRoute: (r) => set({ selectedRoute: r }),
             setSeats: (s) => set({ selectedSeats: s }),
@@ -65,11 +59,7 @@ export const useBookingStore = create<BookingState>()(
             setFareBreakdown: (f) => set({ fareBreakdown: f }),
             setProvider: (p) => set({ selectedProvider: p }),
             setBookingId: (id) => set({ currentBookingId: id }),
-            resetBooking: () => set({
-                selectedRoute: null, selectedSeats: [], selectedPickup: null,
-                passengers: [], fareBreakdown: null, selectedProvider: null,
-                currentBookingId: null,
-            }),
+            resetBooking: () => set(INIT),
         }),
         {
             name: 'booking-wip',

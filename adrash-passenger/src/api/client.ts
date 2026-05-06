@@ -10,7 +10,8 @@ import {
     storeTokens,
     clearTokens,
 } from '../features/auth/utils/token';
-import type { ApiResponse, AuthTokens } from '../types';
+import { ENDPOINTS } from './endpoints';
+import type { RefreshTokenResponse } from '../types';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.adrash.app';
 
@@ -32,7 +33,7 @@ function flushQueue(err: unknown, token: string | null) {
 
 // ── Axios instance ─────────────────────────────────────────────────────────────
 export const apiClient: AxiosInstance = axios.create({
-    baseURL: `${API_BASE}/api/v1`,
+    baseURL: API_BASE,
     timeout: 30_000,
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
 });
@@ -53,12 +54,12 @@ apiClient.interceptors.response.use(
     async (err: AxiosError) => {
         const original = err.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-        if (err.response?.status !== 401 || original._retry) {
+        if (!original || original.url === ENDPOINTS.AUTH.REFRESH || err.response?.status !== 401 || original._retry) {
             return Promise.reject(err);
         }
 
         if (refreshing) {
-            return new Promise((resolve, reject) => {
+            return new Promise<string>((resolve, reject) => {
                 queue.push({ resolve, reject });
             }).then((token) => {
                 original.headers.Authorization = `Bearer ${token}`;
@@ -70,18 +71,19 @@ apiClient.interceptors.response.use(
         refreshing = true;
 
         try {
-            const rt = await getRefreshToken();
-            if (!rt) throw new Error('no-refresh-token');
+            const refreshToken = await getRefreshToken();
+            if (!refreshToken) throw new Error('no-refresh-token');
 
-            const { data } = await axios.post<ApiResponse<AuthTokens>>(
-                `${API_BASE}/api/v1/auth/refresh`,
-                { refreshToken: rt },
+            const { data } = await axios.post<RefreshTokenResponse>(
+                `${API_BASE}${ENDPOINTS.AUTH.REFRESH}`,
+                { refresh_token: refreshToken },
+                { headers: { 'Content-Type': 'application/json', Accept: 'application/json' } },
             );
-            const { accessToken, refreshToken: newRt, expiresIn } = data.data;
-            await storeTokens({ accessToken, refreshToken: newRt, expiresIn });
-            flushQueue(null, accessToken);
 
-            original.headers.Authorization = `Bearer ${accessToken}`;
+            await storeTokens({ accessToken: data.access_token, expiresIn: data.expires_in });
+            flushQueue(null, data.access_token);
+
+            original.headers.Authorization = `Bearer ${data.access_token}`;
             return apiClient(original);
         } catch (refreshErr) {
             flushQueue(refreshErr, null);

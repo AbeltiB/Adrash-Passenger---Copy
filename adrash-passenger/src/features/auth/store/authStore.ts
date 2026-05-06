@@ -39,7 +39,7 @@ export const useAuthStore = create<AuthState>()(
             setAuthenticated: (v) => set({ isAuthenticated: v }),
             acceptAgreement: (version) => set({ hasAcceptedAgreement: true, agreementVersion: version }),
             setLanguage: (lang) => set({ preferredLanguage: lang }),
-            logout: () => set({ user: null, isAuthenticated: false }),
+            logout: () => set({ user: null, isAuthenticated: false, hasAcceptedAgreement: false, agreementVersion: null }),
         }),
         {
             name: 'auth',

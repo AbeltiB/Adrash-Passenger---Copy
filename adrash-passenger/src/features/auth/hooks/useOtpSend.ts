@@ -1,14 +1,13 @@
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '../../../api/client';
 import { ENDPOINTS } from '../../../api/endpoints';
-import type { OtpSendRequest, ApiResponse } from '../../../types';
+import type { OtpSendRequest } from '../../../types';
 
-/** Sends OTP to the provided phone number */
+/** Sends an OTP to the provided phone number through the real auth API. */
 export function useOtpSend() {
-  return useMutation<ApiResponse<null>, unknown, OtpSendRequest>({
+  return useMutation<void, unknown, OtpSendRequest>({
     mutationFn: async (data) => {
-      const res = await apiClient.post<ApiResponse<null>>(ENDPOINTS.AUTH.SEND_OTP, data);
-      return res.data;
+      await apiClient.post(ENDPOINTS.AUTH.SEND_OTP, data);
     },
   });
 }

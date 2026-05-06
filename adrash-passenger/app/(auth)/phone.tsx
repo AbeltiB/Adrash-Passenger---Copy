@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius } from '../../src/constants';
+import { useOtpSend } from '../../src/features/auth/hooks/useOtpSend';
 
 /**
  * Accepted formats:
@@ -44,9 +45,20 @@ function isValidPhone(raw: string): boolean {
   return ETHIOPIAN_PHONE_RE.test(digits);
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const response = (error as { response?: { data?: { message?: string; errors?: { message: string }[] } } }).response;
+    return response?.data?.message ?? response?.data?.errors?.[0]?.message ?? 'Unable to send verification code.';
+  }
+
+  if (error instanceof Error) return error.message;
+  return 'Unable to send verification code.';
+}
+
 export default function PhoneScreen() {
   // raw stores only digits (no spaces) so validation stays clean
   const [raw, setRaw] = useState('');
+  const sendOtp = useOtpSend();
   const valid = isValidPhone(raw);
 
   // Keeps at most 10 digits (09XXXXXXXX is the longest accepted form)
@@ -56,10 +68,17 @@ export default function PhoneScreen() {
   };
 
   const handleContinue = () => {
-    if (!valid) return;
+    if (!valid || sendOtp.isPending) return;
     const normalised = normaliseEthiopianPhone(raw);
-    // Pass the normalised number as a param so the OTP screen can display it
-    router.push({ pathname: '/(auth)/otp', params: { phone: normalised } });
+
+    sendOtp.mutate(
+      { phoneNumber: normalised },
+      {
+        onSuccess: () => {
+          router.push({ pathname: '/(auth)/otp', params: { phone: normalised } });
+        },
+      },
+    );
   };
 
   // Derive what network prefix this is (for UX hint only)
@@ -103,6 +122,7 @@ export default function PhoneScreen() {
             maxLength={11} // "09XX XXX XXX" = 11 chars with space
             returnKeyType="done"
             onSubmitEditing={handleContinue}
+            editable={!sendOtp.isPending}
           />
         </View>
 
@@ -118,17 +138,19 @@ export default function PhoneScreen() {
           </Text>
         )}
 
+        {sendOtp.error ? <Text style={styles.error}>{getErrorMessage(sendOtp.error)}</Text> : null}
+
         {/* Format helper */}
         <Text style={styles.formatHelper}>
           Accepted: 09XXXXXXXX · 9XXXXXXXX · 07XXXXXXXX · 7XXXXXXXX
         </Text>
 
         <Pressable
-          style={[styles.cta, !valid && styles.ctaDisabled]}
+          style={[styles.cta, (!valid || sendOtp.isPending) && styles.ctaDisabled]}
           onPress={handleContinue}
-          disabled={!valid}
+          disabled={!valid || sendOtp.isPending}
         >
-          <Text style={styles.ctaText}>Send Code</Text>
+          <Text style={styles.ctaText}>{sendOtp.isPending ? 'Sending…' : 'Send Code'}</Text>
         </Pressable>
 
         <Text style={styles.terms}>

@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../src/constants';
-import { useAuthStore } from '../../src/features/auth/store/authStore';
+import { useLogout } from '../../src/features/auth/hooks/useLogout';
 
 const SECTIONS = [
   {
@@ -32,7 +32,7 @@ const SECTIONS = [
 ];
 
 export default function ProfileTab() {
-  const logout = useAuthStore((s) => s.logout);
+  const logout = useLogout();
   const [bio, setBio] = useState(true);
 
   return (
@@ -91,8 +91,12 @@ export default function ProfileTab() {
           </View>
         ))}
 
-        <Pressable style={styles.logout} onPress={() => { logout(); router.replace('/(auth)'); }}>
-          <Text style={styles.logoutText}>Logout</Text>
+        <Pressable
+          style={styles.logout}
+          onPress={() => logout.mutate(undefined, { onSettled: () => router.replace('/(auth)') })}
+          disabled={logout.isPending}
+        >
+          <Text style={styles.logoutText}>{logout.isPending ? 'Logging out…' : 'Logout'}</Text>
         </Pressable>
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
