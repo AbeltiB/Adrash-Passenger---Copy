@@ -99,7 +99,7 @@ export default function ProfileTab() {
 
     function saveEdit() {
         updateProfile(
-            { fullName: editName.trim() || undefined, preferredLanguage: editLang },
+            { fullName: editName.trim() || null, preferredLanguage: editLang },
             { onSuccess: () => setEditing(false) },
         );
     }
