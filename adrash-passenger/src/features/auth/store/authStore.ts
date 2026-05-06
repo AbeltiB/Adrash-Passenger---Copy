@@ -1,55 +1,89 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { MMKV } from 'react-native-mmkv';
-import type { User } from '../../../types';
-import type { SupportedLanguage } from '../../../lib/i18n';
+import type { AuthState, DriverStatus, Language } from '../../../types/index';
+import { MMKVKeys } from '../../constants';
+import { storage } from '../../lib/storage';
+// changeLanguage is imported lazily to avoid circular deps at module init time
 
-const mmkv = new MMKV({ id: 'auth' });
-const storage = {
-    getItem: (k: string) => mmkv.getString(k) ?? null,
-    setItem: (k: string, v: string) => mmkv.set(k, v),
-    removeItem: (k: string) => mmkv.delete(k),
-};
-
-interface AuthState {
-    // ─ State ─────────────────────────────────
-    user: User | null;
-    isAuthenticated: boolean;
-    hasAcceptedAgreement: boolean;
-    agreementVersion: string | null;  // track T&C version
-    preferredLanguage: SupportedLanguage;
-    // ─ Actions ───────────────────────────────
-    setUser: (user: User | null) => void;
-    setAuthenticated: (v: boolean) => void;
-    acceptAgreement: (version: string) => void;
-    setLanguage: (lang: SupportedLanguage) => void;
-    logout: () => void;
+interface AuthActions {
+  setTokens: (accessToken: string, refreshToken: string) => void;
+  clearTokens: () => void;
+  setUserId: (userId: string) => void;
+  setPhone: (phone: string) => void;
+  setDriverStatus: (status: DriverStatus) => void;
+  /**
+   * Persist a language preference and switch i18n synchronously.
+   * For the splash screen flow use the `changeLanguage` helper from i18n.ts
+   * directly (awaited) to ensure navigation waits for the switch.
+   */
+  setLanguage: (lang: Language) => void;
+  setBiometricEnabled: (enabled: boolean) => void;
+  setLastAgreementVersion: (version: string) => void;
+  setAuthenticated: (value: boolean) => void;
+  reset: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-    persist(
-        (set) => ({
-            user: null,
-            isAuthenticated: false,
-            hasAcceptedAgreement: false,
-            agreementVersion: null,
-            preferredLanguage: 'en',
+const initialState: AuthState = {
+  accessToken: null,
+  refreshToken: null,
+  userId: null,
+  phone: null,
+  preferredLanguage:
+    (storage.getString(MMKVKeys.PREFERRED_LANGUAGE) as Language) ?? 'en',
+  driverStatus: null,
+  isAuthenticated: false,
+  biometricEnabled: storage.getBool(MMKVKeys.BIOMETRIC_ENABLED) ?? false,
+  lastAgreementVersionAccepted:
+    storage.getString(MMKVKeys.LAST_AGREEMENT_VERSION) ?? null,
+};
 
-            setUser: (user) => set({ user }),
-            setAuthenticated: (v) => set({ isAuthenticated: v }),
-            acceptAgreement: (version) => set({ hasAcceptedAgreement: true, agreementVersion: version }),
-            setLanguage: (lang) => set({ preferredLanguage: lang }),
-            logout: () => set({ user: null, isAuthenticated: false, hasAcceptedAgreement: false, agreementVersion: null }),
-        }),
-        {
-            name: 'auth',
-            storage: createJSONStorage(() => storage),
-            // Only persist non-sensitive fields — tokens stay in SecureStore
-            partialize: (s) => ({
-                hasAcceptedAgreement: s.hasAcceptedAgreement,
-                agreementVersion: s.agreementVersion,
-                preferredLanguage: s.preferredLanguage,
-            }),
-        },
-    ),
-);
+export const useAuthStore = create<AuthState & AuthActions>()((set) => ({
+  ...initialState,
+
+  setTokens: (accessToken, refreshToken) => {
+    set({ accessToken, refreshToken, isAuthenticated: true });
+  },
+
+  clearTokens: () => {
+    set({
+      accessToken: null,
+      refreshToken: null,
+      isAuthenticated: false,
+      userId: null,
+      driverStatus: null,
+    });
+  },
+
+  setUserId: (userId) => set({ userId }),
+
+  setPhone: (phone) => set({ phone }),
+
+  setDriverStatus: (status) => set({ driverStatus: status }),
+
+  setLanguage: (lang) => {
+    // 1. Persist preference
+    storage.setString(MMKVKeys.PREFERRED_LANGUAGE, lang);
+    // 2. Update Zustand state (triggers re-renders that read preferredLanguage)
+    set({ preferredLanguage: lang });
+    // 3. Tell i18n to switch — lazy import prevents circular dep at init
+    //    This is fire-and-forget from the store; callers that need to await
+    //    (e.g. splash screen before navigation) should import changeLanguage
+    //    from i18n.ts directly and await it themselves.
+    import('../../lib/i18n').then(({ changeLanguage }) => {
+      changeLanguage(lang).catch(console.error);
+    });
+  },
+
+  setBiometricEnabled: (enabled) => {
+    storage.setBool(MMKVKeys.BIOMETRIC_ENABLED, enabled);
+    set({ biometricEnabled: enabled });
+  },
+
+  setLastAgreementVersion: (version) => {
+    storage.setString(MMKVKeys.LAST_AGREEMENT_VERSION, version);
+    set({ lastAgreementVersionAccepted: version });
+  },
+
+  setAuthenticated: (value) => set({ isAuthenticated: value }),
+
+  reset: () => set({ ...initialState, isAuthenticated: false }),
+}));

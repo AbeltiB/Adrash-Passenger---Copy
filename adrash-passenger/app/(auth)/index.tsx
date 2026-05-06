@@ -1,71 +1,205 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { router } from 'expo-router';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { ScreenWrapper } from '../../src/components/layout/ScreenWrapper';
 import { Colors, Spacing, BorderRadius } from '../../src/constants';
-
-const ADRASH_LOGO = require('../../assets/Logo Adrash one.png');
-
-type Lang = 'en' | 'am' | 'om';
-const LANGUAGES: { code: Lang; label: string; native: string }[] = [
-  { code: 'en', label: 'English', native: 'English' },
-  { code: 'am', label: 'Amharic', native: 'አማርኛ' },
-  { code: 'om', label: 'Oromiffa', native: 'Afaan Oromoo' },
-];
+import { SUPPORTED_LANGUAGES, changeLanguage } from '../../src/lib/i18n';
+import { useAuthStore } from '../../src/features/auth/store/authStore';
+import type { Language } from '../../src/types';
 
 export default function SplashScreen() {
-  const [lang, setLang] = useState<Lang>('en');
+  const { t } = useTranslation();
+  const setLanguage = useAuthStore((s) => s.setLanguage);
+  const preferredLanguage = useAuthStore((s) => s.preferredLanguage);
+  // Track which button is currently switching so we can show a loading indicator
+  const [switching, setSwitching] = useState<Language | null>(null);
+
+  async function handleSelectLanguage(lang: Language) {
+    if (switching) return; // prevent double-tap during transition
+    setSwitching(lang);
+
+    // 1. Persist to MMKV and Zustand so every screen picks it up
+    setLanguage(lang);
+
+    // 2. Await the i18n switch — this ensures all useTranslation() hooks
+    //    re-render with the new language BEFORE the next screen mounts.
+    //    Without await, the agreement screen would still render in English.
+    await changeLanguage(lang);
+
+    setSwitching(null);
+    router.replace('/(auth)/agreement');
+  }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <View style={styles.brandWrap}>
-        <Image source={ADRASH_LOGO} style={styles.logo} resizeMode="contain" />
-        <Text style={styles.tagline}>Your journey, safely delivered.</Text>
-      </View>
+    <ScreenWrapper backgroundColor={Colors.primary} padded={false}>
+      <View style={styles.container}>
+        {/* Logo area */}
+        <View style={styles.logoSection}>
+          <View style={styles.logoCircle}>
+            <Text style={styles.logoText}>አድ</Text>
+          </View>
+          <Text style={styles.appNameAmharic}>አድራሽ</Text>
+          <Text style={styles.appNameEnglish}>ADRASH</Text>
+          <Text style={styles.tagline}>{t('screen.splash.tagline')}</Text>
+        </View>
 
-      <View style={styles.langSection}>
-        <Text style={styles.langTitle}>Choose your language</Text>
-        {LANGUAGES.map((l) => {
-          const selected = lang === l.code;
-          return (
-            <Pressable
-              key={l.code}
-              style={[styles.langBtn, selected && styles.langBtnSelected]}
-              onPress={() => setLang(l.code)}
-            >
-              <Text style={[styles.langText, selected && styles.langTextSelected]}>{l.native}</Text>
-              {selected && <Text style={styles.check}>✓</Text>}
-            </Pressable>
-          );
-        })}
+        {/* Language selector */}
+        <View style={styles.languageSection}>
+          <Text style={styles.selectLabel}>{t('screen.splash.selectLanguage')}</Text>
+          <View style={styles.languageButtons}>
+            {SUPPORTED_LANGUAGES.map((lang) => {
+              const isActive = preferredLanguage === lang.code;
+              const isLoading = switching === lang.code;
 
-        <Pressable style={styles.cta} onPress={() => router.push('/(auth)/phone')}>
-          <Text style={styles.ctaText}>Sign In</Text>
-        </Pressable>
+              return (
+                <Pressable
+                  key={lang.code}
+                  style={({ pressed }) => [
+                    styles.languageButton,
+                    isActive && styles.languageButtonActive,
+                    pressed && !switching && styles.languageButtonPressed,
+                    switching && !isLoading && styles.languageButtonDimmed,
+                  ]}
+                  onPress={() => handleSelectLanguage(lang.code)}
+                  disabled={switching !== null}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Select ${lang.label}`}
+                  accessibilityState={{ selected: isActive, busy: isLoading }}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color={isActive ? Colors.primary : Colors.white} />
+                  ) : (
+                    <>
+                      <Text
+                        style={[
+                          styles.languageButtonText,
+                          isActive && styles.languageButtonTextActive,
+                        ]}
+                      >
+                        {lang.nativeLabel}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.languageButtonSubtext,
+                          isActive && styles.languageButtonTextActive,
+                        ]}
+                      >
+                        {lang.label}
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
       </View>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background.primary, padding: Spacing.xl, justifyContent: 'space-between' },
-  brandWrap: { alignItems: 'center', marginTop: Spacing['4xl'] },
-  logo: { width: 220, height: 110, marginBottom: Spacing.md },
-  tagline: { fontSize: 15, color: Colors.text.secondary, marginTop: Spacing.sm, textAlign: 'center' },
-  langSection: { gap: Spacing.md, marginBottom: Spacing.lg },
-  langTitle: { fontSize: 16, fontWeight: '600', color: Colors.text.secondary, marginBottom: Spacing.sm },
-  langBtn: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderWidth: 1.5, borderColor: Colors.border.light, borderRadius: BorderRadius.lg,
-    paddingVertical: 14, paddingHorizontal: Spacing.base, backgroundColor: Colors.background.primary,
+  container: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingTop: 80,
+    paddingBottom: 60,
   },
-  langBtnSelected: { borderColor: Colors.brand.primary, backgroundColor: '#F1FAF4' },
-  langText: { fontSize: 16, color: Colors.text.primary, fontWeight: '500' },
-  langTextSelected: { color: Colors.brand.primary, fontWeight: '700' },
-  check: { color: Colors.brand.primary, fontSize: 18, fontWeight: '700' },
-  cta: {
-    backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg,
-    paddingVertical: 16, alignItems: 'center', marginTop: Spacing.md,
+  logoSection: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
   },
-  ctaText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  logoCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.md,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  logoText: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: Colors.white,
+  },
+  appNameAmharic: {
+    fontSize: 40,
+    fontWeight: '700',
+    color: Colors.white,
+    letterSpacing: 2,
+  },
+  appNameEnglish: {
+    fontSize: 18,
+    fontWeight: '400',
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 6,
+    marginTop: 4,
+  },
+  tagline: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: Spacing.md,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  languageSection: {
+    gap: Spacing.md,
+  },
+  selectLabel: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+    fontWeight: '500',
+    marginBottom: Spacing.sm,
+  },
+  languageButtons: {
+    gap: Spacing.sm,
+  },
+  languageButton: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.2)',
+    minHeight: 64,
+    justifyContent: 'center',
+  },
+  languageButtonActive: {
+    backgroundColor: Colors.white,
+    borderColor: Colors.white,
+  },
+  languageButtonPressed: {
+    opacity: 0.8,
+  },
+  // Dim other buttons while one is switching so double-tap is obvious
+  languageButtonDimmed: {
+    opacity: 0.4,
+  },
+  languageButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.white,
+  },
+  languageButtonSubtext: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 2,
+  },
+  languageButtonTextActive: {
+    color: Colors.primary,
+  },
 });
