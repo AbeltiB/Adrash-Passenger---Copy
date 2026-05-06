@@ -1,0 +1,2053 @@
+================================================================================
+አድራሽ (ADRASH) — STAGE 2B: PASSENGER MOBILE APP
+Complete Development Prompt
+React Native (Expo) | Consumes Stage 1 API
+Based on SRS v1.1 | April 2026
+================================================================================
+
+
+════════════════════════════════════════════════════════════════════════════════
+SECTION 1 — CONTEXT & MISSION
+════════════════════════════════════════════════════════════════════════════════
+
+You are a senior React Native engineer building the Passenger Mobile App for
+አድራሽ (Adrash) — an Ethiopian intercity passenger transport platform.
+
+THE PLATFORM MISSION
+አድራሽ is an Amharic word meaning the act of delivering someone safely to their
+destination. The platform's mission: "አድራሽ takes you from your origin to your
+destination, safely and reliably." The Passenger App is the face of this promise.
+Every interaction — from searching a route to watching a bus approach on a live
+map — must feel trustworthy, simple, and reassuring. Passengers trust this app
+with their travel plans and their safety.
+
+WHAT THIS APP IS
+The አድራሽ Passenger App is the only booking channel for passengers. It enables:
+  - Discovering and booking intercity bus routes
+  - Paying via Ethiopian mobile money
+  - Selecting a specific pickup location on the route
+  - Tracking their bus in real time
+  - Viewing trip history and tickets
+  - Earning and redeeming reward points
+  - Emergency SOS alerting
+
+WHAT THIS APP IS NOT
+  - Not a navigation app
+  - Not a web app — mobile only, iOS and Android
+  - No card payments, no stored wallet balance
+  - No chat or messaging in v1
+  - No driver-facing features
+  - No Amole/Dashen Bank as a payment option
+
+THE BACKEND (STAGE 1 API)
+This app consumes the Stage 1 .NET 10 API exclusively.
+  Base URL:      Configured via EXPO_PUBLIC_API_BASE_URL
+  Auth:          JWT Bearer (RS256, 15-min) + refresh token rotation
+  OTP:           AfroSMS — phone number only, no email/password
+  Real-time:     SignalR hub at EXPO_PUBLIC_SIGNALR_HUB_URL/hubs/tracking
+  SMS:           AfroSMS handles all notifications server-side
+  Currency:      Ethiopian Birr (ETB) throughout — no other currency
+
+PASSENGER STATUS LIFECYCLE
+  Unregistered  → No account
+  Registered    → OTP verified, name set, agreement accepted
+  Active        → Can search, book, travel
+  (No approval required — passengers are immediately active after registration)
+
+BOOKING LIFECYCLE
+  Pending    → Booking created, awaiting payment
+  Confirmed  → Payment received, ticket issued
+  CheckedIn  → Driver scanned QR / boarded passenger
+  Completed  → Trip ended
+  Cancelled  → Cancelled by passenger or admin
+  NoShow     → Passenger not boarded at pickup stop
+
+
+════════════════════════════════════════════════════════════════════════════════
+SECTION 2 — TECH STACK
+════════════════════════════════════════════════════════════════════════════════
+
+CORE FRAMEWORK
+  React Native:       Expo SDK 52 (managed workflow)
+  Language:           TypeScript — strict mode. No "any". No "!." without comment.
+  Node:               Node.js 20 LTS minimum
+  Package manager:    npm
+  Expo Router:        v3 (file-based routing) — NOT React Navigation v6
+
+NAVIGATION
+  expo-router v3:     File-based routing. app/ directory.
+                      Tab layout for main app. Stack for booking flow.
+                      Modal presentation for payment, QR, tracking.
+  expo-linking:       Deep link handling from AfroSMS links
+
+STATE MANAGEMENT
+  Zustand v4:         Global client state (auth, booking flow, active trip)
+  TanStack Query v5:  All server state. useQuery, useMutation, useInfiniteQuery.
+  No Redux. No Context API for state.
+
+API LAYER
+  Axios v1:           HTTP client with full interceptor chain
+  Request interceptor:
+    - Attach Authorization: Bearer {accessToken}
+    - Add X-Request-ID (UUID v4)
+    - Add X-App-Version (expo-constants)
+    - Add Accept-Language (current i18n language)
+  Response interceptor (401):
+    - Refresh token → retry original request
+    - On refresh failure: clear tokens → navigate to /(auth)/phone
+  Response interceptor (403 Auth.AgreementUpdateRequired):
+    - Navigate to /agreement screen before any other action
+
+FORMS
+  React Hook Form v7:  Form state
+  Zod v3:              Schema validation. z.infer<typeof schema> for all types.
+
+REAL-TIME
+  @microsoft/signalr:  Live bus tracking
+  Connect:             When passenger opens live tracking screen
+  Disconnect:          When passenger leaves tracking screen or trip completes
+  Auth:                JWT via ?access_token= query param
+
+MAPS
+  react-native-maps:   Route display, pickup location pins, live bus tracking
+  Google Maps SDK:     Provider for both iOS and Android
+  Polyline rendering:  Route GPS path
+  Custom markers:      Bus icon (animated), pickup location pins, stop pins
+
+PAYMENTS
+  No payment SDK on the client side.
+  All payment initiation via API (POST /payments/initiate).
+  Provider USSD/STK push happens on the user's phone natively.
+  App displays waiting screen and polls for confirmation.
+
+STORAGE & SECURITY
+  expo-secure-store:         Access + refresh token storage
+  expo-local-authentication: Biometric login
+  MMKV (react-native-mmkv):  Non-sensitive persistent state
+
+MEDIA
+  expo-image:               Fast image display with placeholder support
+  expo-image-picker:        Profile photo update
+  expo-print:               PDF ticket generation for offline use
+  react-native-qrcode-svg:  QR code display on ticket screen
+  expo-sharing:             Share ticket / trip link
+  expo-clipboard:           Copy booking reference
+
+NOTIFICATIONS
+  No push notifications in v1.
+  All notifications via AfroSMS (server-side).
+  In-app notification list polled from API every 60 seconds when app is active.
+
+CHARTS
+  Victory Native XL:  Rewards points history sparkline (optional, lightweight)
+
+INTERNATIONALISATION
+  i18next + react-i18next + expo-localization
+  Languages: English (en — default), Amharic (am), Oromiffa (om)
+  Translation files: /assets/locales/en.json, am.json, om.json
+
+CODE QUALITY
+  ESLint:           expo/recommended + typescript-eslint
+  Prettier:         Consistent formatting
+  Husky + lint-staged: Pre-commit hooks
+  TypeScript:       strict: true in tsconfig.json
+
+TESTING
+  Jest + React Native Testing Library (RNTL)
+  MSW v2:           API mocking
+  Detox (optional): E2E for booking flow
+
+ENVIRONMENT
+  .env.local:       EXPO_PUBLIC_API_BASE_URL, EXPO_PUBLIC_SIGNALR_HUB_URL,
+                    EXPO_PUBLIC_GOOGLE_MAPS_KEY, EXPO_PUBLIC_SENTRY_DSN
+  EAS Build + EAS Update for deployment
+
+
+════════════════════════════════════════════════════════════════════════════════
+SECTION 3 — PROJECT STRUCTURE
+════════════════════════════════════════════════════════════════════════════════
+
+adrash-passenger/
+├── app/
+│   ├── _layout.tsx                   Root layout (auth guard, i18n, fonts)
+│   ├── (auth)/                       Unauthenticated flow
+│   │   ├── _layout.tsx
+│   │   ├── index.tsx                 Splash + language selector
+│   │   ├── agreement.tsx             Passenger T&C + Privacy Policy
+│   │   ├── phone.tsx                 Phone number entry
+│   │   ├── otp.tsx                   OTP verification
+│   │   └── setup.tsx                 Name entry (new users only)
+│   ├── agreement.tsx                 Re-accept agreement (version update)
+│   ├── (tabs)/                       Main app (authenticated)
+│   │   ├── _layout.tsx               Tab bar
+│   │   ├── index.tsx                 Home / route search
+│   │   ├── trips.tsx                 My trips
+│   │   ├── rewards.tsx               Rewards
+│   │   └── profile.tsx               Profile
+│   ├── search/
+│   │   └── results.tsx               Search results list
+│   ├── booking/
+│   │   ├── [tripId]/
+│   │   │   ├── index.tsx             Route + trip detail
+│   │   │   ├── pickup.tsx            Pickup location selector
+│   │   │   ├── dropoff.tsx           Drop-off stop selector
+│   │   │   ├── seats.tsx             Seat selection map
+│   │   │   ├── passengers.tsx        Passenger details form
+│   │   │   ├── summary.tsx           Order summary + apply rewards
+│   │   │   └── payment.tsx           Payment method + initiation
+│   │   └── confirmation.tsx          Booking confirmation + QR ticket
+│   ├── trips/
+│   │   ├── [id].tsx                  Trip detail + ticket
+│   │   └── [id]/
+│   │       ├── tracking.tsx          Live tracking full screen
+│   │       └── cancel.tsx            Cancel booking flow
+│   ├── notifications.tsx             Notification list
+│   └── reviews/
+│       └── [bookingId].tsx           Post-trip review screen
+│
+├── src/
+│   ├── api/
+│   │   ├── client.ts                 Axios instance + interceptors
+│   │   ├── endpoints.ts              API endpoint constants
+│   │   └── types.ts                  Shared response types (ApiResponse<T>)
+│   ├── features/
+│   │   ├── auth/
+│   │   │   ├── hooks/                useOtpSend, useOtpVerify, useLogout
+│   │   │   ├── store/                authStore.ts
+│   │   │   └── utils/                token.ts (secure store helpers)
+│   │   ├── routes/
+│   │   │   ├── hooks/                useRouteSearch, useRouteDetail, usePickupLocations
+│   │   │   └── types/                Route, Stop, PickupLocation, Trip
+│   │   ├── booking/
+│   │   │   ├── hooks/                useCreateBooking, useBookings, useBookingDetail,
+│   │   │   │                         useCancelBooking, useSeatMap
+│   │   │   ├── store/                bookingFlowStore.ts (multi-step flow state)
+│   │   │   └── types/                Booking, PassengerDetail, BookingStatus
+│   │   ├── payment/
+│   │   │   ├── hooks/                useInitiatePayment, useVerifyPayment, usePaymentStatus
+│   │   │   └── types/                PaymentMethod, PaymentTransaction
+│   │   ├── tracking/
+│   │   │   ├── hooks/                useSignalR, useTripTracking, useLiveETA
+│   │   │   └── store/                trackingStore.ts
+│   │   ├── rewards/
+│   │   │   ├── hooks/                useRewardsBalance, useRewardsHistory, useRedeemPoints,
+│   │   │   │                         useReferralCode
+│   │   │   └── types/                RewardsAccount, RewardsTransaction
+│   │   ├── notifications/
+│   │   │   └── hooks/                useNotifications, useMarkRead
+│   │   └── reviews/
+│   │       └── hooks/                useSubmitReview
+│   ├── components/
+│   │   ├── ui/                       Button, Input, Badge, Card, Modal, Toast,
+│   │   │                             BottomSheet, Skeleton, EmptyState, ErrorState
+│   │   ├── maps/                     RouteMap, BusMarker, PickupPin, StopPin,
+│   │   │                             TrackingOverlay, GeofenceCircle
+│   │   ├── booking/                  TripCard, SeatGrid, PassengerForm,
+│   │   │                             PaymentMethodCard, OrderSummaryCard
+│   │   ├── ticket/                   QRTicket, TicketCard, BookingStatusBadge
+│   │   ├── rewards/                  PointsCard, RewardHistoryItem, ReferralCard
+│   │   └── layout/                   ScreenWrapper, SafeHeader, TabBarIcon
+│   ├── hooks/
+│   │   ├── useAppState.ts            App foreground/background detection
+│   │   ├── useNetworkStatus.ts       Online/offline monitoring
+│   │   └── useBiometric.ts           Biometric auth hook
+│   ├── lib/
+│   │   ├── i18n.ts                   i18next setup
+│   │   ├── queryClient.ts            TanStack Query client config
+│   │   └── signalr.ts                SignalR connection manager
+│   ├── constants/                    Colors, spacing, typography, routeKeys
+│   ├── types/                        Global TypeScript types and enums
+│   └── utils/
+│       ├── currency.ts               formatETB helper
+│       ├── date.ts                   Date formatting helpers (date-fns)
+│       ├── qr.ts                     QR code data helpers
+│       └── validation.ts             Zod schemas
+│
+├── assets/
+│   ├── locales/                      en.json, am.json, om.json
+│   ├── fonts/
+│   └── images/                       App icon, splash, illustrations, payment logos
+│
+├── __tests__/
+├── app.json
+├── eas.json
+├── tsconfig.json                     strict: true
+├── .env.local
+└── .env.example
+
+
+════════════════════════════════════════════════════════════════════════════════
+SECTION 4 — SCREENS & USER FLOWS (COMPLETE)
+════════════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────────────────
+FLOW 1 — ONBOARDING & AUTHENTICATION
+────────────────────────────────────────────────────────────────────────────────
+
+SCREEN: Splash + Language Selector  (app/(auth)/index.tsx)
+
+  Design:
+    Full-screen brand splash. አድራሽ logo centred. Amharic + English name stacked.
+    Tagline (translated): "Your journey, safely delivered."
+    Language selector appears after 1.5-second logo animation.
+
+  Language buttons (3, full-width, vertically stacked):
+    English    | selected by default (green outline on selection)
+    አማርኛ      | Amharic
+    Afaan Oromoo | Oromiffa
+
+  Behaviour:
+    - Selected language stored immediately in MMKV key 'preferredLanguage'
+    - i18n.changeLanguage() called immediately on selection
+    - "Continue" button appears after language selection
+    - On continue: check existing tokens in expo-secure-store
+      If valid refresh token exists → call /auth/refresh
+        On success → route based on response (agreement check, then home)
+        On failure  → clear tokens → show phone screen
+      If no token → first time user → show agreement screen
+
+  Returning user biometric shortcut:
+    If tokens exist AND biometricEnabled = true in MMKV:
+      Show biometric prompt overlay instead of language selector
+      On success: route to home
+      "Use phone number instead" link available
+
+─────────────────────────────────────────────────────────────
+
+SCREEN: Passenger Agreement  (app/(auth)/agreement.tsx)
+
+  Content:
+    Full Passenger Terms & Conditions + Privacy Policy text.
+    Fetched from GET /api/v1/auth/agreements/current?type=Passenger&lang={lang}
+    Show loading skeleton while fetching.
+    If offline: show cached version (store last fetched content in MMKV).
+
+  Layout:
+    ScrollView with rich text rendering (bold headings, paragraphs).
+    Sticky bottom bar (not part of scroll) with:
+      Progress indicator: "Scroll to read all" → becomes checkmark when fully read
+      "I agree and continue" button (DISABLED until scrolled to bottom)
+      "I do not agree" text link (navigates back to language selector)
+
+  Scroll detection:
+    onScroll → check if contentOffset.y + layoutHeight >= contentSize.height - 20
+    When threshold reached: enable "I agree" button with smooth colour transition
+
+  On agree:
+    POST /api/v1/auth/agreements/accept { agreementType: "Passenger", documentVersion }
+    Store accepted version in MMKV
+    Navigate to phone number screen
+
+  Re-acceptance (version update):
+    Same screen shown mid-session when API returns 403 Auth.AgreementUpdateRequired
+    Show header: "Our terms have been updated — please review and accept to continue"
+    User cannot navigate away or use the app until they accept or log out
+
+─────────────────────────────────────────────────────────────
+
+SCREEN: Phone Number Entry  (app/(auth)/phone.tsx)
+
+  Layout:
+    Friendly illustration at top (travel/bus themed, simple, SVG)
+    Title: "Enter your phone number"
+    Subtitle: "We'll send you a verification code"
+    Country code: +251 (Ethiopia flag icon) — fixed, not editable in v1
+    Phone input: numeric keyboard
+      Format hint: "09XX XXX XXX" shown as placeholder
+      Auto-format: insert space after 4th digit for readability
+      Max: 9 digits after country code
+    "Send code" primary button
+    "By continuing you agree to our Terms" caption (links to agreement)
+
+  Validation (Zod):
+    Must start with 09 or 07 (Ethiopian mobile prefixes)
+    Must be exactly 9 digits
+    Validate before enabling Send button (live validation as user types)
+
+  API: POST /api/v1/auth/otp/send { phone: "+251XXXXXXXXX" }
+  Loading: button shows spinner, input disabled
+  Error states:
+    Rate limited:     "Too many attempts. Please wait {minutes} minutes."
+    Invalid format:   Inline validation message below input
+    Network error:    Toast with retry option
+  On success: navigate to /otp passing { phone }
+
+─────────────────────────────────────────────────────────────
+
+SCREEN: OTP Verification  (app/(auth)/otp.tsx)
+
+  Layout:
+    Title: "Enter verification code"
+    Subtitle: "We sent a 6-digit code to +251XXXXXXXX (tap to change)"
+      Tapping phone number navigates back to phone screen
+    6 individual input boxes (each 1 digit):
+      Auto-focus first box on mount
+      Auto-advance to next box on digit entry
+      Backspace on empty box moves to previous
+      Paste handling: if 6 digits pasted, fill all boxes and auto-submit
+    "Verify" button (auto-triggers when all 6 filled, no tap needed)
+    Resend section:
+      Countdown timer: 5:00 counting down
+      "Resend code" link (grey, disabled) → turns active (green) when countdown hits 0:00
+      On resend: POST /auth/otp/send again. Reset countdown. Show "Code resent" toast.
+
+  API: POST /api/v1/auth/otp/verify { phone, code }
+  Loading: all inputs disabled, spinner shown
+  On success, route based on response:
+    isNewUser: true + needsSetup: true → /setup
+    agreementRequired: true (version mismatch) → /agreement
+    else → /(tabs)/ (home)
+  On error:
+    Invalid code: shake animation on all 6 boxes + "Incorrect code" message
+    Max attempts: lock UI + "Too many attempts. Please wait 10 minutes."
+    Expired: "Code has expired. Request a new one." + resend activates immediately
+
+  Token storage on success:
+    SecureStore.setItemAsync('ADRASH_ACCESS_TOKEN', accessToken)
+    SecureStore.setItemAsync('ADRASH_REFRESH_TOKEN', refreshToken)
+
+─────────────────────────────────────────────────────────────
+
+SCREEN: Name Setup  (app/(auth)/setup.tsx)
+
+  Shown only on first login (isNewUser: true).
+
+  Layout:
+    Illustration: friendly wave/welcome icon
+    Title: "What should we call you?"
+    Two fields: First name | Last name
+    Both required. Min 2 chars. Max 50 chars.
+    "Get started" button → PATCH /api/v1/auth/profile/setup { firstName, lastName }
+    On success: navigate to /(tabs)/ (home)
+    Skip not permitted — name is required for bookings.
+
+─────────────────────────────────────────────────────────────
+
+BIOMETRIC LOGIN (return visits)
+  On app launch with existing tokens:
+    Check biometricEnabled in MMKV
+    Check expo-local-authentication.hasHardwareAsync + isEnrolledAsync
+    If both true: show biometric overlay on splash
+    On success: POST /auth/refresh → store new tokens → navigate to /(tabs)/
+    On failure: show phone OTP flow (no auto-retry)
+    "Use phone instead" always available as escape
+
+
+────────────────────────────────────────────────────────────────────────────────
+FLOW 2 — HOME & ROUTE SEARCH
+────────────────────────────────────────────────────────────────────────────────
+
+SCREEN: Home  (app/(tabs)/index.tsx)
+
+  Header:
+    አድራሽ logo (small, left)
+    "Good morning/afternoon/evening, {firstName}"
+    Notification bell icon (with unread badge count) → /notifications
+    Profile photo circle (small, right) → /(tabs)/profile
+
+  Search Card (prominent, top of screen):
+    Title: "Where are you going?"
+
+    FROM field:
+      Placeholder: "From (departure city)"
+      Tap → opens city search modal
+    SWAP button (circular icon between From/To) → swaps the two cities
+    TO field:
+      Placeholder: "To (destination city)"
+      Tap → opens city search modal
+    Date picker row:
+      Calendar icon + selected date displayed
+      Tap → opens date picker (expo-datetime-picker or custom modal)
+      Default: today's date
+      Disable past dates
+      Max: 90 days ahead
+    Passengers selector:
+      Person icon + "1 passenger" text
+      Tap → opens bottom sheet with + / - stepper (1 to 6)
+    "Search routes" button (full-width, primary)
+
+  City search modal (shared for From + To):
+    Search input with autocomplete
+    Fetches cities from GET /api/v1/routes?origin=&destination= (distinct city list)
+    Recent searches (MMKV-stored, last 5)
+    Popular routes section (hardcoded or from remote config)
+    Results list: city name (translated if available) + region
+    Supports Amharic text input and results
+
+  Recently booked routes (if prior bookings exist):
+    Section: "Your recent routes"
+    Horizontal scroll cards: route + "Book again" button
+    Data from GET /api/v1/bookings?status=Completed (last 3)
+
+  Promotions banner (optional):
+    If promotional notification exists with media → show dismissable banner
+    Stored in notifications with type = "Promotional"
+
+  Validation before search:
+    From and To must be different cities
+    Date must be today or future
+    Show inline error if validation fails
+
+  On search:
+    Navigate to /search/results with params: { origin, destination, date, seats }
+
+─────────────────────────────────────────────────────────────
+
+SCREEN: Search Results  (app/search/results.tsx)
+
+  Header:
+    Back button → home
+    Route summary: "Addis Ababa → Hawassa"
+    Date + passenger count
+    "Edit search" link → opens search card in edit mode
+
+  Filter / sort bar:
+    Pills: "All" | "Earliest" | "Cheapest" | "Most seats"
+    Tap pill → re-sort results list (client-side, no API call)
+
+  Results list (FlatList):
+    Each trip card:
+      ┌─────────────────────────────────────────────────┐
+      │ 07:30 AM  ──────────────────────  01:30 PM     │
+      │ Addis Ababa                     Hawassa        │
+      │ Estimated 6 hours journey                      │
+      │                                                 │
+      │ 🚌 Toyota Coaster  •  Seats: 8 available       │
+      │ Amenities: AC • WiFi • Luggage                 │
+      │                                    ETB 650 /seat│
+      └─────────────────────────────────────────────────┘
+    Tap card → /booking/[tripId]/index (trip detail)
+
+  Loading state: 4 skeleton cards
+  Empty state:
+    Illustration + "No trips found for this date"
+    Suggestions: "Try a different date" + "Browse other routes"
+  Error state: retry button
+
+  API: GET /api/v1/routes?origin=&destination=&date=&seats=
+  Stale time: 2 minutes. Manual pull-to-refresh available.
+
+
+────────────────────────────────────────────────────────────────────────────────
+FLOW 3 — BOOKING FLOW (MULTI-STEP)
+────────────────────────────────────────────────────────────────────────────────
+
+The booking flow is a 6-step linear flow managed by bookingFlowStore (Zustand).
+All steps are stack-navigated (back = previous step, not back to search).
+Progress indicator (step dots) shown in header on all booking screens.
+State persists through steps in bookingFlowStore. Cleared on booking confirmation or cancellation.
+
+bookingFlowStore state:
+  {
+    tripId: string | null
+    trip: Trip | null
+    selectedPickupLocationId: string | null
+    selectedDropoffStopId: string | null
+    selectedSeatNumbers: number[]
+    passengerDetails: PassengerDetail[]
+    pointsToRedeem: number
+    discountEtb: number
+    totalFareEtb: number
+    paymentMethod: PaymentMethod | null
+    paymentPhone: string
+    bookingId: string | null       // set after POST /bookings
+    transactionId: string | null   // set after POST /payments/initiate
+  }
+
+─────────────────────────────────────────────────────────────
+STEP 1 — Trip Detail  (app/booking/[tripId]/index.tsx)
+
+  Progress: step 1 of 6
+
+  Top section:
+    Route: "Origin → Destination"
+    Date + departure time + estimated arrival
+    Duration badge: "~6 hours"
+
+  Map preview:
+    react-native-maps showing route GPS polyline
+    Blue pins: stops in sequence
+    Orange pins: pickup locations
+    Non-interactive preview (scrolls with page)
+    "View full map" expander → makes map full-height
+
+  Driver card:
+    Driver profile photo (circle)
+    Driver name
+    Average rating: ★ 4.8 (142 trips)
+    "This driver has been verified by አድራሽ"
+
+  Bus info card:
+    Bus make + model
+    Year + registration plate
+    Capacity
+    Amenities: icons with labels (AC, WiFi, Luggage space, Charging ports)
+
+  Stop itinerary (collapsible):
+    Ordered list of stops with estimated arrival times
+    Expand to show all stops
+
+  Seats remaining badge: "8 seats available" (from GET /trips/{id}/seats)
+
+  Fare preview: ETB {baseFare} per seat
+
+  "Select pickup location" button → /booking/[tripId]/pickup
+
+  If trip is fully booked: show "Sold out" state + "Notify me when seats open" (future feature)
+
+─────────────────────────────────────────────────────────────
+STEP 2 — Pickup Location Selection  (app/booking/[tripId]/pickup.tsx)
+
+  Progress: step 2 of 6
+  Title: "Where will you board?"
+  Subtitle: "Select your boarding point on the route"
+
+  Map (top half, interactive):
+    Route GPS polyline rendered
+    All pickup locations as orange pins with name labels
+    Map auto-zooms to show all pickup location pins
+    Tapping a pin selects it (pin grows + highlights, info card slides up)
+
+  Pickup locations list (bottom half, scrollable):
+    Each item:
+      Location name (bold)
+      Optional description (e.g. "In front of Total petrol station, near bus terminal")
+      GPS coordinates shown (small, gray)
+      Distance from passenger's current location (if location permission granted)
+      Select button / selected checkmark
+    Sorted by sequence_order (first pickup point first in route order)
+
+  Selected pickup info card:
+    Slides up from bottom when a pin/list item is selected
+    Shows: name, description, small map thumbnail
+    "Confirm this pickup point" primary button
+    On confirm: save to bookingFlowStore + navigate to dropoff screen
+
+  No selection fallback: "Confirm" button stays disabled until selection made
+
+  API: GET /api/v1/routes/{routeId}/pickup-locations
+  Cached: 10 minutes. Available offline if previously loaded.
+
+─────────────────────────────────────────────────────────────
+STEP 3 — Drop-Off Selection  (app/booking/[tripId]/dropoff.tsx)
+
+  Progress: step 3 of 6
+  Title: "Where will you get off?"
+
+  Map (top half):
+    Same route polyline
+    Shows selected pickup pin (orange, fixed)
+    Shows eligible drop-off stops as blue pins (only stops DOWNSTREAM of selected pickup)
+
+  Drop-off stops list (bottom half):
+    Only stops with is_dropoff = true AND sequence_order > selected pickup sequence
+    Each item:
+      Stop name
+      Estimated arrival time
+      Partial fare preview if pricing varies by stop (or same fare for all)
+    Selected item gets green checkmark
+
+  "Confirm drop-off" button → save to bookingFlowStore + navigate to seat selection
+
+  Data: from GET /api/v1/routes/{id} stops array (client-side filtered)
+
+─────────────────────────────────────────────────────────────
+STEP 4 — Seat Selection  (app/booking/[tripId]/seats.tsx)
+
+  Progress: step 4 of 6
+  Title: "Choose your seats"
+  Subtitle: "Select {searchedPassengerCount} seat(s)"
+
+  Legend row:
+    ⬜ Available    ⬛ Taken    🟩 Selected
+
+  Bus seat map (visual grid):
+    Rendered from bus capacity and booked seat data
+    Driver seat at top (non-selectable, labeled "Driver")
+    Seats arranged in rows (2+2 layout typical for mid-size buses)
+    Each seat:
+      Shows seat number
+      Tap to select (if available) or shows taken state
+      Selected seats highlighted in primary green
+    Real-time: GET /api/v1/trips/{id}/seats (stale time 15 seconds)
+    If a seat gets taken while user is selecting: optimistic update on webhook/refresh
+
+  Seat lock:
+    When passenger selects a seat, it is SOFT-RESERVED in Redis for 10 minutes (server-side)
+    Show countdown: "Your selected seats are held for 09:32"
+    On timer expiry: alert user, reset selection, refresh seat map
+
+  Selection rules:
+    Minimum: 1 seat
+    Maximum: passenger count from search (validated by Zod)
+    Must select exactly the count specified in search
+
+  "Confirm seats" button (enabled when correct count selected) → save to bookingFlowStore
+  Navigate to passenger details
+
+  API: GET /api/v1/trips/{id}/seats (polling every 15s while on this screen)
+
+─────────────────────────────────────────────────────────────
+STEP 5 — Passenger Details  (app/booking/[tripId]/passengers.tsx)
+
+  Progress: step 5 of 6
+  Title: "Passenger details"
+  Subtitle: "Required for all intercity travel"
+
+  For each selected seat, render a passenger form card:
+    Card header: "Passenger {n}" + seat number badge
+    Fields:
+      Full name (required, min 2 chars)
+      Phone number (required, Ethiopian format +251)
+      ─── Emergency contact ───
+      Next of kin name (required)
+      Next of kin phone (required, Ethiopian format)
+    Zod validation inline as user types
+
+  "Copy from my profile" shortcut (first passenger card only):
+    Pre-fills name + phone from authenticated user's profile
+    User can still edit
+
+  Accordion expansion: show one card at a time (expanded = current, collapsed = done)
+  Progress: "2 of 3 passengers filled"
+
+  "Continue to summary" button (enabled when all cards complete)
+  Save to bookingFlowStore.passengerDetails
+
+─────────────────────────────────────────────────────────────
+STEP 6 — Order Summary  (app/booking/[tripId]/summary.tsx)
+
+  Progress: step 6 of 6
+  Title: "Review your booking"
+
+  Booking summary card:
+    ┌───────────────────────────────────────┐
+    │  Addis Ababa  →  Hawassa             │
+    │  Tuesday, 6 May 2026 · 07:30 AM      │
+    │                                       │
+    │  Pickup: Kality Bus Terminal          │
+    │  Drop-off: Hawassa Main Station       │
+    │                                       │
+    │  Seats: 14, 15                        │
+    │  2 passengers                         │
+    └───────────────────────────────────────┘
+
+  Passenger list:
+    Per passenger: name + seat number + next-of-kin
+
+  Fare breakdown card:
+    Base fare:       2 × ETB 650 = ETB 1,300.00
+    Service fee:     ETB 30.00
+    Tax:             ETB 19.50
+    ─────────────────────────────
+    Total:           ETB 1,349.50
+
+  Rewards section (if passenger has points balance ≥ 100):
+    "Apply reward points" toggle
+    When toggled ON:
+      Slider or input: "Redeem X points (ETB Y discount)"
+      Show: "Available: {balance} points = ETB {equivalent}"
+      Show updated total with discount applied
+      Save pointsToRedeem + discountEtb to bookingFlowStore
+    When toggled OFF: remove discount from total
+
+  "Proceed to payment" button (full-width, primary)
+  Navigate to payment screen
+
+  Note: POST /bookings is called at START of payment screen, not here.
+  Summary screen is review-only — no API call yet.
+
+─────────────────────────────────────────────────────────────
+PAYMENT SCREEN  (app/booking/[tripId]/payment.tsx)
+
+  Two-phase screen:
+
+  PHASE A — Payment Method Selection:
+    Title: "How would you like to pay?"
+    Total amount: ETB {total} (prominent)
+
+    Payment method cards (4 options):
+      ┌────────────────────────────────────────┐
+      │  📱 Telebirr                           │
+      │     Ethio Telecom mobile money         │
+      │     Most popular                       │
+      └────────────────────────────────────────┘
+      ┌────────────────────────────────────────┐
+      │  🏦 CBE Birr                           │
+      │     Commercial Bank of Ethiopia        │
+      └────────────────────────────────────────┘
+      ┌────────────────────────────────────────┐
+      │  💳 HelloCash                          │
+      │     Amhara Bank · Postal network       │
+      └────────────────────────────────────────┘
+      ┌────────────────────────────────────────┐
+      │  🔷 ADC                                │
+      │     ADC Research and Development       │
+      └────────────────────────────────────────┘
+
+    Each card: tap to select (green border on selected)
+    Payment phone input (appears on selection):
+      Label: "Phone number registered with {Provider}"
+      Pre-fill from profile phone if Telebirr is selected
+      Validate: Ethiopian format + 9 digits
+    "No card information is stored" security note (lock icon)
+
+    "Pay ETB {total}" button:
+      On tap:
+        1. POST /api/v1/bookings { tripId, seatNumbers, pickupLocationId,
+                                   dropoffStopId, passengerDetails, pointsToRedeem }
+           → stores bookingId in bookingFlowStore
+           → on error (seat taken): show "One of your seats was just taken" alert
+                                    navigate back to seat selection
+        2. POST /api/v1/payments/initiate { bookingId, method, accountRef }
+           → stores transactionId in bookingFlowStore
+        3. Transition to PHASE B
+
+  PHASE B — Waiting for Confirmation:
+    Design: centred, calm, reassuring
+    Provider logo (large)
+    Animated pulsing circle (payment processing animation)
+    Title: "Waiting for your confirmation"
+    Subtitle: "Check your {Provider} app or phone for a payment prompt"
+    Instructions (provider-specific):
+      Telebirr: "Open your Telebirr app and confirm the payment request"
+      CBE Birr: "A USSD prompt will appear on your phone. Enter your PIN to confirm."
+      HelloCash: "Confirm the payment via your HelloCash agent or USSD menu"
+      ADC: "Complete payment in your ADC account"
+    Countdown: 4:59 → 0:00 (5-minute window matches server timeout)
+
+    Polling: POST /api/v1/payments/verify { transactionId } every 15 seconds
+    On SUCCESS webhook / verify response → navigate to confirmation screen
+    On FAILED → navigate back to method selection with "Payment failed: {reason}"
+    On TIMEOUT (5 min) → navigate back to method selection with:
+      "Payment timed out. If money was deducted from your account,
+       your booking will be confirmed automatically once we receive confirmation.
+       Reference: {transactionId}. Contact support if not resolved in 30 minutes."
+    "Cancel payment" link (light, bottom) → cancels attempt, navigates back to summary
+
+─────────────────────────────────────────────────────────────
+BOOKING CONFIRMATION  (app/booking/confirmation.tsx)
+
+  Shown after payment SUCCESS.
+
+  Full-screen success state:
+    Animated checkmark (Lottie or Reanimated)
+    "Booking confirmed! 🎉"
+    Booking reference (large, bold, monospace): e.g. "ADR-7X4K9M"
+    Copy button for booking reference (expo-clipboard)
+
+  QR Ticket:
+    react-native-qrcode-svg rendering the qr_code_data from booking
+    Size: 200×200
+    Label below: "Show this to your driver"
+
+  Trip summary:
+    Route, date, time, pickup location, seats, passenger names
+
+  Action buttons:
+    "Download ticket" → expo-print generates PDF ticket → expo-sharing to share
+    "Add to calendar" → expo-calendar creates event with trip details
+    "Track my trip" → /trips/{id}/tracking (available from departure time -30min)
+
+  "Done" button → clears bookingFlowStore → navigate to /(tabs)/trips
+  Confetti animation (brief, 2 seconds) on first appearance
+
+
+────────────────────────────────────────────────────────────────────────────────
+FLOW 4 — MY TRIPS
+────────────────────────────────────────────────────────────────────────────────
+
+SCREEN: My Trips  (app/(tabs)/trips.tsx)
+
+  Header:
+    Title: "My Trips"
+    Filter icon → opens filter bottom sheet
+
+  Tab bar at top:
+    Upcoming | Completed | Cancelled
+    Badge count on Upcoming tab if any upcoming trips
+
+  UPCOMING tab:
+    FlatList of upcoming confirmed bookings
+    Sorted by departure_time ASC (next trip at top)
+    Each trip card:
+      Status badge: "Confirmed" (green) | "CheckedIn" (blue)
+      Route: "Addis Ababa → Hawassa"
+      Date + time
+      Pickup location name
+      Seats: "Seat 14, 15"
+      Fare: ETB 1,349.50
+      "Track trip" button (visible when trip is InProgress)
+      "View ticket" button always visible
+    Pull-to-refresh
+    Empty state: "No upcoming trips. Ready to go somewhere? Book a trip!"
+
+  COMPLETED tab:
+    Sorted by completion date DESC (most recent first)
+    Each card:
+      Route + date
+      Fare paid
+      Rating given (if reviewed) OR "Rate this trip" button
+      "Book again" button
+
+  CANCELLED tab:
+    Each card:
+      Route + original date
+      Cancellation date
+      Refund status badge: "Refund processing" / "Refunded ETB {amount}"
+
+  Data: GET /api/v1/bookings (paginated, filtered by status tab)
+  useInfiniteQuery for pagination (load more on scroll)
+
+─────────────────────────────────────────────────────────────
+
+SCREEN: Trip Detail + Ticket  (app/trips/[id].tsx)
+
+  Header: back button + "My Ticket"
+
+  Ticket card (styled as physical ticket):
+    ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
+    ╎  አድራሽ                                 ╎
+    ╎  ADDIS ABABA → HAWASSA                  ╎
+    ╎  Tue 6 May 2026 · 07:30 AM              ╎
+    ╎  ─────────────────────────────────────  ╎
+    ╎  PICKUP: Kality Bus Terminal             ╎
+    ╎  SEAT: 14, 15                           ╎
+    ╎  BOOKING REF: ADR-7X4K9M               ╎
+    ╎  ─────────────────────────────────────  ╎
+    ╎           [QR CODE 200×200]             ╎
+    ╎       "Show this to your driver"        ╎
+    └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+
+  Booking status bar:
+    Step progress: Confirmed → CheckedIn → Completed
+    Current step highlighted
+
+  Driver info card (when assigned):
+    Driver photo + name + rating
+    Phone call button (opens dialer with driver's contact)
+
+  Trip info section:
+    Bus details (make, model, plate)
+    Pickup location on mini-map (react-native-maps, non-interactive)
+    All passenger names + seats
+
+  Payment summary:
+    Method icon + name
+    Amount paid: ETB {amount}
+
+  Actions:
+    "Track trip" button (ONLY when trip status = InProgress):
+      Full-width, green, animated pulse
+      → /trips/{id}/tracking
+    "Download ticket" → expo-print PDF
+    "Share ticket" → expo-sharing
+    "Cancel booking" (ONLY when status = Confirmed AND departure > cancellation policy cutoff):
+      Destructive red text button
+      → /trips/{id}/cancel
+
+  Post-trip (status = Completed + no review yet):
+    "Rate your trip" card at bottom (prominent, bordered)
+    "Rate now" button → /reviews/{bookingId}
+
+─────────────────────────────────────────────────────────────
+
+SCREEN: Cancel Booking  (app/trips/[id]/cancel.tsx)
+
+  Title: "Cancel this booking?"
+
+  Policy card:
+    Shows applicable cancellation policy:
+      e.g. "Cancelling now: 80% refund (ETB 1,079.60)"
+      or:  "Less than 6 hours to departure: No refund"
+    Policy explanation text
+    "Refund will be returned to your {payment method} within 3–5 business days"
+
+  Passenger list:
+    All passengers for this booking (listed for confirmation)
+
+  Confirmation checkbox:
+    "I understand the refund policy above"
+    Required before "Confirm cancellation" button activates
+
+  "Confirm cancellation" (red, destructive, full-width)
+    → DELETE /api/v1/bookings/{id}
+    On success: show cancellation confirmation screen
+      "Booking cancelled. Refund of ETB {amount} has been initiated."
+      → navigate to /(tabs)/trips (Cancelled tab)
+  "Keep my booking" secondary button (navigates back)
+
+
+────────────────────────────────────────────────────────────────────────────────
+FLOW 5 — LIVE TRIP TRACKING
+────────────────────────────────────────────────────────────────────────────────
+
+SCREEN: Live Tracking  (app/trips/[id]/tracking.tsx)
+
+  Accessible from: trip detail screen, dashboard upcoming card, push deep link.
+  Available: when trip status = InProgress. Shows "tracking not yet active" for Confirmed/Scheduled.
+
+  Full-screen layout (no tabs, custom header):
+    Header overlay (transparent, top):
+      Back button (white, semi-transparent background)
+      Route title: "Addis Ababa → Hawassa"
+      Live indicator: pulsing green dot + "LIVE"
+
+  Map (fills screen):
+    react-native-maps
+    Route GPS polyline (primary brand colour line)
+    All stops as subtle blue pins
+    Passenger's pickup location as large orange pin with label "Your pickup"
+    Destination stop as large green pin with label "Your destination"
+    Bus icon (animated):
+      Custom bus SVG marker
+      Position updated every 10 seconds via SignalR LocationUpdate
+      Smooth interpolation between GPS positions (Animated API)
+      Rotates to match heading
+    Map auto-follows bus (auto-panning) OR user can scroll to explore
+    "Follow bus" floating button appears when user has panned away
+
+  ETA card (floating, bottom of screen):
+    ┌─────────────────────────────────────────┐
+    │  🚌  Arriving at Your Pickup in         │
+    │      14 minutes  (~8.3 km away)         │
+    │                                         │
+    │  Next stop: Bishoftu  · in 6 min        │
+    └─────────────────────────────────────────┘
+    Updates on each LocationUpdate event
+
+  Action buttons (floating row above ETA card):
+    Share trip:
+      expo-sharing → share SMS/WhatsApp link: "Track my trip: {deep link}"
+      Link format: adrash-passenger://trips/{id}/tracking
+    SOS emergency alert:
+      Red button with shield icon
+      Single tap → confirmation dialog:
+        "Send emergency alert to {next of kin name} and አድራሽ support?"
+        "Your current location will be shared."
+      On confirm:
+        POST to API SOS endpoint (or handled via a special booking endpoint)
+        SMS sent by server to next-of-kin + support team via AfroSMS
+        Show "Alert sent! Help is on the way." confirmation
+
+  SignalR lifecycle on this screen:
+    On mount: connect to /hubs/tracking, join group "trip-{tripId}"
+    hubConnection.on("LocationUpdate", ({ lat, lng, heading, eta, nextStopName }) => {
+      trackingStore.updateBusPosition({ lat, lng, heading })
+      trackingStore.updateETA({ eta, nextStopName })
+    })
+    On unmount: disconnect from hub (but trip continues — driver still streams)
+    If SignalR disconnects: show "Reconnecting..." overlay
+    Reconnect with exponential backoff
+
+  When trip ends (status changes to Completed):
+    Show overlay: "You have arrived at {destination}! 🎉"
+    "Rate your trip" button → /reviews/{bookingId}
+    "Back to My Trips" button
+
+
+────────────────────────────────────────────────────────────────────────────────
+FLOW 6 — REWARDS
+────────────────────────────────────────────────────────────────────────────────
+
+SCREEN: Rewards  (app/(tabs)/rewards.tsx)
+
+  Header:
+    Title: "My Rewards"
+    Points badge: large prominent card
+
+  Points balance card (top, full-width, brand colour):
+    ┌───────────────────────────────────────┐
+    │  ⭐ 1,250 Points                      │
+    │     = ETB 125.00 in booking discounts │
+    │                                       │
+    │  [Redeem at next booking]             │
+    └───────────────────────────────────────┘
+    Sub-text: "Earn 1 point for every ETB 1 spent"
+
+  How it works section (collapsible):
+    Earn:     "1 point for every ETB 1 you spend on completed trips"
+    Redeem:   "100 points = ETB 10 off your next booking"
+    Referral: "Earn 50 points when a friend completes their first trip"
+    Minimum:  "100 points minimum to redeem"
+
+  Referral section:
+    Card with referral code displayed:
+      Large code: "ADRA-XXXX" (monospace font)
+      Copy button → expo-clipboard
+      Share button → "Join me on አድራሽ and get travel discounts! Use code {code}: {app store link}"
+        expo-sharing share sheet
+    Stats: "{n} friends referred · {points} points earned from referrals"
+
+  Points history:
+    Section header: "Points history"
+    FlatList of RewardsTransactions (paginated, useInfiniteQuery):
+      Each item:
+        Icon: ⭐ (earn, green) or 🛒 (redeem, orange) or 👥 (referral, blue)
+        Description: "Earned from Addis Ababa → Hawassa" / "Redeemed at booking"
+        Points amount: +250 (green) / -100 (orange)
+        Date
+    Load more on scroll
+    Empty state: "Complete your first trip to start earning points!"
+
+  API:
+    GET /api/v1/rewards/balance
+    GET /api/v1/rewards/history (paginated)
+    GET /api/v1/rewards/referral
+
+
+────────────────────────────────────────────────────────────────────────────────
+FLOW 7 — PROFILE
+────────────────────────────────────────────────────────────────────────────────
+
+SCREEN: Profile  (app/(tabs)/profile.tsx)
+
+  Profile header:
+    Profile photo (circle, 80px):
+      Default: initials avatar (generated from name, brand colour background)
+      Tap → action sheet: "Take photo" / "Choose from gallery" / "Remove photo"
+      expo-image-picker → compress → PATCH /users/me with photo
+    Full name (large, bold)
+    Phone number
+    Member since date (from createdAt)
+
+  Account section:
+    Edit name        → inline edit or modal form → PATCH /users/me
+    Language         → language selector bottom sheet
+                       On change: update MMKV + i18n + PATCH /users/me { preferredLanguage }
+    Biometric login  → toggle (expo-local-authentication)
+                       On enable: authenticate immediately to verify, then save to MMKV
+
+  Saved locations section:
+    List of up to 5 saved pickup locations
+    Each: label (Home / Work / custom) + location name + map pin icon
+    "Add location" button → opens map picker to select a location
+    Swipe to delete
+    Stored: PATCH /users/me or separate saved-locations endpoint if available
+    Used as quick-select shortcuts in pickup location screen
+
+  Notifications section:
+    "View all notifications" → /notifications
+
+  Rewards shortcut:
+    Points balance card (compact) → /(tabs)/rewards
+
+  Support section:
+    Help & FAQ       → static screen (translated content from locales)
+    Contact support  → opens dialer with support number
+    Report a problem → simple form → POST to support endpoint or mailto
+
+  Legal:
+    Terms & Conditions → fetches + shows current agreement text
+    Privacy Policy     → same
+
+  Sign out:
+    Red text button
+    Confirmation dialog: "Sign out of አድራሽ?"
+    POST /auth/logout → clear tokens → navigate to /(auth)/phone
+
+  Delete account:
+    Gray text link (small, bottom of screen)
+    Multi-step confirmation:
+      Step 1: "Are you sure? This cannot be undone."
+      Step 2: "Cancel any upcoming trips first" (if pending/confirmed bookings exist)
+      Step 3: Final confirmation with "DELETE MY ACCOUNT" typed input
+    DELETE /users/me → clear all local data → navigate to /(auth)/index
+
+
+────────────────────────────────────────────────────────────────────────────────
+FLOW 8 — NOTIFICATIONS
+────────────────────────────────────────────────────────────────────────────────
+
+SCREEN: Notifications  (app/notifications.tsx)
+
+  Header: "Notifications" + "Mark all read" button (top right)
+
+  FlatList (grouped by date: Today / Yesterday / This week / Earlier):
+    Each notification item:
+      Icon based on type:
+        Booking confirmed → 🎫
+        Driver assigned   → 🚌
+        Bus en route      → 📍
+        Arrived at pickup → 🏁
+        Trip started      → ▶️
+        Trip completed    → ✅
+        Refund processed  → 💰
+        Points earned     → ⭐
+        Promotional       → 📢
+      Notification title (bold if unread, normal weight if read)
+      Body text (2 lines max, truncated)
+      Timestamp (relative: "2 hours ago")
+      Unread indicator: left border accent / blue dot
+      Tap → mark as read + navigate to relevant screen (if deeplink in metadata)
+
+  Polling: refetch every 60 seconds when app is foregrounded
+  Pull-to-refresh
+  "Mark all read" → PATCH /notifications/read-all
+  Empty state: "No notifications yet. Safe travels! ✈️"
+
+  API:
+    GET /api/v1/notifications (paginated, useInfiniteQuery for load more)
+    PATCH /api/v1/notifications/{id}/read (on individual tap)
+    PATCH /api/v1/notifications/read-all
+
+
+────────────────────────────────────────────────────────────────────────────────
+FLOW 9 — POST-TRIP REVIEW
+────────────────────────────────────────────────────────────────────────────────
+
+SCREEN: Review Trip  (app/reviews/[bookingId].tsx)
+
+  Accessible from: completed trip detail, notifications, post-trip prompt.
+  If review already submitted: show submitted review (read-only) instead.
+
+  Header: "Rate your trip" + route name
+
+  Trip context card:
+    Route + date + driver name + driver photo
+
+  Star rating (mandatory):
+    5 large interactive stars
+    Tap to select rating
+    Label below stars: "Poor" → "Below average" → "Average" → "Good" → "Excellent"
+    Stars animate on selection (spring scale up)
+
+  Comment (optional):
+    Text area: "Tell us about your experience (optional)"
+    Character count: 0/300
+    Placeholder suggestions (tappable chips):
+      "Comfortable journey" | "Driver was professional" | "Clean bus" | "On time"
+      Tapping a chip appends it to the text area
+
+  "Submit review" button (enabled when star rating selected)
+    POST /api/v1/reviews { bookingId, score, comment }
+    On success: animated confirmation + "Thank you for your feedback!"
+    Navigate back to trip detail after 2 seconds
+
+  "Skip for now" text link (light)
+
+
+════════════════════════════════════════════════════════════════════════════════
+SECTION 5 — API INTEGRATION
+════════════════════════════════════════════════════════════════════════════════
+
+AXIOS CLIENT  (src/api/client.ts)
+  const apiClient = axios.create({
+    baseURL: process.env.EXPO_PUBLIC_API_BASE_URL + '/api/v1',
+    timeout: 30000,
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  REQUEST INTERCEPTOR:
+    1. Read access token from expo-secure-store (ADRASH_ACCESS_TOKEN)
+    2. Attach: Authorization: Bearer {token}
+    3. Attach: X-Request-ID: crypto.randomUUID()
+    4. Attach: X-App-Version: Constants.expoConfig?.version
+    5. Attach: Accept-Language: i18n.language
+
+  RESPONSE INTERCEPTOR — 401 (token refresh):
+    On 401 AND request._retry !== true:
+      Set request._retry = true (prevent infinite loop)
+      Read ADRASH_REFRESH_TOKEN from SecureStore
+      POST /auth/refresh { refreshToken }
+      On success: save new tokens, retry original request
+      On failure: clearTokens() → router.replace('/(auth)/phone')
+                  Toast: "Your session has expired. Please sign in again."
+
+  RESPONSE INTERCEPTOR — 403 AgreementUpdateRequired:
+    if (error.response?.data?.code === 'Auth.AgreementUpdateRequired')
+      router.replace('/agreement')
+
+  RESPONSE INTERCEPTOR — network error:
+    If no response (offline): dispatch offline event to networkStore
+    Show persistent offline banner
+
+ALL API ENDPOINTS USED BY THE PASSENGER APP:
+
+  AUTH:
+    POST /auth/otp/send                { phone }
+    POST /auth/otp/verify              { phone, code }
+    PATCH /auth/profile/setup          { firstName, lastName }
+    POST /auth/refresh                 { refreshToken }
+    POST /auth/logout
+    POST /auth/agreements/accept       { agreementType, documentVersion }
+    GET  /auth/agreements/current      ?type=Passenger&lang={lang}
+
+  USER:
+    GET  /users/me
+    PATCH /users/me                    { fullName?, preferredLanguage?, profilePhoto? }
+    DELETE /users/me
+
+  ROUTES & TRIPS:
+    GET  /routes                       ?origin=&destination=&date=&seats=
+    GET  /routes/{id}                  full route with stops + pickup_locations + gps_polyline
+    GET  /routes/{id}/pickup-locations
+    GET  /trips/{id}
+    GET  /trips/{id}/seats             real-time seat map
+
+  BOOKINGS:
+    POST /bookings                     { tripId, seatNumbers[], pickupLocationId,
+                                         dropoffStopId, passengerDetails[], pointsToRedeem? }
+    GET  /bookings                     ?status=&page=&pageSize=
+    GET  /bookings/{id}
+    DELETE /bookings/{id}              (cancel)
+
+  PAYMENTS:
+    POST /payments/initiate            { bookingId, method, accountRef }
+    POST /payments/verify              { transactionId }
+
+  REWARDS:
+    GET  /rewards/balance
+    GET  /rewards/history              ?page=&pageSize=
+    POST /rewards/redeem               { bookingId, pointsToRedeem }
+    GET  /rewards/referral
+
+  NOTIFICATIONS:
+    GET  /notifications                ?isRead=&page=&pageSize=
+    PATCH /notifications/{id}/read
+    PATCH /notifications/read-all
+
+  REVIEWS:
+    POST /reviews                      { bookingId, score, comment? }
+    GET  /reviews                      ?revieweeId={driverId}
+
+SIGNALR HUB (tracking only)
+  URL: EXPO_PUBLIC_SIGNALR_HUB_URL + /hubs/tracking
+  Auth: ?access_token={accessToken}
+
+  Connect on tracking screen mount:
+    const connection = new HubConnectionBuilder()
+      .withUrl(`${hubUrl}/hubs/tracking?access_token=${accessToken}`)
+      .withAutomaticReconnect([1000, 2000, 4000, 8000])
+      .configureLogging(LogLevel.Warning)
+      .build();
+    await connection.start();
+
+  Join group (server-side — joining happens automatically from booking context)
+
+  Receive: connection.on("LocationUpdate", ({ lat, lng, heading, eta, nextStopName }) => {
+    trackingStore.updateBusPosition({ lat, lng, heading })
+    trackingStore.setETA(eta)
+    trackingStore.setNextStop(nextStopName)
+  })
+
+  Disconnect on screen unmount:
+    await connection.stop();
+
+  Connection state monitoring:
+    connection.onreconnecting(() => trackingStore.setConnectionState('reconnecting'))
+    connection.onreconnected(() => trackingStore.setConnectionState('connected'))
+    connection.onclose(() => trackingStore.setConnectionState('disconnected'))
+
+
+════════════════════════════════════════════════════════════════════════════════
+SECTION 6 — STATE MANAGEMENT
+════════════════════════════════════════════════════════════════════════════════
+
+ZUSTAND STORES
+
+authStore.ts  (src/features/auth/store/authStore.ts)
+  State: {
+    userId: string | null
+    fullName: string | null
+    phone: string | null
+    preferredLanguage: 'en' | 'am' | 'om'
+    isAuthenticated: boolean
+    biometricEnabled: boolean
+    lastAgreementVersionAccepted: string | null
+    rewardsBalance: number  // cached for tab badge
+  }
+  Actions: setUser, clearUser, setLanguage, setBiometricEnabled, setRewardsBalance
+  Tokens NOT stored in Zustand — only in expo-secure-store
+
+bookingFlowStore.ts  (src/features/booking/store/bookingFlowStore.ts)
+  State: {
+    tripId: string | null
+    trip: Trip | null
+    selectedPickupLocationId: string | null
+    selectedPickupLocationName: string | null
+    selectedDropoffStopId: string | null
+    selectedDropoffStopName: string | null
+    selectedSeatNumbers: number[]
+    passengerDetails: PassengerDetail[]
+    pointsToRedeem: number
+    discountEtb: number
+    totalFareEtb: number
+    paymentMethod: 'Telebirr' | 'CBEBirr' | 'HelloCash' | 'ADC' | null
+    paymentPhone: string
+    bookingId: string | null
+    transactionId: string | null
+    seatLockExpiresAt: string | null
+  }
+  Actions: setTrip, setPickup, setDropoff, setSeats, setPassengers,
+           applyPoints, removePoints, setPaymentMethod, setBookingId,
+           setTransactionId, clearFlow
+  clearFlow(): resets all state to null/defaults
+  Called: on booking confirmation, on payment cancel, on navigate away from booking flow
+
+trackingStore.ts  (src/features/tracking/store/trackingStore.ts)
+  State: {
+    busPosition: { lat: number, lng: number, heading: number } | null
+    eta: number | null            // minutes to passenger's pickup
+    nextStopName: string | null
+    connectionState: 'connected' | 'reconnecting' | 'disconnected'
+    tripId: string | null
+  }
+  Actions: updateBusPosition, setETA, setNextStop, setConnectionState, setActiveTripId, clear
+
+TANSTACK QUERY CLIENT  (src/lib/queryClient.ts)
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 1000 * 60,         // 1 minute default
+        gcTime: 1000 * 60 * 10,       // 10 minutes GC
+        retry: 2,
+        retryDelay: attempt => Math.min(1000 * 2 ** attempt, 10000),
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: true,
+      },
+      mutations: { retry: 0 }         // Never retry mutations
+    }
+  });
+
+  Per-query stale time overrides:
+    Route search:            staleTime 2 minutes
+    Trip seat map:           staleTime 15 seconds (refetch on focus)
+    Booking list:            staleTime 30 seconds
+    Rewards balance:         staleTime 5 minutes
+    Notifications:           staleTime 60 seconds + polling every 60s when active
+
+
+════════════════════════════════════════════════════════════════════════════════
+SECTION 7 — SECURITY
+════════════════════════════════════════════════════════════════════════════════
+
+TOKEN STORAGE
+  expo-secure-store: AES-256 hardware-backed on Android (Keystore), iOS Keychain
+  Keys: ADRASH_ACCESS_TOKEN, ADRASH_REFRESH_TOKEN
+  iOS option: keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY
+              (prevents cross-device iCloud Keychain restore)
+  NEVER store tokens in:
+    AsyncStorage, MMKV, Redux persist, or any unencrypted storage
+  On logout: SecureStore.deleteItemAsync for both keys
+  On uninstall: Android SecureStore auto-cleared. iOS persists — handled by WHEN_UNLOCKED_THIS_DEVICE_ONLY
+
+BIOMETRIC AUTHENTICATION
+  expo-local-authentication
+  Check: hasHardwareAsync() && isEnrolledAsync() before offering
+  Prompt options:
+    promptMessage: "Sign in to አድራሽ"
+    fallbackLabel: "Use phone number" (iOS) / system fallback (Android)
+    disableDeviceFallback: false (allow device PIN as fallback)
+  On success: validate session server-side via token refresh
+  Biometric does NOT replace server-side token validation — it only unlocks local tokens
+  After 3 biometric failures: fall back to OTP flow automatically
+  Opt-in: user enables explicitly in Profile. Preference in MMKV (not sensitive).
+
+CERTIFICATE PINNING
+  Implement for production builds only (__DEV__ === false)
+  Pin SHA-256 fingerprints of api.adrash.et TLS certificate (leaf + intermediate)
+  On pin failure: "Connection security error. Please update the app."
+  Update pins via EAS OTA update when certificate rotates
+
+JAILBREAK / ROOT DETECTION
+  react-native-device-info: isRooted() check on app start
+  On detection: show warning (do NOT block — false positives exist)
+  Log security event to API if endpoint available
+  Do not prevent booking — warn-only policy
+
+SCREENSHOT PREVENTION
+  Android: expo-screen-capture (FLAG_SECURE equivalent)
+    Apply to: payment screen, ticket QR screen, earnings (if any)
+  iOS: Blur overlay when app backgrounds (AppState listener)
+    Show blur overlay on QR ticket when backgrounded (protect from multitasking preview)
+
+DEEP LINK SECURITY
+  All incoming deep links from AfroSMS or share links:
+  Validate scheme: adrash-passenger://
+  Validate route: only known routes allowed
+  Validate parameters: UUID format for IDs
+  Do NOT auto-execute actions from deep links — navigate only, let user confirm
+
+PAYMENT SECURITY
+  No payment credentials stored anywhere on device
+  Mobile money phone numbers: NOT stored after payment session ends
+    Clear paymentPhone from bookingFlowStore after transaction completes
+  Payment session timeout: 5 minutes (matches server-side)
+  Transaction ID: stored only in bookingFlowStore (MMKV not backed) — cleared after flow
+  "No card information is stored" trust signal on payment screen
+
+INPUT VALIDATION (client-side, Zod)
+  Phone: Ethiopian format validator before API call
+  Passenger names: min 2 chars, max 50 chars, no numbers
+  Next of kin phone: same validation as passenger phone
+  Points redemption: must be integer ≥ 100, must not exceed balance
+  QR payload: non-empty, min length check before API call
+
+SENSITIVE DATA DISPLAY
+  Payment method phone: shown on confirmation screen, then cleared from store
+  Next-of-kin details: not displayed after booking confirmation
+  Booking reference: safe to show — not sensitive
+
+SESSION MANAGEMENT
+  Access token: 15-minute expiry, auto-refreshed by interceptor
+  Refresh token: 30-day expiry
+  After 30 days: forced re-OTP (user sees "session expired" message)
+  No idle timeout (passengers may check ticket while travelling)
+  Force logout: on 401 from refresh endpoint, on 403 AccountSuspended
+
+CLIPBOARD SECURITY
+  Booking reference copy: safe, auto-expires from clipboard after 60 seconds
+    Clipboard.setStringAsync(ref)
+    setTimeout(() => Clipboard.setStringAsync(''), 60000)
+  Payment reference: show on screen only, no copy feature
+
+NETWORK SECURITY
+  HTTPS only. Axios configured with no HTTP fallback.
+  Timeout: 30 seconds on all requests
+  Network monitoring: @react-native-community/netinfo
+  Offline state: clear error messaging, no silent failures
+
+PRIVACY
+  No analytics SDK in v1 (no Mixpanel, Amplitude, Firebase Analytics)
+  Crash reporting via Sentry only
+  Sentry config: strip phone numbers, location data, payment references from error events
+  Minimum data collection: only what is needed for the feature
+  No GPS collection on the passenger app (location is driver-side only)
+  When passenger shares trip link: only trip ID shared, not personal data
+
+SENTRY CONFIGURATION
+  import * as Sentry from '@sentry/react-native';
+  Sentry.init({
+    dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+    environment: process.env.EXPO_PUBLIC_ENV,
+    beforeSend(event) {
+      // Remove phone numbers from all fields
+      const scrub = (str: string) => str.replace(/(\+251|09|07)\d{8,9}/g, '[PHONE]');
+      if (event.message) event.message = scrub(event.message);
+      // Remove user identifiers
+      if (event.user) { event.user = { id: event.user.id }; }
+      return event;
+    },
+    tracesSampleRate: 0.05,
+    attachScreenshot: false,
+  });
+
+CODE PROTECTION
+  EAS Production build: Hermes bytecode compilation
+  Metro: minification + tree-shaking in production
+  No third-party obfuscators (break Sentry source maps)
+  All API keys via environment variables — none hardcoded
+
+PERMISSIONS — REQUEST AT THE RIGHT MOMENT
+  Location (optional, for "nearest pickup" distance display):
+    Request: when passenger is on pickup selection screen
+    Rationale: "Allow location access to show distances to boarding points"
+    If denied: hide distance info, still show all pickup options
+  Camera (optional, QR display only — passenger does not scan):
+    Not needed in passenger app v1 (QR is displayed, not scanned)
+  Photo library:
+    Request: when passenger taps profile photo update
+    Rationale: "Photo library access to update your profile photo"
+  Notifications: Not applicable in v1 (no push)
+
+
+════════════════════════════════════════════════════════════════════════════════
+SECTION 8 — OFFLINE & NETWORK RESILIENCE
+════════════════════════════════════════════════════════════════════════════════
+
+The passenger app does NOT have background location or critical offline operations
+like the driver app. However, it must handle intermittent connectivity gracefully.
+
+OFFLINE BANNER
+  @react-native-community/netinfo: monitor connectivity
+  On offline: persistent amber banner at top of all screens: "No internet connection"
+  On restore: green "Back online" toast (auto-dismiss 3 seconds)
+
+READ CACHING (TanStack Query)
+  Route search results:    cached 2 min (last search available offline after first load)
+  Trip detail:             cached 5 min (ticket viewable offline)
+  Seat map:                NOT cached offline (always fresh)
+  Booking list:            cached 30 sec
+  Rewards balance:         cached 5 min
+  Notification list:       cached 60 sec
+
+OFFLINE QR TICKET
+  After a booking is confirmed, store the QR ticket data in MMKV:
+    Key: 'booking_ticket_{bookingId}' → { bookingRef, qrCodeData, tripSummary }
+  Ticket screen renders from MMKV if API call fails
+  Show "Last updated {time}" indicator when showing cached ticket
+  Clear cached ticket data 7 days after trip completion date
+
+CRITICAL ACTIONS — OFFLINE BEHAVIOUR
+  Book a trip:       Requires connectivity (creates server record)
+  Pay:               Requires connectivity (initiates payment with provider)
+  Cancel booking:    Requires connectivity
+  Start tracking:    Requires connectivity (SignalR)
+  View ticket:       Available offline (from MMKV cache)
+  View trip history: Available offline (TanStack Query cache)
+  Submit review:     Queue if offline. Flush on reconnect. (MMKV queue)
+
+PAYMENT WAITING SCREEN OFFLINE HANDLING
+  If connectivity drops while waiting for payment confirmation:
+    Show: "Connection lost — waiting to reconnect"
+    On reconnect: resume polling POST /payments/verify
+    Do NOT navigate away on network loss (payment may still complete)
+
+
+════════════════════════════════════════════════════════════════════════════════
+SECTION 9 — INTERNATIONALISATION (i18n)
+════════════════════════════════════════════════════════════════════════════════
+
+LANGUAGES
+  English (en)     — default, primary
+  Amharic (am)     — አማርኛ
+  Oromiffa (om)    — Afaan Oromoo
+
+SETUP  (src/lib/i18n.ts)
+  import i18n from 'i18next';
+  import { initReactI18next } from 'react-i18next';
+  import en from '../assets/locales/en.json';
+  import am from '../assets/locales/am.json';
+  import om from '../assets/locales/om.json';
+
+  const saved = mmkv.getString('preferredLanguage') ?? 'en';
+
+  i18n.use(initReactI18next).init({
+    lng: saved,
+    fallbackLng: 'en',
+    resources: { en: { translation: en }, am: { translation: am }, om: { translation: om } },
+    interpolation: { escapeValue: false }
+  });
+
+TRANSLATION KEYS (en.json structure — mirror in am.json, om.json)
+  {
+    "screen": {
+      "home": { "title": "Where are you going?", "search": "Search routes", ... },
+      "search": { "noResults": "No trips found for this date", ... },
+      "booking": {
+        "pickup": { "title": "Where will you board?", ... },
+        "payment": { "title": "How would you like to pay?", "waiting": "Waiting for your confirmation", ... },
+        "confirmation": { "title": "Booking confirmed!", ... }
+      },
+      "trips": { "upcoming": "Upcoming", "completed": "Completed", "cancelled": "Cancelled", ... },
+      "rewards": { "pointsBalance": "{{count}} Points", "howItWorks": "How it works", ... },
+      "profile": { "title": "Profile", "signOut": "Sign out", ... }
+    },
+    "component": {
+      "tripCard": { "departure": "Departure", "seatsAvailable": "{{count}} seats available", ... },
+      "paymentCard": { "telebirr": "Telebirr", "mostPopular": "Most popular", ... }
+    },
+    "error": {
+      "otp": { "invalid": "Incorrect code", "expired": "Code has expired", "maxAttempts": "Too many attempts" },
+      "booking": { "seatTaken": "One of your seats was just taken", "notFound": "Booking not found" },
+      "payment": { "failed": "Payment failed", "timeout": "Payment timed out" },
+      "network": { "offline": "No internet connection", "retry": "Tap to retry" }
+    },
+    "action": { "continue": "Continue", "confirm": "Confirm", "cancel": "Cancel", ... }
+  }
+
+CURRENCY FORMAT HELPER
+  export const formatETB = (amount: number): string =>
+    `ETB ${amount.toLocaleString('en-ET', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+DATE FORMAT HELPER
+  Use date-fns with locale support:
+    import { format, formatRelative } from 'date-fns';
+    import { am as amLocale } from 'date-fns/locale';
+    const locale = i18n.language === 'am' ? amLocale : undefined;
+    format(date, 'PPpp', { locale })  // "Tuesday, May 6, 2026 at 7:30 AM"
+
+LANGUAGE SWITCH FLOW
+  1. User selects language in Profile
+  2. mmkv.set('preferredLanguage', lang)
+  3. i18n.changeLanguage(lang)
+  4. authStore.setLanguage(lang)
+  5. PATCH /users/me { preferredLanguage: lang }
+  6. All screens re-render immediately via react-i18next
+
+
+════════════════════════════════════════════════════════════════════════════════
+SECTION 10 — UI/UX DESIGN SYSTEM
+════════════════════════════════════════════════════════════════════════════════
+
+DESIGN PHILOSOPHY
+  1. Trust and clarity first: passengers are trusting this app with their travel and safety
+  2. Progressive disclosure: don't show everything at once — reveal as needed
+  3. Reassurance at every step: confirm, acknowledge, inform
+  4. Optimistic loading: show skeleton screens, not spinners
+  5. Error recovery: every error has a clear action path
+  6. 60fps on mid-range Android (Samsung A-series, Tecno, Infinix)
+
+COLOUR TOKENS
+  Primary:         #085041  (dark green — brand)
+  Primary light:   #1D9E75  (medium green)
+  Primary pale:    #E1F5EE  (light green backgrounds)
+  Secondary:       #185FA5  (dark blue — informational)
+  Secondary pale:  #E6F1FB  (light blue backgrounds)
+  Surface:         #F5F5F5  (page backgrounds)
+  Card:            #FFFFFF  (card surfaces)
+  Text primary:    #1A1A1A  (headings, body)
+  Text secondary:  #555555  (captions, metadata)
+  Text disabled:   #AAAAAA
+  Success:         #27AE60  (confirmed, paid, boarded)
+  Warning:         #F39C12  (pending, expiring)
+  Danger:          #E74C3C  (cancelled, failed, no-show)
+  Reward gold:     #F1C40F  (stars, points)
+  Overlay:         rgba(0,0,0,0.45)
+
+TYPOGRAPHY
+  Font: System default (SF Pro on iOS, Roboto on Android)
+  H1: 28sp / 700  (screen titles)
+  H2: 22sp / 600  (section headers)
+  H3: 18sp / 600  (card titles, step headers)
+  Body: 16sp / 400
+  Caption: 13sp / 400 / Text secondary
+  Mono: system mono (booking refs, seat numbers, codes)
+  Never hardcode font sizes in sp — use a typography scale constant
+
+SPACING SCALE
+  4, 8, 12, 16, 20, 24, 32, 40, 48, 64
+  All spacing via scale constants — no magic numbers
+
+TAP TARGETS
+  Minimum: 48×48 dp (Android) / 44×44 pt (iOS) — no exceptions
+  Primary CTA buttons: 56px height, full width, 16px border radius
+  List items: minimum 64px height
+  Icon buttons: 48×48 dp with padding
+
+LOADING STATES
+  Initial screen load: skeleton loaders (not spinners)
+    Replicate the actual screen layout with gray placeholder shapes
+  Button loading: replace label with ActivityIndicator, disable button
+  List pagination: skeleton rows at bottom of list
+  Inline data: gray shimmer animation (react-native-shimmer-placeholder)
+  Never show a blank white screen
+
+EMPTY STATES
+  Every list has a designed empty state:
+    Relevant illustration (simple SVG)
+    Friendly message in user's language
+    CTA action
+  Examples:
+    No search results:     "No trips found for this route on this date. Try a different date."
+    No upcoming trips:     "No upcoming trips. Ready for your next journey?"
+    No notifications:      "You're all caught up ✓"
+    No completed trips:    "Complete your first trip to see your history here."
+    No rewards history:    "Earn points on every trip. Book your first trip to get started."
+
+ERROR STATES
+  Inline form errors: red text below field, red border on field
+  Toast notifications (bottom, 4-second auto-dismiss):
+    Success: green background
+    Error: red background
+    Info: blue background
+  Full-screen errors (network, server):
+    Illustration + translated error message + "Try again" button
+  Payment errors: dedicated payment failure screen with recovery path
+
+ANIMATIONS
+  Tool: React Native Reanimated v3 (via expo)
+  Use: Animated.spring for bouncy interactions, Animated.timing for transitions
+  Screen transitions: default Expo Router transitions (slide on iOS, fade on Android)
+  Booking flow: slide-left on step advance, slide-right on back
+  Success screen: checkmark scale-in animation (0 → 1 with spring)
+  Star rating: spring bounce when star selected
+  Bus position on map: linear interpolation between GPS points (smooth movement)
+  No gratuitous animations — every animation communicates something
+
+SEAT MAP DESIGN
+  Grid layout using FlatList with numColumns matching bus row width
+  Typical layout:
+    Row 0: [DRIVER] [empty] [empty] [DOOR]
+    Row 1: [01] [02] _ [03] [04]
+    Row 2: [05] [06] _ [07] [08]
+    ...
+  Seat states:
+    Available: white with border, seat number gray
+    Taken:     mid-gray fill, seat number lighter gray
+    Selected:  primary green fill, seat number white, slight scale-up
+  Accessibility: each seat has accessibilityLabel "Seat {number}, {available/taken/selected}"
+
+TICKET DESIGN
+  Styled like a physical ticket (dashed border, perforation effect at top/bottom)
+  Brand logo at top
+  Clear typographic hierarchy
+  QR code prominent and centered
+  "Show to driver" instructional label
+
+PLATFORM CONSIDERATIONS
+  iOS:
+    Safe area insets (useSafeAreaInsets) — critical for notch + home indicator
+    Native action sheet (ActionSheetIOS)
+    Native date picker (DateTimePickerModal)
+    Haptic feedback: expo-haptics for button confirmations
+  Android:
+    Bottom sheet instead of action sheet (@gorhom/bottom-sheet)
+    Native date picker (react-native-modal-datetime-picker)
+    Android back button handled correctly in booking flow (expo-router handles by default)
+    Status bar colour changes per screen (expo-status-bar)
+  Both:
+    KeyboardAvoidingView on all forms
+    Keyboard dismiss on tap outside input fields
+    Safe area handling for tab bar on all platforms
+
+ACCESSIBILITY
+  All interactive elements: accessibilityLabel + accessibilityRole
+  All images: accessibilityLabel (or role="image" with label)
+  Dynamic text: sp units, respects system font scale
+  Color not sole indicator: icons + labels alongside colour states
+  Minimum contrast 4.5:1 for body text, 3:1 for large text
+  Screen reader (TalkBack/VoiceOver): test all primary flows
+  Focus management: on modal open, focus modal title; on close, return focus to trigger
+
+
+════════════════════════════════════════════════════════════════════════════════
+SECTION 11 — TESTING
+════════════════════════════════════════════════════════════════════════════════
+
+UNIT TESTS (Jest)
+  Every custom hook tested:
+    useOtpSend:          success, rate limit, network error
+    useOtpVerify:        new user, returning user, invalid code, max attempts
+    useRouteSearch:      results returned, empty results, error
+    useCreateBooking:    success, seat taken error, validation error
+    useInitiatePayment:  success, provider error
+    useVerifyPayment:    success (confirmed), pending (still waiting), failed
+    useCancelBooking:    success with refund, error
+    useRewardsBalance:   returns balance + etb equivalent
+    useRedeemPoints:     success, insufficient points, below minimum
+
+  Utility functions:
+    formatETB: multiple amounts, zero, large numbers, negative
+    bookingFlowStore: all transitions, clearFlow, persisted state
+    trackingStore: bus position update, ETA calculation
+
+COMPONENT TESTS (RNTL)
+  Critical screens:
+    HomeScreen:
+      Renders search form correctly
+      Swap button exchanges origin/destination
+      Search button navigates with correct params
+    AgreementScreen:
+      "I agree" button disabled until scrolled
+      Agreement text fetched from API
+    OTPScreen:
+      6 boxes render, auto-advance focus
+      Auto-submits on 6th digit
+      Shake on invalid code
+    SeatSelection:
+      Taken seats not selectable
+      Selection limited to passenger count
+      Seat lock countdown displayed
+    PaymentScreen:
+      All 4 payment methods displayed
+      Pay button disabled until method and phone selected
+      Waiting screen shown after initiation
+    TrackingScreen:
+      Bus icon position updated on LocationUpdate
+      ETA updates from SignalR
+      SOS confirmation dialog shown on SOS tap
+
+  Navigation tests:
+    New user flow: phone → OTP → setup → home
+    Returning user: phone → OTP → home
+    Agreement update: login → agreement → home
+    Booking flow: home → results → trip detail → pickup → dropoff → seats → passengers → summary → payment → confirmation
+    Cancel flow: trip detail → cancel → trips list
+
+API MOCKING (MSW v2)
+  Mock handlers for all 25+ endpoints
+  Test scenarios:
+    Seat taken during booking: /bookings returns SeatNotAvailable
+    Payment webhook success: /payments/verify returns Success
+    Payment timeout: verify polls 5 times, returns Pending → TimedOut
+    Token refresh: 401 triggers refresh, then retries original
+    Agreement update: 403 Auth.AgreementUpdateRequired routes to agreement
+    Offline: all handlers return network error
+
+COVERAGE TARGETS
+  Utility functions:  100%
+  Custom hooks:        90%
+  Critical screens:    80% (home, booking flow, tracking, payment)
+  Navigation flows:   100% for all named flows
+
+
+════════════════════════════════════════════════════════════════════════════════
+SECTION 12 — BUILD & DEPLOYMENT
+════════════════════════════════════════════════════════════════════════════════
+
+EAS CONFIGURATION  (eas.json)
+{
+  "cli": { "version": ">= 12.0.0" },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": { "EXPO_PUBLIC_ENV": "development" }
+    },
+    "staging": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": { "EXPO_PUBLIC_ENV": "staging" }
+    },
+    "production": {
+      "android": { "buildType": "app-bundle" },
+      "autoIncrement": true,
+      "env": { "EXPO_PUBLIC_ENV": "production" }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": { "serviceAccountKeyPath": "./google-service-account.json", "track": "internal" },
+      "ios": { "appleId": "...", "ascAppId": "..." }
+    }
+  }
+}
+
+APP PERMISSIONS (app.json)
+  Android:
+    INTERNET
+    CAMERA                    (profile photo only)
+    READ_MEDIA_IMAGES         (Android 13+)
+    READ_EXTERNAL_STORAGE     (Android 12 and below)
+  iOS:
+    NSCameraUsageDescription:
+      "Camera is used to update your profile photo."
+    NSPhotoLibraryUsageDescription:
+      "Photo library is used to update your profile photo."
+    NSLocationWhenInUseUsageDescription:
+      "Allow location access to show distances to boarding points."
+      (optional, for pickup distance display — not required for core functionality)
+
+  NOTE: No location or background permissions are required for the passenger app.
+  No push notification permissions in v1.
+
+ENVIRONMENT VARIABLES
+  .env.local:
+    EXPO_PUBLIC_API_BASE_URL=http://localhost:5000
+    EXPO_PUBLIC_SIGNALR_HUB_URL=http://localhost:5000
+    EXPO_PUBLIC_GOOGLE_MAPS_KEY=
+    EXPO_PUBLIC_SENTRY_DSN=
+    EXPO_PUBLIC_ENV=development
+
+  EAS Secrets (staging + production — set via eas secret:create):
+    EXPO_PUBLIC_API_BASE_URL
+    EXPO_PUBLIC_SIGNALR_HUB_URL
+    EXPO_PUBLIC_GOOGLE_MAPS_KEY
+    EXPO_PUBLIC_SENTRY_DSN
+
+OTA UPDATES (EAS Update)
+  Use for: bug fixes, UI updates, translation updates, non-breaking changes
+  Do NOT use for: new native permissions, new native modules, major flows
+  Command: eas update --branch production --message "Fix payment timeout UI"
+
+GITHUB ACTIONS CI
+  On PR:
+    npm ci
+    npx tsc --noEmit
+    npx eslint . --ext .ts,.tsx
+    npm test -- --coverage
+  On merge to main:
+    All tests pass
+    eas build --platform all --profile staging --non-interactive
+    Manual approval → eas build --platform all --profile production
+
+
+════════════════════════════════════════════════════════════════════════════════
+SECTION 13 — DELIVERY RULES & QUALITY STANDARDS
+════════════════════════════════════════════════════════════════════════════════
+
+OUTPUT EXPECTATIONS
+  Produce working, production-quality code. No placeholders. No TODO comments.
+  Every screen must be fully implemented with:
+    - Real API integration (TanStack Query hooks)
+    - All loading states (skeleton loaders, not spinners)
+    - All error states (inline + toast + full-screen)
+    - All empty states (with illustrations and CTAs)
+    - i18n (zero hardcoded English strings in JSX — all via t('key'))
+    - Accessibility labels on all interactive elements
+    - TypeScript strict types on all props and API responses
+    - Both iOS and Android visually correct
+
+FEATURE DELIVERY ORDER (strict sequence)
+  1.  Project scaffold: Expo Router, TypeScript, all libraries installed + configured
+  2.  i18n setup: all 3 languages, all translation keys stubbed
+  3.  Auth flow: splash → language → agreement → phone → OTP → name setup
+  4.  Biometric login
+  5.  Axios client + interceptors + token management + authStore
+  6.  Home screen + city search
+  7.  Route search results screen
+  8.  Trip detail screen (step 1 of booking)
+  9.  Pickup location selection with map (step 2)
+  10. Drop-off selection (step 3)
+  11. Seat selection with real-time seat map (step 4)
+  12. Passenger details form (step 5)
+  13. Order summary + rewards redemption (step 6)
+  14. Payment method selection + initiation (Telebirr first)
+  15. Payment waiting screen + polling
+  16. Add CBE Birr, HelloCash, ADC payment methods
+  17. Booking confirmation + QR ticket screen
+  18. My trips list screen
+  19. Trip detail screen (post-booking)
+  20. Cancel booking flow
+  21. Live tracking screen + SignalR
+  22. Rewards screen + referral
+  23. Profile screen (all sections)
+  24. Notifications screen + polling
+  25. Post-trip review screen
+  26. Offline handling (QR ticket cache, offline banner)
+  27. Tests (write alongside each feature — not after)
+
+CRITICAL RULES (never violate)
+  1.  Never store access or refresh tokens outside expo-secure-store.
+  2.  Never proceed past agreement screen without a confirmed server-side acceptance record.
+  3.  POST /bookings and POST /payments/initiate are sequential — booking first, then payment.
+      If booking fails (seat taken), NEVER initiate payment.
+  4.  Payment phone number must be cleared from bookingFlowStore after transaction completes.
+  5.  bookingFlowStore.clearFlow() must be called on booking confirmation AND on navigating
+      away from booking flow (back to home, back to search).
+  6.  Seat lock countdown must be shown on seat selection. After expiry, re-validate seats.
+  7.  "Track trip" button only shown when trip status = InProgress.
+  8.  SignalR connection must be disconnected when tracking screen unmounts.
+  9.  QR ticket must be available offline (MMKV-cached after confirmation).
+  10. All user-facing strings must use i18n keys. Zero hardcoded strings in JSX.
+  11. Cancel booking must display the applicable refund policy BEFORE confirmation.
+  12. SOS alert must trigger a server-side SMS — never client-only.
+
+PERFORMANCE TARGETS
+  Cold start (first launch):    < 3 seconds (mid-range Android)
+  Route search to results:      < 2 seconds (API + render)
+  Seat map render:               < 500ms
+  QR ticket display:             < 300ms (from MMKV cache offline)
+  Live tracking update:          < 5 seconds end-to-end (GPS → screen)
+  Bundle size:                   < 35MB
+
+NAMING CONVENTIONS
+  Components:    PascalCase  (TripCard.tsx, SeatGrid.tsx, PaymentMethodCard.tsx)
+  Hooks:         camelCase starting with use  (useInitiatePayment.ts)
+  Stores:        camelCase + Store suffix  (bookingFlowStore.ts)
+  Schemas:       camelCase + Schema suffix  (createBookingSchema)
+  Route files:   lowercase/kebab (expo-router convention)
+  Translation:   dot notation  (screen.booking.payment.title)
+  Constants:     SCREAMING_SNAKE_CASE  (TRACKING_GROUP_PREFIX)
+
+PRE-COMPLETION CHECKLIST (for every screen/feature)
+  [ ] TypeScript: zero errors, zero 'any', no '!' without comment
+  [ ] ESLint: zero warnings
+  [ ] All strings in translation files (en + am + om)
+  [ ] Loading state implemented (skeleton preferred over spinner)
+  [ ] Error state implemented with recovery path
+  [ ] Empty state implemented for all lists/content areas
+  [ ] Accessibility labels on all interactive elements
+  [ ] Works offline (from cache) or fails gracefully with clear message
+  [ ] Works correctly on both iOS and Android
+  [ ] iOS safe area insets applied (useSafeAreaInsets)
+  [ ] Keyboard avoidance on all forms
+  [ ] Unit tests for all hooks
+  [ ] Component test for the screen
+
+================================================================================
+END OF STAGE 2B — PASSENGER APP PROMPT
+አድራሽ (ADRASH) | Based on SRS v1.1 + Stage 1 API | April 2026
+================================================================================

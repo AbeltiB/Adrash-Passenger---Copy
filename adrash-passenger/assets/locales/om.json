@@ -1,0 +1,193 @@
+{
+    "common": {
+        "loading": "Fe'amaa jira…",
+        "error": "Dogoggorri uumame",
+        "retry": "Irra deebi'i yaali",
+        "cancel": "Haquu",
+        "confirm": "Mirkaneessi",
+        "back": "Duubatti",
+        "next": "Itti aanu",
+        "done": "Xumurame",
+        "save": "Olkaa'i",
+        "close": "Cufuu",
+        "yes": "Eeyyee",
+        "no": "Lakki",
+        "search": "Barbaadi",
+        "currency": "ETB",
+        "network_error": "Interneetii hin jiru.",
+        "session_expired": "Yeroon bahe. Maaloo irra deebi'ii seeni."
+    },
+    "auth": {
+        "splash": {
+            "tagline": "Adeemsi kee asuma jalqaba"
+        },
+        "language": {
+            "title": "Afaan kee filadhu",
+            "subtitle": "Itti fuuuuf afaan barbaadde filadhu",
+            "english": "English",
+            "amharic": "አማርኛ",
+            "oromo": "Afaan Oromoo"
+        },
+        "agreement": {
+            "title": "Seeraa fi Icciitii",
+            "subtitle": "Itti fufuun dura seeroota keenya dubbiifi fudhaa",
+            "terms_label": "Seera Tajaajilaaf",
+            "privacy_label": "Iccitii Dhuunfaa",
+            "accept_button": "Fudhachuu",
+            "decline_button": "Didan"
+        },
+        "phone": {
+            "title": "Lakkoofsa bilbilaa kee galchi",
+            "subtitle": "Koodii mirkaneessaa ni ergina",
+            "placeholder": "09XXXXXXXX",
+            "send_otp": "Koodii Ergi",
+            "invalid_phone": "Lakkoofsa bilbilaa Itoophiyaa sirrii galchi"
+        },
+        "otp": {
+            "title": "Koodii mirkaneessaa galchi",
+            "subtitle": "Koodii lakkoofsota 6 gara {{phone}} erginee jirra",
+            "resend": "Koodii irra deebi'ii ergi",
+            "resend_in": "{{seconds}}s keessatti irra deebi'ii ergi",
+            "verify": "Mirkaneessi",
+            "invalid_otp": "Koodiin sirrii miti. Irra deebi'i yaali.",
+            "expired_otp": "Koodiin dhumate. Haaraa gaafadhu."
+        },
+        "setup": {
+            "title": "Profaayilii kee guuti",
+            "subtitle": "Jalqabuuf maqaa kee nuuf himi",
+            "first_name_placeholder": "Maqaa duraa",
+            "last_name_placeholder": "Maqaa abaa",
+            "create_account": "Herrega Uumi",
+            "first_name_required": "Maqaan duraa barbaachisaadha",
+            "last_name_required": "Maqaan abaa barbaachisaadha"
+        }
+    },
+    "home": {
+        "search_placeholder": "Eessa deemta?",
+        "recent_searches": "Barbaadichi Dhiyoo",
+        "popular_routes": "Karaalee Beekamoo",
+        "no_results": "Karaaleen hin argamne",
+        "search_results_title": "Karaalee Jiran"
+    },
+    "route": {
+        "details_title": "Bal'ina Karaa",
+        "stops": "Bakka Dhaabbiifi",
+        "amenities": "Tajaajilaalee",
+        "driver_info": "Odeeffannoo Diraawwarii",
+        "fare": "Gatii",
+        "duration": "Yeroo",
+        "book_now": "Amma Eeyyami",
+        "seats_available": "Teessoon {{count}} jira",
+        "no_seats": "Teessoon hin jiru"
+    },
+    "booking": {
+        "pickup": {
+            "title": "Bakka Ka'umsa Filadhu",
+            "search_placeholder": "Bakka ka'umsa barbaadi",
+            "confirm_pickup": "Ka'umsa Mirkaneessi"
+        },
+        "seats": {
+            "title": "Teessoo Kee Filadhu",
+            "selected": "Teessoo(leen) {{count}} filatame",
+            "available": "Jira",
+            "occupied": "Qabame",
+            "selected_label": "Filatame",
+            "confirm_seats": "Teessoolee Mirkaneessi"
+        },
+        "passengers": {
+            "title": "Bal'ina Konkolaataa",
+            "seat_label": "Teessoo {{number}}",
+            "name_placeholder": "Maqaa guutuu",
+            "age_placeholder": "Umrii",
+            "gender_label": "Saala",
+            "male": "Dhiiraa",
+            "female": "Dhalaa",
+            "continue": "Itti fufuu"
+        },
+        "summary": {
+            "title": "Waliigala Ajajaa",
+            "route": "Karaa",
+            "date": "Guyyaa",
+            "seats": "Teessoolee",
+            "subtotal": "Walii Gala Dursaa",
+            "service_fee": "Kaffaltii Tajaajilaa",
+            "pickup_fee": "Kaffaltii Ka'umsaa",
+            "total": "Walii Galaa",
+            "proceed_to_payment": "Gara Kaffaltiitti Itti Fufi"
+        },
+        "payment": {
+            "title": "Kaffaltii",
+            "select_method": "Haala Kaffaltii Filadhu",
+            "telebirr": "TeleBirr",
+            "cbe_birr": "CBE Birr",
+            "awash": "Baankii Awash",
+            "pay_now": "ETB {{amount}} Kafali",
+            "processing": "Hojjetamaa jira…"
+        },
+        "waiting": {
+            "title": "Mirkaneessaa Eegaa Jira",
+            "message": "Eeyyamni kee hojjetamaa jira",
+            "please_wait": "Maaloo eegi…"
+        },
+        "confirmation": {
+            "title": "Eeyyamni Mirkanaaye!",
+            "booking_id": "ID Eeyyamaa: {{id}}",
+            "view_ticket": "Tikeettii Ilaali",
+            "go_home": "Gara Mana Deebi'i"
+        }
+    },
+    "trips": {
+        "title": "Imaltoonni Koo",
+        "upcoming": "Dhufaatii",
+        "completed": "Xumurame",
+        "cancelled": "Haaqame",
+        "no_trips": "Imaltoonni hin argamne",
+        "trip_detail_title": "Bal'ina Imalaa",
+        "ticket_title": "Tikeettii Kee",
+        "track_bus": "Basii Hordofaa",
+        "cancel_trip": "Eeyyama Haqi",
+        "write_review": "Yaada Barreessi",
+        "cancel_confirm": "Eeyyama kana haqi?",
+        "cancel_success": "Eeyyamni haaqame",
+        "review_title": "Muuxannoo Kee Madaali",
+        "review_placeholder": "Muuxannoo kee nuuf himi…",
+        "submit_review": "Yaada Galchi",
+        "tracking_title": "Hordoffii Kallattii",
+        "eta": "ETA: {{time}}",
+        "bus_location": "Iddoo Basii"
+    },
+    "rewards": {
+        "title": "Badhaasota",
+        "balance": "Hanga Kee",
+        "points": "Qabxii {{count}}",
+        "history_title": "Seena Qabxii",
+        "referral_title": "Hiriyaa Afeeraa",
+        "referral_code": "Koodii Kee",
+        "referral_message": "Koodii kee qoodii fi hiriyoonni kee imala jalqabaa erga fudhatan booda qabxii argadhu",
+        "redeem": "Qabxii Fudhachuuf",
+        "redeem_confirm": "Qabxii {{count}} fudhachuu?",
+        "no_history": "Seenaa badhaasaa hanga ammaa hin jiru",
+        "earned": "Argame",
+        "redeemed": "Fayyadame"
+    },
+    "profile": {
+        "title": "Profaayilii",
+        "personal_info": "Odeeffannoo Dhuunfaa",
+        "saved_locations": "Iddoolee Olkaa'aman",
+        "settings": "Qindaa'inaafi",
+        "language": "Afaan",
+        "help": "Gargaarsa fi Deeggarsa",
+        "about": "Waa'ee",
+        "logout": "Ba'uu",
+        "logout_confirm": "Ba'uu barbaadda mirkaneessi?",
+        "version": "Versiyooni {{version}}"
+    },
+    "errors": {
+        "generic": "Wanti tokko dogoggore. Irra deebi'i yaali.",
+        "network": "Dogoggora Neetiwirkii. Walqunnamtii kee mirkaneessi.",
+        "unauthorized": "Itti fuuuuf maaloo seeni.",
+        "not_found": "Hin argamne.",
+        "server": "Dogoggora Sarvarii. Booda irra deebi'i yaali.",
+        "validation": "Galchi kee mirkaneessi."
+    }
+}

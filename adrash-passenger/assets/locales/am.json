@@ -1,0 +1,193 @@
+{
+    "common": {
+        "loading": "በመጫን ላይ…",
+        "error": "ስህተት ተፈጥሯል",
+        "retry": "እንደገና ሞክር",
+        "cancel": "ሰርዝ",
+        "confirm": "አረጋግጥ",
+        "back": "ተመለስ",
+        "next": "ቀጥል",
+        "done": "ተጠናቅቋል",
+        "save": "አስቀምጥ",
+        "close": "ዝጋ",
+        "yes": "አዎ",
+        "no": "አይ",
+        "search": "ፈልግ",
+        "currency": "ብር",
+        "network_error": "የኢንተርኔት ግንኙነት የለም።",
+        "session_expired": "ክፍለ ጊዜ አልቋል። እንደገና ይግቡ።"
+    },
+    "auth": {
+        "splash": {
+            "tagline": "ጉዞዎ እዚህ ይጀምራል"
+        },
+        "language": {
+            "title": "ቋንቋዎን ይምረጡ",
+            "subtitle": "ለመቀጠል የሚፈልጉትን ቋንቋ ይምረጡ",
+            "english": "English",
+            "amharic": "አማርኛ",
+            "oromo": "Afaan Oromoo"
+        },
+        "agreement": {
+            "title": "ውሎች እና ግላዊነት",
+            "subtitle": "ከቀጠሉ በፊት ውሎቻችንን ያንብቡ እና ይቀበሉ",
+            "terms_label": "የአገልግሎት ውሎች",
+            "privacy_label": "የግላዊነት ፖሊሲ",
+            "accept_button": "እቀበላለሁ",
+            "decline_button": "አልቀበልም"
+        },
+        "phone": {
+            "title": "ስልክ ቁጥርዎን ያስገቡ",
+            "subtitle": "የማረጋገጫ ኮድ እንልክልዎታለን",
+            "placeholder": "09XXXXXXXX",
+            "send_otp": "ኮድ ላክ",
+            "invalid_phone": "ትክክለኛ የኢትዮጵያ ስልክ ቁጥር ያስገቡ"
+        },
+        "otp": {
+            "title": "የማረጋገጫ ኮድ ያስገቡ",
+            "subtitle": "6 አሃዝ ኮድ ወደ {{phone}} ልከናል",
+            "resend": "ኮድ እንደገና ላክ",
+            "resend_in": "{{seconds}}ሰከንድ ውስጥ እንደገና ይላካል",
+            "verify": "አረጋግጥ",
+            "invalid_otp": "ኮዱ ትክክል አይደለም። እንደገና ሞክር።",
+            "expired_otp": "ኮዱ አልቋል። አዲስ ኮድ ይጠይቁ።"
+        },
+        "setup": {
+            "title": "መገለጫዎን ያጠናቅቁ",
+            "subtitle": "ለመጀመር ስምዎን ይንገሩን",
+            "first_name_placeholder": "የመጀመሪያ ስም",
+            "last_name_placeholder": "የአባት ስም",
+            "create_account": "መለያ ፍጠር",
+            "first_name_required": "የመጀመሪያ ስም ያስፈልጋል",
+            "last_name_required": "የአባት ስም ያስፈልጋል"
+        }
+    },
+    "home": {
+        "search_placeholder": "የት ይሄዳሉ?",
+        "recent_searches": "የቅርብ ጊዜ ፍለጋዎች",
+        "popular_routes": "ታዋቂ መስመሮች",
+        "no_results": "መስመሮች አልተገኙም",
+        "search_results_title": "ያሉ መስመሮች"
+    },
+    "route": {
+        "details_title": "የመስመር ዝርዝሮች",
+        "stops": "ማቆሚያዎች",
+        "amenities": "አገልግሎቶች",
+        "driver_info": "የሾፌር መረጃ",
+        "fare": "ታሪፍ",
+        "duration": "ጊዜ",
+        "book_now": "አሁን ያስይዙ",
+        "seats_available": "{{count}} ወንበሮች አሉ",
+        "no_seats": "ወንበሮች የሉም"
+    },
+    "booking": {
+        "pickup": {
+            "title": "የመነሻ ቦታ ይምረጡ",
+            "search_placeholder": "የመነሻ ቦታ ፈልግ",
+            "confirm_pickup": "መነሻ ቦታ አረጋግጥ"
+        },
+        "seats": {
+            "title": "ወንበሮቻቸውን ይምረጡ",
+            "selected": "{{count}} ወንበር(ዎች) ተመርጠዋል",
+            "available": "ያለ",
+            "occupied": "የተያዘ",
+            "selected_label": "ተመርጧል",
+            "confirm_seats": "ወንበሮቹን አረጋግጥ"
+        },
+        "passengers": {
+            "title": "የተሳፋሪ ዝርዝሮች",
+            "seat_label": "ወንበር {{number}}",
+            "name_placeholder": "ሙሉ ስም",
+            "age_placeholder": "ዕድሜ",
+            "gender_label": "ጾታ",
+            "male": "남성",
+            "female": "ሴት",
+            "continue": "ቀጥል"
+        },
+        "summary": {
+            "title": "የትዕዛዝ ማጠቃለያ",
+            "route": "መስመር",
+            "date": "ቀን",
+            "seats": "ወንበሮች",
+            "subtotal": "ድምር",
+            "service_fee": "የአገልግሎት ክፍያ",
+            "pickup_fee": "የመነሻ ክፍያ",
+            "total": "ጠቅላላ",
+            "proceed_to_payment": "ወደ ክፍያ ቀጥል"
+        },
+        "payment": {
+            "title": "ክፍያ",
+            "select_method": "የክፍያ ዘዴ ይምረጡ",
+            "telebirr": "ቴሌብር",
+            "cbe_birr": "CBE ብር",
+            "awash": "አዋሽ ባንክ",
+            "pay_now": "{{amount}} ብር ክፈል",
+            "processing": "በሂደት ላይ…"
+        },
+        "waiting": {
+            "title": "ማረጋገጫ በመጠባበቅ ላይ",
+            "message": "ማስያዝዎ እየተሰራ ነው",
+            "please_wait": "እባክዎ ይጠብቁ…"
+        },
+        "confirmation": {
+            "title": "ማስያዝ ተረጋግጧል!",
+            "booking_id": "የማስያዝ መለያ: {{id}}",
+            "view_ticket": "ትኬት ይመልከቱ",
+            "go_home": "ወደ መነሻ ተመለስ"
+        }
+    },
+    "trips": {
+        "title": "ጉዞዎቼ",
+        "upcoming": "መጪ",
+        "completed": "የተጠናቀቀ",
+        "cancelled": "የተሰረዘ",
+        "no_trips": "ጉዞዎች አልተገኙም",
+        "trip_detail_title": "የጉዞ ዝርዝሮች",
+        "ticket_title": "ትኬትዎ",
+        "track_bus": "አውቶቡስ ክትትል",
+        "cancel_trip": "ማስያዝ ሰርዝ",
+        "write_review": "ግምገማ ይጻፉ",
+        "cancel_confirm": "ይህን ማስያዝ ይሰርዙ?",
+        "cancel_success": "ማስያዝ ተሰርዟል",
+        "review_title": "ልምድዎን ይገምግሙ",
+        "review_placeholder": "ስለ ልምድዎ ይንገሩን…",
+        "submit_review": "ግምገማ አስገባ",
+        "tracking_title": "የቀጥታ ክትትል",
+        "eta": "ETA: {{time}}",
+        "bus_location": "የአውቶቡስ ቦታ"
+    },
+    "rewards": {
+        "title": "ሽልማቶች",
+        "balance": "ቀሪ ሒሳብዎ",
+        "points": "{{count}} ነጥቦች",
+        "history_title": "የነጥብ ታሪክ",
+        "referral_title": "ጓደኛ ያሳትፉ",
+        "referral_code": "ኮድዎ",
+        "referral_message": "ኮድዎን ያጋሩ እና ጓደኞችዎ የመጀመሪያ ጉዞ ሲወስዱ ነጥቦችን ያግኙ",
+        "redeem": "ነጥቦች ያስፈቱ",
+        "redeem_confirm": "{{count}} ነጥቦች ያስፈቱ?",
+        "no_history": "እስካሁን ምንም የሽልማት ታሪክ የለም",
+        "earned": "የተገኘ",
+        "redeemed": "ጥቅም ላይ የዋለ"
+    },
+    "profile": {
+        "title": "መገለጫ",
+        "personal_info": "የግል መረጃ",
+        "saved_locations": "የተቀመጡ ቦታዎች",
+        "settings": "ቅንብሮች",
+        "language": "ቋንቋ",
+        "help": "እርዳታ እና ድጋፍ",
+        "about": "ስለ",
+        "logout": "ውጣ",
+        "logout_confirm": "እርግጠኛ ነዎት መውጣት ይፈልጋሉ?",
+        "version": "ስሪት {{version}}"
+    },
+    "errors": {
+        "generic": "ችግር ተፈጥሯል። እንደገና ይሞክሩ።",
+        "network": "የኔትወርክ ስህተት። ግንኙነትዎን ያረጋግጡ።",
+        "unauthorized": "ለመቀጠል እባክዎ ይግቡ።",
+        "not_found": "አልተገኘም።",
+        "server": "የሰርቨር ስህተት። በኋላ ይሞክሩ።",
+        "validation": "ግብዓትዎን ያረጋግጡ።"
+    }
+}

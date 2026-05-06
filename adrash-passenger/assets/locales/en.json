@@ -1,0 +1,193 @@
+{
+    "common": {
+        "loading": "Loading…",
+        "error": "Something went wrong",
+        "retry": "Try again",
+        "cancel": "Cancel",
+        "confirm": "Confirm",
+        "back": "Back",
+        "next": "Next",
+        "done": "Done",
+        "save": "Save",
+        "close": "Close",
+        "yes": "Yes",
+        "no": "No",
+        "search": "Search",
+        "currency": "ETB",
+        "network_error": "No internet connection.",
+        "session_expired": "Session expired. Please sign in again."
+    },
+    "auth": {
+        "splash": {
+            "tagline": "Your journey starts here"
+        },
+        "language": {
+            "title": "Choose your language",
+            "subtitle": "Select your preferred language to continue",
+            "english": "English",
+            "amharic": "አማርኛ",
+            "oromo": "Afaan Oromoo"
+        },
+        "agreement": {
+            "title": "Terms & Privacy",
+            "subtitle": "Please read and accept our terms before continuing",
+            "terms_label": "Terms of Service",
+            "privacy_label": "Privacy Policy",
+            "accept_button": "I Accept",
+            "decline_button": "Decline"
+        },
+        "phone": {
+            "title": "Enter your phone number",
+            "subtitle": "We'll send you a verification code",
+            "placeholder": "09XXXXXXXX",
+            "send_otp": "Send Code",
+            "invalid_phone": "Enter a valid Ethiopian phone number"
+        },
+        "otp": {
+            "title": "Enter verification code",
+            "subtitle": "We sent a 6-digit code to {{phone}}",
+            "resend": "Resend code",
+            "resend_in": "Resend in {{seconds}}s",
+            "verify": "Verify",
+            "invalid_otp": "Incorrect code. Please try again.",
+            "expired_otp": "Code expired. Request a new one."
+        },
+        "setup": {
+            "title": "Complete your profile",
+            "subtitle": "Tell us your name to get started",
+            "first_name_placeholder": "First name",
+            "last_name_placeholder": "Last name",
+            "create_account": "Create Account",
+            "first_name_required": "First name is required",
+            "last_name_required": "Last name is required"
+        }
+    },
+    "home": {
+        "search_placeholder": "Where are you going?",
+        "recent_searches": "Recent Searches",
+        "popular_routes": "Popular Routes",
+        "no_results": "No routes found",
+        "search_results_title": "Available Routes"
+    },
+    "route": {
+        "details_title": "Route Details",
+        "stops": "Stops",
+        "amenities": "Amenities",
+        "driver_info": "Driver Info",
+        "fare": "Fare",
+        "duration": "Duration",
+        "book_now": "Book Now",
+        "seats_available": "{{count}} seats available",
+        "no_seats": "No seats available"
+    },
+    "booking": {
+        "pickup": {
+            "title": "Choose pickup location",
+            "search_placeholder": "Search pickup location",
+            "confirm_pickup": "Confirm Pickup"
+        },
+        "seats": {
+            "title": "Select your seats",
+            "selected": "{{count}} seat(s) selected",
+            "available": "Available",
+            "occupied": "Occupied",
+            "selected_label": "Selected",
+            "confirm_seats": "Confirm Seats"
+        },
+        "passengers": {
+            "title": "Passenger details",
+            "seat_label": "Seat {{number}}",
+            "name_placeholder": "Full name",
+            "age_placeholder": "Age",
+            "gender_label": "Gender",
+            "male": "Male",
+            "female": "Female",
+            "continue": "Continue"
+        },
+        "summary": {
+            "title": "Order Summary",
+            "route": "Route",
+            "date": "Date",
+            "seats": "Seats",
+            "subtotal": "Subtotal",
+            "service_fee": "Service fee",
+            "pickup_fee": "Pickup fee",
+            "total": "Total",
+            "proceed_to_payment": "Proceed to Payment"
+        },
+        "payment": {
+            "title": "Payment",
+            "select_method": "Select payment method",
+            "telebirr": "TeleBirr",
+            "cbe_birr": "CBE Birr",
+            "awash": "Awash Bank",
+            "pay_now": "Pay {{amount}} ETB",
+            "processing": "Processing…"
+        },
+        "waiting": {
+            "title": "Awaiting confirmation",
+            "message": "Your booking is being processed",
+            "please_wait": "Please wait…"
+        },
+        "confirmation": {
+            "title": "Booking confirmed!",
+            "booking_id": "Booking ID: {{id}}",
+            "view_ticket": "View Ticket",
+            "go_home": "Back to Home"
+        }
+    },
+    "trips": {
+        "title": "My Trips",
+        "upcoming": "Upcoming",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "no_trips": "No trips found",
+        "trip_detail_title": "Trip Details",
+        "ticket_title": "Your Ticket",
+        "track_bus": "Track Bus",
+        "cancel_trip": "Cancel Booking",
+        "write_review": "Write Review",
+        "cancel_confirm": "Cancel this booking?",
+        "cancel_success": "Booking cancelled",
+        "review_title": "Rate your experience",
+        "review_placeholder": "Tell us about your experience…",
+        "submit_review": "Submit Review",
+        "tracking_title": "Live Tracking",
+        "eta": "ETA: {{time}}",
+        "bus_location": "Bus Location"
+    },
+    "rewards": {
+        "title": "Rewards",
+        "balance": "Your Balance",
+        "points": "{{count}} points",
+        "history_title": "Points History",
+        "referral_title": "Refer a Friend",
+        "referral_code": "Your Code",
+        "referral_message": "Share your code and earn points when your friends take their first trip",
+        "redeem": "Redeem Points",
+        "redeem_confirm": "Redeem {{count}} points?",
+        "no_history": "No reward history yet",
+        "earned": "Earned",
+        "redeemed": "Redeemed"
+    },
+    "profile": {
+        "title": "Profile",
+        "personal_info": "Personal Info",
+        "saved_locations": "Saved Locations",
+        "settings": "Settings",
+        "language": "Language",
+        "help": "Help & Support",
+        "about": "About",
+        "logout": "Logout",
+        "logout_confirm": "Are you sure you want to logout?",
+        "version": "Version {{version}}"
+    },
+    "errors": {
+        "generic": "Something went wrong. Please try again.",
+        "network": "Network error. Check your connection.",
+        "unauthorized": "Please sign in to continue.",
+        "not_found": "Not found.",
+        "server": "Server error. Try again later.",
+        "validation": "Please check your input."
+    }
+}
