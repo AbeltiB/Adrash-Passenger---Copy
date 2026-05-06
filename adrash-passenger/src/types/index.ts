@@ -1,85 +1,70 @@
 import type { ApiResponse, ApiError, ApiMeta } from '../api/types';
 
-// Re-export envelope types used by legacy endpoints that still wrap responses.
+// Re-export envelope types
 export type { ApiResponse, ApiError, ApiMeta };
 
+// ─── Localisation ─────────────────────────────────────────────────────────────
+/** Supported UI languages — mirrors SupportedLanguage in src/lib/i18n.ts */
+export type Language = 'en' | 'am' | 'om';
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
-export type UserRole = 'ADMIN' | 'USER' | string;
+
+/**
+ * Online/offline status of the currently authenticated driver.
+ * Passenger app uses this when showing driver info on a booked trip.
+ */
+export type DriverStatus = 'online' | 'offline' | 'on_trip' | 'unavailable';
 
 export interface User {
     id: string;
-    username: string;
-    roles: UserRole[];
-}
-
-export interface LoginRequest {
-    username: string;
-    password: string;
-}
-
-export interface LoginResponse {
-    access_token: string;
-    refresh_token: string;
-    expires_in: number;
-}
-
-export interface RefreshTokenRequest { refresh_token: string }
-export interface RefreshTokenResponse {
-    access_token: string;
-    expires_in: number;
+    firstName: string;
+    lastName: string;
+    phoneNumber: string;
+    createdAt: string;
 }
 
 export interface AuthTokens {
     accessToken: string;
-    refreshToken?: string;
+    refreshToken: string;
     expiresIn: number; // seconds
 }
-
 
 export interface OtpSendRequest { phoneNumber: string }
 export interface OtpVerifyRequest { phoneNumber: string; otp: string }
 export interface OtpVerifyResponse {
-    tokens: AuthTokens | LoginResponse;
+    tokens: AuthTokens;
     user: User;
-    isNewUser?: boolean;
+    isNewUser: boolean;
 }
 export interface SetupProfileRequest { firstName: string; lastName: string }
 
-// ─── Agreements ───────────────────────────────────────────────────────────────
-export type AgreementStatus = 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'INACTIVE' | string;
-
-export interface AgreementSummary {
-    id: string;
-    title: string;
-    status: AgreementStatus;
-    startDate: string;
-    endDate: string;
-}
-
-export interface AgreementDocument {
-    id: string;
-    title: string;
-    content: string;
-    status: AgreementStatus;
-    signed: boolean;
-}
-
-export interface CreateAgreementRequest {
-    title: string;
-    content: string;
-    startDate: string;
-    endDate: string;
-}
-
-export interface UpdateAgreementRequest {
-    title: string;
-    content: string;
-    status: 'ACTIVE' | 'INACTIVE';
-}
-
-export interface SignAgreementResponse {
-    agreementId: string;
-    signedAt: string;
+/**
+ * Shape of the Zustand auth slice — exported so authStore.ts can import it
+ * directly from types rather than declaring it inline.
+ */
+export interface AuthState {
+    // ─ Persisted state ────────────────────────────────────────────────────
+    user: User | null;
+    isAuthenticated: boolean;
+    hasAcceptedAgreement: boolean;
+    agreementVersion: string | null;
+    preferredLanguage: Language;
+    isBiometricEnabled: boolean;
+    // ─ Session-only state ─────────────────────────────────────────────────
+    accessToken: string | null;
+    refreshToken: string | null;
+    // ─ Actions ────────────────────────────────────────────────────────────
+    setUser: (user: User | null) => void;
+    setAuthenticated: (value: boolean) => void;
+    setTokens: (accessToken: string, refreshToken: string) => void;
+    clearTokens: () => void;
+    setPhone: (phone: string) => void;
+    setDriverStatus: (status: DriverStatus) => void;
+    setLanguage: (lang: Language) => void;
+    setBiometricEnabled: (enabled: boolean) => void;
+    acceptAgreement: (version: string) => void;
+    setCustomValue: (key: string, value: string) => void;
+    logout: () => void;
 }
 
 // ─── Route / Search ───────────────────────────────────────────────────────────
@@ -224,7 +209,29 @@ export interface PaymentStatusResponse {
     bookingId: string;
 }
 
-// ─── Trips / Tracking ─────────────────────────────────────────────────────────
+// ─── Trips ────────────────────────────────────────────────────────────────────
+export type TripTab = 'upcoming' | 'completed' | 'cancelled';
+
+export interface Trip extends Booking {
+    canCancel: boolean;
+    canReview: boolean;
+    hasReview: boolean;
+}
+
+export interface SubmitReviewRequest {
+    bookingId: string;
+    rating: number;       // 1-5
+    comment?: string;
+}
+
+export interface CancellationInfo {
+    canCancel: boolean;
+    reason?: string;
+    refundAmount: number; // ETB
+    refundPolicy: string;
+}
+
+// ─── Tracking ─────────────────────────────────────────────────────────────────
 export interface BusLocation {
     busId: string;
     latitude: number;
