@@ -1,3 +1,5 @@
+// src/features/auth/store/bookingStore.ts
+// (also present at src/features/booking/store/bookingStore.ts — keep both in sync)
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { MMKV } from 'react-native-mmkv';
@@ -10,39 +12,43 @@ import type {
     PaymentProvider,
 } from '../../../types';
 
-const mmkv = new MMKV({ id: 'booking' });
+// ── Lazy MMKV to avoid TurboModule crash on module load ──────────────────────
+let _mmkv: MMKV | null = null;
+function getMMKV(): MMKV {
+    if (!_mmkv) _mmkv = new MMKV({ id: 'booking' });
+    return _mmkv;
+}
+
 const storage = {
-    getItem: (k: string) => mmkv.getString(k) ?? null,
-    setItem: (k: string, v: string) => mmkv.set(k, v),
-    removeItem: (k: string) => mmkv.delete(k),
+    getItem:    (k: string) => getMMKV().getString(k) ?? null,
+    setItem:    (k: string, v: string) => getMMKV().set(k, v),
+    removeItem: (k: string) => getMMKV().delete(k),
 };
 
 interface BookingState {
-    // ─ In-progress booking data ───────────────
-    selectedRoute: Route | null;
-    selectedSeats: Seat[];
-    selectedPickup: PickupLocation | null;
-    passengers: PassengerDetail[];
-    fareBreakdown: FareBreakdown | null;
+    selectedRoute:    Route | null;
+    selectedSeats:    Seat[];
+    selectedPickup:   PickupLocation | null;
+    passengers:       PassengerDetail[];
+    fareBreakdown:    FareBreakdown | null;
     selectedProvider: PaymentProvider | null;
     currentBookingId: string | null;
-    // ─ Actions ───────────────────────────────
-    setRoute: (r: Route | null) => void;
-    setSeats: (s: Seat[]) => void;
-    setPickup: (p: PickupLocation | null) => void;
-    setPassengers: (p: PassengerDetail[]) => void;
-    setFareBreakdown: (f: FareBreakdown | null) => void;
-    setProvider: (p: PaymentProvider | null) => void;
-    setBookingId: (id: string | null) => void;
-    resetBooking: () => void;
+    setRoute:        (r: Route | null) => void;
+    setSeats:        (s: Seat[]) => void;
+    setPickup:       (p: PickupLocation | null) => void;
+    setPassengers:   (p: PassengerDetail[]) => void;
+    setFareBreakdown:(f: FareBreakdown | null) => void;
+    setProvider:     (p: PaymentProvider | null) => void;
+    setBookingId:    (id: string | null) => void;
+    resetBooking:    () => void;
 }
 
-const INIT: Omit<BookingState, keyof { [K in keyof BookingState as BookingState[K] extends Function ? K : never]: never }> = {
-    selectedRoute: null,
-    selectedSeats: [],
-    selectedPickup: null,
-    passengers: [],
-    fareBreakdown: null,
+const RESET = {
+    selectedRoute:    null,
+    selectedSeats:    [] as Seat[],
+    selectedPickup:   null,
+    passengers:       [] as PassengerDetail[],
+    fareBreakdown:    null,
     selectedProvider: null,
     currentBookingId: null,
 };
@@ -50,16 +56,15 @@ const INIT: Omit<BookingState, keyof { [K in keyof BookingState as BookingState[
 export const useBookingStore = create<BookingState>()(
     persist(
         (set) => ({
-            ...INIT,
-
-            setRoute: (r) => set({ selectedRoute: r }),
-            setSeats: (s) => set({ selectedSeats: s }),
-            setPickup: (p) => set({ selectedPickup: p }),
-            setPassengers: (p) => set({ passengers: p }),
+            ...RESET,
+            setRoute:         (r) => set({ selectedRoute: r }),
+            setSeats:         (s) => set({ selectedSeats: s }),
+            setPickup:        (p) => set({ selectedPickup: p }),
+            setPassengers:    (p) => set({ passengers: p }),
             setFareBreakdown: (f) => set({ fareBreakdown: f }),
-            setProvider: (p) => set({ selectedProvider: p }),
-            setBookingId: (id) => set({ currentBookingId: id }),
-            resetBooking: () => set(INIT),
+            setProvider:      (p) => set({ selectedProvider: p }),
+            setBookingId:     (id) => set({ currentBookingId: id }),
+            resetBooking:     () => set(RESET),
         }),
         {
             name: 'booking-wip',

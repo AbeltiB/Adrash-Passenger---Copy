@@ -1,18 +1,15 @@
+// src/types/index.ts
 import type { ApiResponse, ApiError, ApiMeta } from '../api/types';
 
 // Re-export envelope types
 export type { ApiResponse, ApiError, ApiMeta };
 
 // ─── Localisation ─────────────────────────────────────────────────────────────
-/** Supported UI languages — mirrors SupportedLanguage in src/lib/i18n.ts */
+/** Supported UI languages */
 export type Language = 'en' | 'am' | 'om';
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
-/**
- * Online/offline status of the currently authenticated driver.
- * Passenger app uses this when showing driver info on a booked trip.
- */
 export type DriverStatus = 'online' | 'offline' | 'on_trip' | 'unavailable';
 
 export interface User {
@@ -21,36 +18,61 @@ export interface User {
     lastName: string;
     phoneNumber: string;
     createdAt: string;
+    /** Optional — set when driver status is surfaced on a trip */
+    driverStatus?: DriverStatus;
 }
 
 export interface AuthTokens {
     accessToken: string;
-    refreshToken: string;
-    expiresIn: number; // seconds
+    refreshToken?: string;   // optional: not returned on every call (e.g. token refresh)
+    expiresIn: number;       // seconds
 }
 
-export interface OtpSendRequest { phoneNumber: string }
+// ── OTP ──────────────────────────────────────────────────────────────────────
+export interface OtpSendRequest  { phoneNumber: string }
 export interface OtpVerifyRequest { phoneNumber: string; otp: string }
 export interface OtpVerifyResponse {
     tokens: AuthTokens;
     user: User;
     isNewUser: boolean;
 }
+
+// ── Login (username / password — future use or admin login) ───────────────────
+export interface LoginRequest {
+    username: string;
+    password: string;
+}
+
+/** Raw token response from the server (snake_case) */
+export interface LoginResponse {
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+}
+
+/** Raw token response from POST /auth/refresh (snake_case) */
+export interface RefreshTokenResponse {
+    access_token: string;
+    expires_in: number;
+    /** refresh_token rotation — may or may not be returned */
+    refresh_token?: string;
+}
+
 export interface SetupProfileRequest { firstName: string; lastName: string }
 
 /**
- * Shape of the Zustand auth slice — exported so authStore.ts can import it
- * directly from types rather than declaring it inline.
+ * Full Zustand auth slice shape — imported by authStore.ts so the interface
+ * stays in one place and TypeScript can verify all actions are implemented.
  */
 export interface AuthState {
-    // ─ Persisted state ────────────────────────────────────────────────────
+    // ─ Persisted ──────────────────────────────────────────────────────────
     user: User | null;
     isAuthenticated: boolean;
     hasAcceptedAgreement: boolean;
     agreementVersion: string | null;
     preferredLanguage: Language;
     isBiometricEnabled: boolean;
-    // ─ Session-only state ─────────────────────────────────────────────────
+    // ─ Session-only ───────────────────────────────────────────────────────
     accessToken: string | null;
     refreshToken: string | null;
     // ─ Actions ────────────────────────────────────────────────────────────
@@ -67,11 +89,50 @@ export interface AuthState {
     logout: () => void;
 }
 
+// ─── Agreements ───────────────────────────────────────────────────────────────
+
+export type AgreementStatus = 'ACTIVE' | 'INACTIVE' | 'DRAFT' | 'ALL';
+export type AgreementType   = 'Passenger' | 'Driver' | 'General';
+
+export interface AgreementSummary {
+    id: string;
+    title: string;
+    type: AgreementType;
+    status: AgreementStatus;
+    version: string;
+    startDate: string;
+    endDate: string;
+    createdAt: string;
+}
+
+export interface AgreementDocument extends AgreementSummary {
+    content: string;
+    signed: boolean;        // true when the current user has already signed
+    signedAt: string | null;
+}
+
+export interface CreateAgreementRequest {
+    title: string;
+    type: AgreementType;
+    content: string;
+    startDate: string;
+    endDate: string;
+}
+
+export interface UpdateAgreementRequest extends Partial<CreateAgreementRequest> {
+    status?: AgreementStatus;
+}
+
+export interface SignAgreementResponse {
+    agreementId: string;
+    signedAt: string;
+}
+
 // ─── Route / Search ───────────────────────────────────────────────────────────
 export interface RouteSearchParams {
     origin?: string;
     destination?: string;
-    date?: string;    // ISO date
+    date?: string;
     passengers?: number;
 }
 
@@ -108,9 +169,9 @@ export interface Route {
     destination: string;
     departureTime: string;
     arrivalTime: string;
-    duration: number;   // minutes
-    distance: number;   // km
-    fare: number;       // ETB
+    duration: number;
+    distance: number;
+    fare: number;
     availableSeats: number;
     totalSeats: number;
     amenities: Amenity[];
@@ -128,7 +189,7 @@ export interface Seat {
     row: number;
     column: number;
     isAvailable: boolean;
-    price: number; // ETB
+    price: number;
 }
 
 export interface SeatMap {
@@ -143,7 +204,7 @@ export interface PickupLocation {
     address: string;
     latitude: number;
     longitude: number;
-    additionalFare: number; // ETB
+    additionalFare: number;
 }
 
 export interface PassengerDetail {
@@ -159,7 +220,7 @@ export interface FareBreakdown {
     serviceFee: number;
     pickupFee: number;
     discount: number;
-    total: number; // ETB
+    total: number;
 }
 
 export interface CreateBookingRequest {
@@ -188,12 +249,12 @@ export interface Booking {
 
 // ─── Payment ──────────────────────────────────────────────────────────────────
 export type PaymentProvider = 'telebirr' | 'cbe_birr' | 'awash';
-export type PaymentStatus = 'pending' | 'processing' | 'success' | 'failed';
+export type PaymentStatus   = 'pending' | 'processing' | 'success' | 'failed';
 
 export interface InitiatePaymentRequest {
     bookingId: string;
     provider: PaymentProvider;
-    amount: number; // ETB
+    amount: number;
 }
 
 export interface InitiatePaymentResponse {
@@ -220,14 +281,14 @@ export interface Trip extends Booking {
 
 export interface SubmitReviewRequest {
     bookingId: string;
-    rating: number;       // 1-5
+    rating: number;
     comment?: string;
 }
 
 export interface CancellationInfo {
     canCancel: boolean;
     reason?: string;
-    refundAmount: number; // ETB
+    refundAmount: number;
     refundPolicy: string;
 }
 
@@ -243,7 +304,7 @@ export interface BusLocation {
 
 export interface EtaUpdate {
     bookingId: string;
-    eta: string;           // ISO datetime
+    eta: string;
     etaMinutes: number;
     nextStop: Stop | null;
 }
@@ -253,7 +314,7 @@ export type RewardTransactionType = 'earned' | 'redeemed' | 'expired';
 
 export interface RewardsBalance {
     points: number;
-    monetaryValue: number; // ETB
+    monetaryValue: number;
     expiringPoints: number;
     expiringDate: string | null;
 }

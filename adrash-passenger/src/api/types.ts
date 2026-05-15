@@ -7,6 +7,10 @@ export interface ApiResponse<T = unknown> {
     meta: PaginationMeta | null;
 }
 
+// Alias used by src/types/index.ts re-exports
+export type ApiError = string;
+export type ApiMeta  = PaginationMeta;
+
 export interface PaginationMeta {
     page?: number;
     pageSize?: number;

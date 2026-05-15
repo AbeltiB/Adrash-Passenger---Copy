@@ -6,9 +6,11 @@ export const ENDPOINTS = {
         SETUP_PROFILE: '/auth/profile/setup',
         REFRESH:       '/auth/refresh',
         LOGOUT:        '/auth/logout',
+        LOGIN:         '/auth/login',       // ← added: used by useLogin.ts
+        ME:            '/auth/me',          // ← added: used by useCurrentUser.ts / useLogin.ts
     },
     USERS: {
-        ME:            '/users/me',   // GET → profile, PATCH → update, DELETE → delete account
+        ME: '/users/me',   // GET → profile, PATCH → update, DELETE → delete account
     },
     ROUTES: {
         SEARCH:           '/routes/search',
@@ -38,5 +40,15 @@ export const ENDPOINTS = {
     },
     NOTIFICATIONS: {
         PREFERENCES: '/notifications/preferences',   // GET + PATCH
+    },
+    // ── Agreements ──────────────────────────────────────────────────────────────
+    // Used by src/features/agreements/hooks/useAgreements.ts
+    AGREEMENTS: {
+        LIST:       '/agreements',
+        CREATE:     '/agreements',
+        DETAIL:     (id: string) => `/agreements/${id}`,
+        UPDATE:     (id: string) => `/agreements/${id}`,
+        SIGN:       (id: string) => `/agreements/${id}/sign`,
+        SIGNED_ME:  '/agreements/signed/me',
     },
 } as const;

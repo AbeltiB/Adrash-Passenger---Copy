@@ -80,7 +80,10 @@ apiClient.interceptors.response.use(
                 { headers: { 'Content-Type': 'application/json', Accept: 'application/json' } },
             );
 
-            await storeTokens({ accessToken: data.access_token, expiresIn: data.expires_in });
+            await storeTokens({
+                accessToken: data.access_token, expiresIn: data.expires_in,
+                refreshToken: ''
+            });
             flushQueue(null, data.access_token);
 
             original.headers.Authorization = `Bearer ${data.access_token}`;
