@@ -44,11 +44,7 @@ export const ENDPOINTS = {
     // ── Agreements ──────────────────────────────────────────────────────────────
     // Used by src/features/agreements/hooks/useAgreements.ts
     AGREEMENTS: {
-        LIST:       '/agreements',
-        CREATE:     '/agreements',
-        DETAIL:     (id: string) => `/agreements/${id}`,
-        UPDATE:     (id: string) => `/agreements/${id}`,
-        SIGN:       (id: string) => `/agreements/${id}/sign`,
-        SIGNED_ME:  '/agreements/signed/me',
+        CURRENT: '/auth/agreements/current',
+        ACCEPT: '/auth/agreements/accept',
     },
 } as const;

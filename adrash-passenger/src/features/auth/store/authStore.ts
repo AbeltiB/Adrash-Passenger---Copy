@@ -1,76 +1,57 @@
 // src/features/auth/store/authStore.ts
-// ─────────────────────────────────────────────────────────────────────────────
-// Central authentication + session store.
-//
-// KEY FIX: The MMKV instance must NOT be created at module top-level when
-// using react-native-mmkv 3.x with New Architecture.  Instead we create it
-// lazily inside the store initialiser so it's only constructed after the
-// TurboModule registry is ready.
-// ─────────────────────────────────────────────────────────────────────────────
+// Lazy MMKV pattern — DO NOT call new MMKV() at module top level.
+// The TurboModule registry isn't ready when Expo Router scans route files.
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { MMKV } from 'react-native-mmkv';
-import type { User, AuthState, DriverStatus, Language } from '../../../types';
+import type { AuthState, DriverStatus, Language, User } from '../../../types';
 import { MMKVKeys } from '../../../constants';
 import i18n from '../../../lib/i18n';
 
-// ─── Lazy MMKV instance ───────────────────────────────────────────────────────
-// DO NOT call `new MMKV()` at the top of the module.  The TurboModule may not
-// be registered yet when the module is first evaluated (during route scanning),
-// which is exactly the crash you're seeing in the logs.
+// ── Lazy MMKV ────────────────────────────────────────────────────────────────
 let _mmkv: MMKV | null = null;
-
 function getMMKV(): MMKV {
-    if (!_mmkv) {
-        _mmkv = new MMKV({ id: MMKVKeys.AUTH_STORE });
-    }
+    if (!_mmkv) _mmkv = new MMKV({ id: MMKVKeys.AUTH_STORE });
     return _mmkv;
 }
 
-// ─── Zustand-compatible storage adapter ──────────────────────────────────────
 const mmkvStorage = {
     getItem:    (k: string) => getMMKV().getString(k) ?? null,
     setItem:    (k: string, v: string) => getMMKV().set(k, v),
     removeItem: (k: string) => getMMKV().delete(k),
 };
 
-// ─── Store ────────────────────────────────────────────────────────────────────
+// ── Store ─────────────────────────────────────────────────────────────────────
 export const useAuthStore = create<AuthState>()(
     persist(
         (set) => ({
-            // ─ Initial state ───────────────────────────────────────────────
-            user:                  null,
-            isAuthenticated:       false,
-            hasAcceptedAgreement:  false,
-            agreementVersion:      null,
-            preferredLanguage:     'en' as Language,
-            isBiometricEnabled:    false,
-            accessToken:           null,
-            refreshToken:          null,
+            user:                 null,
+            isAuthenticated:      false,
+            hasAcceptedAgreement: false,
+            agreementVersion:     null,
+            preferredLanguage:    'en' as Language,
+            isBiometricEnabled:   false,
+            accessToken:          null,
+            refreshToken:         null,
 
-            // ─ Actions ────────────────────────────────────────────────────
+            setUser: (user: User | null) => set({ user }),
 
-            setUser: (user: User | null) =>
-                set({ user }),
-
-            setAuthenticated: (value: boolean) =>
-                set({ isAuthenticated: value }),
+            setAuthenticated: (value: boolean) => set({ isAuthenticated: value }),
 
             setTokens: (accessToken: string, refreshToken: string) =>
                 set({ accessToken, refreshToken }),
 
-            clearTokens: () =>
-                set({ accessToken: null, refreshToken: null }),
+            clearTokens: () => set({ accessToken: null, refreshToken: null }),
 
             setPhone: (phone: string) =>
-                set((state) => ({
-                    user: state.user ? { ...state.user, phoneNumber: phone } : null,
+                set((s) => ({
+                    user: s.user ? { ...s.user, phoneNumber: phone } : null,
                 })),
 
             setDriverStatus: (status: DriverStatus) =>
-                set((state) => ({
-                    user: state.user ? { ...state.user, driverStatus: status } : null,
+                set((s) => ({
+                    user: s.user ? { ...s.user, driverStatus: status } : null,
                 })),
 
             setLanguage: (lang: Language) => {
@@ -84,6 +65,11 @@ export const useAuthStore = create<AuthState>()(
                 set({ isBiometricEnabled: enabled });
             },
 
+            /**
+             * Called after a successful POST /auth/agreements/accept.
+             * Marks the agreement as accepted locally so the splash screen
+             * can skip the agreement flow on next launch.
+             */
             acceptAgreement: (version: string) => {
                 getMMKV().set(MMKVKeys.LAST_AGREEMENT_VERSION, version);
                 set({ hasAcceptedAgreement: true, agreementVersion: version });
@@ -99,12 +85,14 @@ export const useAuthStore = create<AuthState>()(
                     isAuthenticated: false,
                     accessToken:     null,
                     refreshToken:    null,
+                    // Keep agreementVersion so if they log back in with the
+                    // same phone they don't have to re-read the whole doc.
                 }),
         }),
         {
             name:    MMKVKeys.AUTH_STORE,
             storage: createJSONStorage(() => mmkvStorage),
-            // Only persist non-sensitive fields — tokens stay in SecureStore
+            // Never persist tokens — they live in expo-secure-store only
             partialize: (s) => ({
                 hasAcceptedAgreement: s.hasAcceptedAgreement,
                 agreementVersion:     s.agreementVersion,
