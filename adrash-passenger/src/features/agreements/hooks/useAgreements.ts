@@ -1,7 +1,6 @@
 // src/features/agreements/hooks/useAgreements.ts
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { i18n } from 'i18next';
 import { apiClient } from '../../../api/client';
 import { ENDPOINTS } from '../../../api/endpoints';
 import {
@@ -66,6 +65,8 @@ export function useCurrentAgreement() {
  */
 export function useAcceptAgreement() {
     const queryClient = useQueryClient();
+    // Capture the i18n instance at hook call time (stable ref, safe in closure)
+    const { i18n } = useTranslation();
 
     return useMutation<
         AcceptAgreementResponse,
@@ -79,10 +80,9 @@ export function useAcceptAgreement() {
             );
             return res.data;
         },
-        onSuccess: (_data, variables) => {
+        onSuccess: () => {
             // Optimistically mark the cached agreement as signed so the UI
             // doesn't re-fetch before navigation completes.
-            const { i18n } = require('i18next') as typeof import('i18next');
             const apiLang: AgreementLang = LANG_MAP[i18n.language] ?? 'En';
 
             queryClient.setQueryData<CurrentAgreementDto>(

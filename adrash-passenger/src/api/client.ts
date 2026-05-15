@@ -21,6 +21,7 @@ import {
     getRefreshToken,
     storeTokens,
 } from '../features/auth/utils/token';
+import type { AuthTokens } from '../types';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.adrash.et';
 
@@ -135,11 +136,17 @@ apiClient.interceptors.response.use(
                 },
             );
 
-            await storeTokens({
-                accessToken:  data.access_token,
-                refreshToken: data.refresh_token ?? undefined,
-                expiresIn:    data.expires_in,
-            });
+            // Build a correctly-typed AuthTokens object.
+            // refreshToken is optional on AuthTokens so only include it when present.
+            const tokens: AuthTokens = {
+                accessToken: data.access_token,
+                expiresIn:   data.expires_in,
+                ...(data.refresh_token !== undefined
+                    ? { refreshToken: data.refresh_token }
+                    : {}),
+            };
+
+            await storeTokens(tokens);
 
             flushQueue(null, data.access_token);
             original.headers.Authorization = `Bearer ${data.access_token}`;
