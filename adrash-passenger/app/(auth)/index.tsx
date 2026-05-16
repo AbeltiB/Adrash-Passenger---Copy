@@ -19,6 +19,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ADRASH_LOGO from '../../assets/Logo Adrash one.png';
 import { Colors, Spacing, BorderRadius } from '../../src/constants';
 import { MMKVKeys } from '../../src/constants/mmkvKeys';
 import { changeLanguage } from '../../src/lib/i18n';
@@ -26,7 +27,6 @@ import { writeString } from '../../src/lib/storage';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
 import { getAccessToken } from '../../src/features/auth/utils/token';
 
-const ADRASH_LOGO = require('../../assets/Logo Adrash one.png');
 
 // ─── Language options ─────────────────────────────────────────────────────────
 

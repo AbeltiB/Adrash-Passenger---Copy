@@ -27,7 +27,7 @@ const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.adrash.et'
 
 // ── Lazy auth store access (avoids circular deps + MMKV init order issues) ───
 function getAuthStore() {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
     return require('../features/auth/store/authStore').useAuthStore;
 }
 
