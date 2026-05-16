@@ -6,9 +6,17 @@ import { Text } from 'react-native';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
 import { Colors } from '../../src/constants';
 
-const tabIcon = (emoji: string) => ({ color }: { color: string }) => (
-    <Text style={{ fontSize: 22, color }}>{emoji}</Text>
-);
+function TabIcon({ emoji, color }: { emoji: string; color: string }) {
+    return <Text style={{ fontSize: 22, color }}>{emoji}</Text>;
+}
+
+const tabIcon = (emoji: string) => {
+    function RenderTabIcon({ color }: { color: string }) {
+        return <TabIcon emoji={emoji} color={color} />;
+    }
+
+    return RenderTabIcon;
+};
 
 export default function TabsLayout() {
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);

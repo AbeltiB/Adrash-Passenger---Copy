@@ -11,7 +11,6 @@
 //   DELETE /api/v1/users/me               → delete account
 
 import { useState } from 'react';
-import { router } from 'expo-router';
 import {
     ActivityIndicator,
     Alert,
@@ -26,17 +25,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../src/constants';
-import { useAuthStore } from '../../src/features/auth/store/authStore';
 import { useLogout } from '../../src/features/auth/hooks/useLogout';
-import { useProfile } from '@/features/profile/hooks/useProfile';
-import { useUpdateProfile } from '@/features/profile/hooks/useUpdateProfile';
-import { useDeleteAccount } from '@/features/profile/hooks/useDeleteAccount';
-import { useRewardsBalance } from '@/features/profile/hooks/useRewardsBalance';
-import { useReferral } from '@/features/profile/hooks/useReferral';
+import { useProfile } from '../../src/features/profile/hooks/useProfile';
+import { useUpdateProfile } from '../../src/features/profile/hooks/useUpdateProfile';
+import { useDeleteAccount } from '../../src/features/profile/hooks/useDeleteAccount';
+import { useRewardsBalance } from '../../src/features/profile/hooks/useRewardsBalance';
+import { useReferral } from '../../src/features/profile/hooks/useReferral';
 import {
     useNotificationPreferences,
     useUpdateNotificationPreferences,
-} from '@/features/profile/hooks/useNotificationPreferences';
+} from '../../src/features/profile/hooks/useNotificationPreferences';
 import type { ApiLanguage, NotificationPreferenceDto } from '../../src/api/types';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
