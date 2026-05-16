@@ -8,10 +8,11 @@
 // Mode is detected via the `reaccept` search param:
 //   router.replace({ pathname: '/(auth)/agreement', params: { reaccept: '1' } })
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
     ActivityIndicator,
+    LayoutChangeEvent,
     NativeScrollEvent,
     NativeSyntheticEvent,
     Pressable,
@@ -36,6 +37,23 @@ function formatDate(iso: string): string {
     });
 }
 
+function decodeAgreementContent(content: string): string {
+    return content
+        .replace(/<br\s*\/?\s*>/gi, '\n')
+        .replace(/<\/p>/gi, '\n\n')
+        .replace(/<\/li>/gi, '\n')
+        .replace(/<li[^>]*>/gi, '• ')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AgreementScreen() {
@@ -45,14 +63,26 @@ export default function AgreementScreen() {
 
     // ── Data ─────────────────────────────────────────────────────────────────
     const { data: agreement, isLoading, isError, refetch } = useCurrentAgreement();
-    const { mutate: accept, isPending: accepting } = useAcceptAgreement();
+    const { mutate: accept, isPending: accepting, error: acceptError } = useAcceptAgreement();
     const authAccept = useAuthStore((s) => s.acceptAgreement);
 
     // ── Scroll tracking ───────────────────────────────────────────────────────
     // "I agree" stays disabled until the user has scrolled to within 20px
     // of the bottom of the agreement text.
     const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
-    const scrollRef = useRef<ScrollView>(null);
+    const [viewportHeight, setViewportHeight] = useState(0);
+    const [contentHeight, setContentHeight] = useState(0);
+
+    const agreementBody = useMemo(
+        () => (agreement ? decodeAgreementContent(agreement.content) : ''),
+        [agreement],
+    );
+
+    useEffect(() => {
+        setHasScrolledToBottom(false);
+        setViewportHeight(0);
+        setContentHeight(0);
+    }, [agreement?.version, agreement?.language]);
 
     const handleScroll = useCallback(
         (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -65,10 +95,22 @@ export default function AgreementScreen() {
         [hasScrolledToBottom],
     );
 
-    // If the agreement is very short (less than one screen), auto-enable.
-    const handleLayout = useCallback(() => {
-        scrollRef.current?.scrollToEnd({ animated: false });
+    const updateShortDocumentState = useCallback((nextViewport: number, nextContent: number) => {
+        if (nextViewport > 0 && nextContent > 0 && nextContent <= nextViewport + 20) {
+            setHasScrolledToBottom(true);
+        }
     }, []);
+
+    const handleScrollLayout = useCallback((e: LayoutChangeEvent) => {
+        const nextViewport = e.nativeEvent.layout.height;
+        setViewportHeight(nextViewport);
+        updateShortDocumentState(nextViewport, contentHeight);
+    }, [contentHeight, updateShortDocumentState]);
+
+    const handleContentSizeChange = useCallback((_width: number, nextContent: number) => {
+        setContentHeight(nextContent);
+        updateShortDocumentState(viewportHeight, nextContent);
+    }, [updateShortDocumentState, viewportHeight]);
 
     // ── Accept handler ────────────────────────────────────────────────────────
     const handleAgree = useCallback(() => {
@@ -149,22 +191,19 @@ export default function AgreementScreen() {
                 </View>
             ) : (
                 <ScrollView
-                    ref={scrollRef}
                     style={styles.scroll}
                     contentContainerStyle={styles.scrollContent}
                     onScroll={handleScroll}
+                    onLayout={handleScrollLayout}
                     // Fire onScroll frequently enough to catch the bottom reliably
                     scrollEventThrottle={100}
-                    onContentSizeChange={handleLayout}
+                    onContentSizeChange={handleContentSizeChange}
                     showsVerticalScrollIndicator
                 >
                     {agreement && (
                         <>
                             <Text style={styles.agreementTitle}>{agreement.title}</Text>
-                            {/* Render plain-text content.
-                                If your API returns HTML, replace this with a
-                                WebView or a lightweight HTML renderer. */}
-                            <Text style={styles.agreementBody}>{agreement.content}</Text>
+                            <Text style={styles.agreementBody}>{agreementBody}</Text>
                         </>
                     )}
                     {/* Spacer so the last line isn't hidden behind the footer */}
@@ -189,6 +228,12 @@ export default function AgreementScreen() {
                                 : 'Scroll to read all before agreeing'}
                         </Text>
                     </View>
+                )}
+
+                {acceptError && (
+                    <Text style={styles.acceptError}>
+                        Could not record your acceptance. Please try again.
+                    </Text>
                 )}
 
                 <Pressable
@@ -357,6 +402,12 @@ const styles = StyleSheet.create({
         color: Colors.neutral.white,
         fontWeight: '700',
         fontSize: 16,
+    },
+    acceptError: {
+        color: Colors.semantic.error,
+        fontSize: 12,
+        textAlign: 'center',
+        fontWeight: '600',
     },
     declineBtn: {
         alignItems: 'center',
