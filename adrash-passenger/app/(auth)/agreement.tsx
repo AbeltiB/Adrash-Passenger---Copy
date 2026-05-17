@@ -8,13 +8,10 @@
 // Mode is detected via the `reaccept` search param:
 //   router.replace({ pathname: '/(auth)/agreement', params: { reaccept: '1' } })
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
     ActivityIndicator,
-    LayoutChangeEvent,
-    NativeScrollEvent,
-    NativeSyntheticEvent,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -66,51 +63,10 @@ export default function AgreementScreen() {
     const { mutate: accept, isPending: accepting, error: acceptError } = useAcceptAgreement();
     const authAccept = useAuthStore((s) => s.acceptAgreement);
 
-    // ── Scroll tracking ───────────────────────────────────────────────────────
-    // "I agree" stays disabled until the user has scrolled to within 20px
-    // of the bottom of the agreement text.
-    const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
-    const [viewportHeight, setViewportHeight] = useState(0);
-    const [contentHeight, setContentHeight] = useState(0);
-
     const agreementBody = useMemo(
         () => (agreement ? decodeAgreementContent(agreement.content) : ''),
         [agreement],
     );
-
-    useEffect(() => {
-        setHasScrolledToBottom(false);
-        setViewportHeight(0);
-        setContentHeight(0);
-    }, [agreement?.version, agreement?.language]);
-
-    const handleScroll = useCallback(
-        (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-            if (hasScrolledToBottom) return;
-            const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
-            const isAtBottom =
-                contentOffset.y + layoutMeasurement.height >= contentSize.height - 20;
-            if (isAtBottom) setHasScrolledToBottom(true);
-        },
-        [hasScrolledToBottom],
-    );
-
-    const updateShortDocumentState = useCallback((nextViewport: number, nextContent: number) => {
-        if (nextViewport > 0 && nextContent > 0 && nextContent <= nextViewport + 20) {
-            setHasScrolledToBottom(true);
-        }
-    }, []);
-
-    const handleScrollLayout = useCallback((e: LayoutChangeEvent) => {
-        const nextViewport = e.nativeEvent.layout.height;
-        setViewportHeight(nextViewport);
-        updateShortDocumentState(nextViewport, contentHeight);
-    }, [contentHeight, updateShortDocumentState]);
-
-    const handleContentSizeChange = useCallback((_width: number, nextContent: number) => {
-        setContentHeight(nextContent);
-        updateShortDocumentState(viewportHeight, nextContent);
-    }, [updateShortDocumentState, viewportHeight]);
 
     // ── Accept handler ────────────────────────────────────────────────────────
     const handleAgree = useCallback(() => {
@@ -125,10 +81,8 @@ export default function AgreementScreen() {
 
                     // 2. Navigate based on mode
                     if (isReaccept) {
-                        // Return the user to wherever they were before the 403
                         router.back();
                     } else {
-                        // First-time onboarding → phone number entry
                         router.replace('/(auth)/phone');
                     }
                 },
@@ -139,17 +93,14 @@ export default function AgreementScreen() {
     // ── Decline handler ───────────────────────────────────────────────────────
     const handleDecline = useCallback(() => {
         if (isReaccept) {
-            // Can't continue without accepting — log them out
             router.replace('/(auth)/phone');
         } else {
-            // Go back to language selector
             router.replace('/(auth)');
         }
     }, [isReaccept]);
 
-    // ── Render states ─────────────────────────────────────────────────────────
-
-    const canAgree = hasScrolledToBottom && !accepting && !isLoading && !isError;
+    // ── Derived ───────────────────────────────────────────────────────────────
+    const canAgree = !accepting && !isLoading && !isError;
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -193,11 +144,6 @@ export default function AgreementScreen() {
                 <ScrollView
                     style={styles.scroll}
                     contentContainerStyle={styles.scrollContent}
-                    onScroll={handleScroll}
-                    onLayout={handleScrollLayout}
-                    // Fire onScroll frequently enough to catch the bottom reliably
-                    scrollEventThrottle={100}
-                    onContentSizeChange={handleContentSizeChange}
                     showsVerticalScrollIndicator
                 >
                     {agreement && (
@@ -206,30 +152,12 @@ export default function AgreementScreen() {
                             <Text style={styles.agreementBody}>{agreementBody}</Text>
                         </>
                     )}
-                    {/* Spacer so the last line isn't hidden behind the footer */}
                     <View style={{ height: Spacing.xl }} />
                 </ScrollView>
             )}
 
             {/* ── Footer ── */}
             <View style={styles.footer}>
-                {/* Scroll progress hint */}
-                {!isLoading && !isError && (
-                    <View style={styles.progressRow}>
-                        <View
-                            style={[
-                                styles.progressDot,
-                                hasScrolledToBottom && styles.progressDotDone,
-                            ]}
-                        />
-                        <Text style={styles.progressText}>
-                            {hasScrolledToBottom
-                                ? '✓ You have read the full agreement'
-                                : 'Scroll to read all before agreeing'}
-                        </Text>
-                    </View>
-                )}
-
                 {acceptError && (
                     <Text style={styles.acceptError}>
                         Could not record your acceptance. Please try again.
@@ -369,25 +297,6 @@ const styles = StyleSheet.create({
         borderTopColor: Colors.border.light,
         backgroundColor: Colors.background.primary,
         gap: Spacing.md,
-    },
-    progressRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-    },
-    progressDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: Colors.border.medium,
-    },
-    progressDotDone: {
-        backgroundColor: Colors.semantic.success,
-    },
-    progressText: {
-        fontSize: 12,
-        color: Colors.text.tertiary,
-        flex: 1,
     },
     agreeBtn: {
         backgroundColor: Colors.brand.primary,
