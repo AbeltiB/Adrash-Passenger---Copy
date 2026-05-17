@@ -1,5 +1,6 @@
 // app/(auth)/setup.tsx
-// Calls PATCH /api/v1/auth/profile/setup (real API) instead of a mock flag.
+// One-time profile setup for new users after OTP verification.
+// On success → routes to PIN setup screen.
 
 import { useState } from 'react';
 import { router } from 'expo-router';
@@ -53,14 +54,14 @@ export default function SetupScreen() {
 
             const { user, tokens } = res.data.data;
 
-            // Persist tokens securely
-            await storeTokens({
-                accessToken: tokens.accessToken,
-                refreshToken: tokens.refreshToken,
-                expiresIn: tokens.expiresIn,
-            });
+            if (tokens) {
+                await storeTokens({
+                    accessToken: tokens.accessToken,
+                    refreshToken: tokens.refreshToken,
+                    expiresIn: tokens.expiresIn,
+                });
+            }
 
-            // Update auth store
             setUser({
                 id: user.id,
                 firstName: first.trim(),
@@ -70,7 +71,8 @@ export default function SetupScreen() {
             });
             setAuthenticated(true);
 
-            router.replace('/(tabs)');
+            // After profile setup → go to PIN setup
+            router.replace('/(auth)/pin-setup');
         } catch (e: unknown) {
             setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
         } finally {
@@ -124,7 +126,7 @@ export default function SetupScreen() {
                     {loading ? (
                         <ActivityIndicator color={Colors.neutral.white} />
                     ) : (
-                        <Text style={styles.ctaText}>Get Started</Text>
+                        <Text style={styles.ctaText}>Continue</Text>
                     )}
                 </Pressable>
             </View>
@@ -133,9 +135,7 @@ export default function SetupScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1, backgroundColor: Colors.background.primary, padding: Spacing.xl,
-    },
+    container: { flex: 1, backgroundColor: Colors.background.primary, padding: Spacing.xl },
     content: { flex: 1, justifyContent: 'center', gap: Spacing.sm },
     illust: {
         width: 80, height: 80, borderRadius: 40, backgroundColor: '#F1FAF4',
@@ -143,22 +143,15 @@ const styles = StyleSheet.create({
         alignSelf: 'center', marginBottom: Spacing.md,
     },
     illustEmoji: { fontSize: 36 },
-    title: {
-        fontSize: 26, fontWeight: '800', color: Colors.text.primary, textAlign: 'center',
-    },
-    subtitle: {
-        fontSize: 14, color: Colors.text.tertiary, textAlign: 'center',
-        marginBottom: Spacing.lg,
-    },
+    title: { fontSize: 26, fontWeight: '800', color: Colors.text.primary, textAlign: 'center' },
+    subtitle: { fontSize: 14, color: Colors.text.tertiary, textAlign: 'center', marginBottom: Spacing.lg },
     label: { fontSize: 13, color: Colors.text.secondary, fontWeight: '600', marginTop: Spacing.sm },
     input: {
         borderWidth: 1, borderColor: Colors.border.medium, borderRadius: BorderRadius.lg,
         paddingHorizontal: Spacing.md, paddingVertical: 14, fontSize: 16,
         backgroundColor: Colors.background.primary, color: Colors.text.primary,
     },
-    error: {
-        color: Colors.semantic.error, fontSize: 13, fontWeight: '600', textAlign: 'center',
-    },
+    error: { color: Colors.semantic.error, fontSize: 13, fontWeight: '600', textAlign: 'center' },
     cta: {
         backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg,
         paddingVertical: 16, alignItems: 'center', marginTop: Spacing.xl,

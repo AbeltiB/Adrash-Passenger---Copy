@@ -1,3 +1,5 @@
+// app/(auth)/otp.tsx
+
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
@@ -17,10 +19,8 @@ const RESEND_SECONDS = 60;
 
 function maskPhone(phone: string): string {
     if (!phone || phone.length < 4) return phone;
-
     const withoutCountry = phone.startsWith('+251') ? phone.slice(4) : phone;
     if (withoutCountry.length < 3) return phone;
-
     const last2 = withoutCountry.slice(-2);
     const masked = withoutCountry.slice(0, 1) + 'XX XXX X' + last2;
     return `+251 ${masked}`;
@@ -31,7 +31,6 @@ function getErrorMessage(error: unknown): string {
         const response = (error as { response?: { data?: { message?: string; errors?: { message: string }[] } } }).response;
         return response?.data?.message ?? response?.data?.errors?.[0]?.message ?? 'Verification failed. Please try again.';
     }
-
     if (error instanceof Error) return error.message;
     return 'Verification failed. Please try again.';
 }
@@ -77,12 +76,27 @@ export default function OtpScreen() {
 
         setError('');
         verifyOtp.mutate(
-            { phoneNumber: phone, otp: code },
             {
-                onSuccess: ({ isNewUser }) => {
+                // API expects { phone, code } — not phoneNumber / otp
+                phone,
+                code,
+                deviceLabel: 'Mobile App',
+                deviceFingerprint: 'adrash-passenger-app',
+                existingDeviceToken: null,
+            },
+            {
+                onSuccess: (result) => {
                     setVerified(true);
                     setTimeout(() => {
-                        router.replace(isNewUser ? '/(auth)/setup' : '/(auth)/agreement');
+                        if (result.isNewUser || result.needsSetup) {
+                            // New user → profile setup first
+                            router.replace('/(auth)/setup');
+                        } else if (result.agreementRequired) {
+                            router.replace('/(auth)/agreement');
+                        } else {
+                            // Returning user → pin setup / tabs
+                            router.replace('/(auth)/pin-setup');
+                        }
                     }, 500);
                 },
                 onError: (err) => {
@@ -115,7 +129,6 @@ export default function OtpScreen() {
         if (char && index < 5) {
             inputRefs.current[index + 1]?.focus();
         }
-
         if (char && index === 5) {
             verify(next);
         }
@@ -135,7 +148,7 @@ export default function OtpScreen() {
         setDigits(['', '', '', '', '', '']);
         setError('');
         resendOtp.mutate(
-            { phoneNumber: phone },
+            { phone },
             {
                 onSuccess: () => {
                     setSeconds(RESEND_SECONDS);
@@ -202,7 +215,9 @@ export default function OtpScreen() {
                     onPress={() => verify(digits)}
                     disabled={!allFilled || verifying || verified}
                 >
-                    <Text style={styles.ctaText}>{verifying ? 'Verifying…' : verified ? '✓ Verified' : 'Verify'}</Text>
+                    <Text style={styles.ctaText}>
+                        {verifying ? 'Verifying…' : verified ? '✓ Verified' : 'Verify'}
+                    </Text>
                 </Pressable>
 
                 <View style={styles.resendRow}>
@@ -230,16 +245,9 @@ const styles = StyleSheet.create({
     tapChange: { color: Colors.brand.primary, fontSize: 12, fontWeight: '600' },
     boxes: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: Spacing.md },
     box: {
-        width: 48,
-        height: 56,
-        borderRadius: BorderRadius.lg,
-        borderWidth: 1.5,
-        borderColor: Colors.border.medium,
-        textAlign: 'center',
-        fontSize: 22,
-        fontWeight: '700',
-        color: Colors.text.primary,
-        backgroundColor: Colors.background.secondary,
+        width: 48, height: 56, borderRadius: BorderRadius.lg, borderWidth: 1.5,
+        borderColor: Colors.border.medium, textAlign: 'center', fontSize: 22,
+        fontWeight: '700', color: Colors.text.primary, backgroundColor: Colors.background.secondary,
     },
     boxFilled: { borderColor: Colors.brand.primary, backgroundColor: '#F1FAF4' },
     boxError: { borderColor: Colors.semantic.error, backgroundColor: Colors.semantic.errorLight },
@@ -247,11 +255,8 @@ const styles = StyleSheet.create({
     errorText: { color: Colors.semantic.error, fontSize: 13, textAlign: 'center', fontWeight: '600' },
     successText: { color: Colors.semantic.success, fontSize: 14, textAlign: 'center', fontWeight: '700' },
     cta: {
-        backgroundColor: Colors.brand.primary,
-        borderRadius: BorderRadius.lg,
-        paddingVertical: 16,
-        alignItems: 'center',
-        marginTop: Spacing.sm,
+        backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg,
+        paddingVertical: 16, alignItems: 'center', marginTop: Spacing.sm,
     },
     ctaDisabled: { backgroundColor: Colors.neutral.gray300 },
     ctaText: { color: '#fff', fontWeight: '700', fontSize: 16 },

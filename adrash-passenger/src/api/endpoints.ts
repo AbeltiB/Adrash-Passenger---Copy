@@ -1,16 +1,18 @@
 // src/api/endpoints.ts
 export const ENDPOINTS = {
     AUTH: {
-        SEND_OTP:      '/auth/send-otp',
-        VERIFY_OTP:    '/auth/verify-otp',
+        SEND_OTP:      '/auth/otp/send',
+        VERIFY_OTP:    '/auth/otp/verify',
         SETUP_PROFILE: '/auth/profile/setup',
+        SETUP_PIN:     '/auth/pin/setup',
+        VERIFY_PIN:    '/auth/pin/verify',
         REFRESH:       '/auth/refresh',
         LOGOUT:        '/auth/logout',
-        LOGIN:         '/auth/login',       // ← added: used by useLogin.ts
-        ME:            '/auth/me',          // ← added: used by useCurrentUser.ts / useLogin.ts
+        LOGIN:         '/auth/login',
+        ME:            '/auth/me',
     },
     USERS: {
-        ME: '/users/me',   // GET → profile, PATCH → update, DELETE → delete account
+        ME: '/users/me',
     },
     ROUTES: {
         SEARCH:           '/routes/search',
@@ -39,12 +41,10 @@ export const ENDPOINTS = {
         REFERRAL: '/rewards/referral',
     },
     NOTIFICATIONS: {
-        PREFERENCES: '/notifications/preferences',   // GET + PATCH
+        PREFERENCES: '/notifications/preferences',
     },
-    // ── Agreements ──────────────────────────────────────────────────────────────
-    // Used by src/features/agreements/hooks/useAgreements.ts
     AGREEMENTS: {
         CURRENT: '/auth/agreements/current',
-        ACCEPT: '/auth/agreements/accept',
+        ACCEPT:  '/auth/agreements/accept',
     },
 } as const;

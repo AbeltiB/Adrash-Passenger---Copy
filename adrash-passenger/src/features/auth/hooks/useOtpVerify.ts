@@ -1,21 +1,43 @@
+// src/features/auth/hooks/useOtpVerify.ts
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '../../../api/client';
 import { ENDPOINTS } from '../../../api/endpoints';
 import { storeTokens } from '../utils/token';
 import { useAuthStore } from '../store/authStore';
-import type { ApiResponse, AuthTokens, LoginResponse, OtpVerifyRequest, OtpVerifyResponse } from '../../../types';
+import type { ApiResponse, AuthTokens, LoginResponse } from '../../../types';
 
-type MaybeWrappedOtpResponse = OtpVerifyResponse | ApiResponse<OtpVerifyResponse>;
+// ─── Request / Response shapes ────────────────────────────────────────────────
 
-function isWrappedResponse(value: MaybeWrappedOtpResponse): value is ApiResponse<OtpVerifyResponse> {
-  return typeof value === 'object' && value !== null && 'data' in value && 'success' in value;
+interface OtpVerifyPayload {
+  phone: string;
+  code: string;
+  existingDeviceToken?: string | null;
+  deviceLabel?: string;
+  deviceFingerprint?: string;
 }
 
-function unwrapOtpResponse(value: MaybeWrappedOtpResponse): OtpVerifyResponse {
-  return isWrappedResponse(value) ? value.data : value;
+interface OtpVerifyResult {
+  tokens: {
+    accessToken: string;
+    refreshToken: string;
+  };
+  deviceToken?: string;
+  isNewUser: boolean;
+  needsSetup: boolean;
+  agreementRequired: boolean;
 }
 
-function normalizeTokens(tokens: AuthTokens | LoginResponse): AuthTokens {
+type MaybeWrapped = OtpVerifyResult | ApiResponse<OtpVerifyResult>;
+
+function isWrapped(v: MaybeWrapped): v is ApiResponse<OtpVerifyResult> {
+  return typeof v === 'object' && v !== null && 'success' in v && 'data' in v;
+}
+
+function unwrap(v: MaybeWrapped): OtpVerifyResult {
+  return isWrapped(v) ? v.data : v;
+}
+
+function normalizeTokens(tokens: { accessToken: string; refreshToken: string } | LoginResponse): AuthTokens {
   if ('access_token' in tokens) {
     return {
       accessToken: tokens.access_token,
@@ -23,23 +45,26 @@ function normalizeTokens(tokens: AuthTokens | LoginResponse): AuthTokens {
       expiresIn: tokens.expires_in,
     };
   }
-
-  return tokens;
+  return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, expiresIn: 3600 };
 }
 
-/** Verifies OTP, stores tokens securely, and updates auth state. */
+// ─── Hook ─────────────────────────────────────────────────────────────────────
+
 export function useOtpVerify() {
   const { setUser, setAuthenticated } = useAuthStore();
 
-  return useMutation<OtpVerifyResponse, unknown, OtpVerifyRequest>({
+  return useMutation<OtpVerifyResult, unknown, OtpVerifyPayload>({
     mutationFn: async (data) => {
-      const res = await apiClient.post<MaybeWrappedOtpResponse>(ENDPOINTS.AUTH.VERIFY_OTP, data);
-      return unwrapOtpResponse(res.data);
+      const res = await apiClient.post<MaybeWrapped>(ENDPOINTS.AUTH.VERIFY_OTP, data);
+      return unwrap(res.data);
     },
-    onSuccess: async ({ tokens, user }) => {
-      await storeTokens(normalizeTokens(tokens));
-      setUser(user);
+    onSuccess: async (result) => {
+      await storeTokens(normalizeTokens(result.tokens));
       setAuthenticated(true);
+      // User object is populated after profile setup; only set if available
+      if (!result.isNewUser && !result.needsSetup) {
+        // Existing user with full profile — auth store already authenticated
+      }
     },
   });
 }
