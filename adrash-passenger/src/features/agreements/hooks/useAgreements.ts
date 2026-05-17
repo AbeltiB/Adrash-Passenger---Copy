@@ -1,7 +1,7 @@
 // src/features/agreements/hooks/useAgreements.ts
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { apiClient } from '../../../api/client';
+import { apiClient, API_ORIGIN } from '../../../api/client';
 import { ENDPOINTS } from '../../../api/endpoints';
 import {
     LANG_MAP,
@@ -136,25 +136,15 @@ export function useCurrentAgreement() {
     return useQuery<CurrentAgreementDto>({
         queryKey: agreementKeys.current(apiLang),
         queryFn: async () => {
-            const requestConfig = {
-                url: ENDPOINTS.AGREEMENTS.CURRENT,
-                params: {
-                    type: 'Passenger',
-                    lang: apiLang,
+            const res = await apiClient.get<unknown>(
+                `${API_ORIGIN}${ENDPOINTS.AGREEMENTS.CURRENT}`,
+                {
+                    params: {
+                        type: 'Passenger',
+                        lang: apiLang,
+                    },
                 },
-            };
-            const requestUrl = apiClient.getUri(requestConfig);
-
-            if (__DEV__) {
-                // eslint-disable-next-line no-console
-                console.log('[Agreement] selected language:', i18n.language, 'apiLang:', apiLang);
-                // eslint-disable-next-line no-console
-                console.log('[Agreement] GET request URL:', requestUrl);
-            }
-
-            const res = await apiClient.get<unknown>(requestConfig.url, {
-                params: requestConfig.params,
-            });
+            );
             return normalizeAgreement(res.data, apiLang);
         },
         // Cache for 10 minutes — agreements don't change mid-session
@@ -180,19 +170,8 @@ export function useAcceptAgreement() {
         AcceptAgreementRequest
     >({
         mutationFn: async (body) => {
-            const requestUrl = apiClient.getUri({
-                url: ENDPOINTS.AGREEMENTS.ACCEPT,
-            });
-
-            if (__DEV__) {
-                // eslint-disable-next-line no-console
-                console.log('[Agreement] POST accept URL:', requestUrl);
-                // eslint-disable-next-line no-console
-                console.log('[Agreement] accept payload:', body);
-            }
-
             const res = await apiClient.post<unknown>(
-                ENDPOINTS.AGREEMENTS.ACCEPT,
+                `${API_ORIGIN}${ENDPOINTS.AGREEMENTS.ACCEPT}`,
                 body,
             );
             return normalizeAcceptResponse(res.data);
