@@ -1,16 +1,17 @@
+// app/(tabs)/booking/summary.tsx
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Spacing, BorderRadius, Shadow } from '../../src/constants';
+import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 
 export default function SummaryScreen() {
   const [redeem, setRedeem] = useState(false);
-  const baseFare = 1300;
+  const baseFare   = 1300;
   const serviceFee = 30;
-  const tax = 19.5;
-  const discount = redeem ? 100 : 0;
-  const total = baseFare + serviceFee + tax - discount;
+  const tax        = 19.5;
+  const discount   = redeem ? 100 : 0;
+  const total      = baseFare + serviceFee + tax - discount;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -27,9 +28,9 @@ export default function SummaryScreen() {
           <Text style={styles.routeTitle}>Addis Ababa → Hawassa</Text>
           <Text style={styles.routeMeta}>Tuesday, 6 May 2026 · 07:30 AM</Text>
           <View style={styles.divider} />
-          <Row label="Pickup" value="Kality Bus Terminal" />
+          <Row label="Pickup"   value="Kality Bus Terminal" />
           <Row label="Drop-off" value="Hawassa Main Station" />
-          <Row label="Seats" value="14, 15" />
+          <Row label="Seats"    value="14, 15" />
           <Row label="Passengers" value="2" />
         </View>
 
@@ -46,8 +47,8 @@ export default function SummaryScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Fare breakdown</Text>
           <Row label="Base fare (2 × ETB 650)" value={`ETB ${baseFare.toFixed(2)}`} />
-          <Row label="Service fee" value={`ETB ${serviceFee.toFixed(2)}`} />
-          <Row label="Tax" value={`ETB ${tax.toFixed(2)}`} />
+          <Row label="Service fee"             value={`ETB ${serviceFee.toFixed(2)}`} />
+          <Row label="Tax"                     value={`ETB ${tax.toFixed(2)}`} />
           {discount > 0 && <Row label="Reward discount" value={`-ETB ${discount.toFixed(2)}`} accent />}
           <View style={styles.divider} />
           <View style={styles.totalRow}>
@@ -66,7 +67,7 @@ export default function SummaryScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <Pressable style={styles.cta} onPress={() => router.push('/booking/payment')}>
+        <Pressable style={styles.cta} onPress={() => router.push('/(tabs)/booking/payment')}>
           <Text style={styles.ctaText}>Proceed to Payment · ETB {total.toFixed(2)}</Text>
         </Pressable>
       </View>

@@ -1,7 +1,8 @@
+// app/(tabs)/booking/confirmation.tsx
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Spacing, BorderRadius, Shadow } from '../../src/constants';
+import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 
 export default function ConfirmationScreen() {
   return (
@@ -48,8 +49,8 @@ export default function ConfirmationScreen() {
           <Text style={styles.tripRoute}>Addis Ababa → Hawassa</Text>
           <Text style={styles.tripMeta}>Tuesday, 6 May · 07:30 AM</Text>
           <View style={styles.tripDivider} />
-          <Row label="Pickup" value="Kality Bus Terminal" />
-          <Row label="Seats" value="14, 15" />
+          <Row label="Pickup"     value="Kality Bus Terminal" />
+          <Row label="Seats"      value="14, 15" />
           <Row label="Passengers" value="2" />
           <Row label="Total paid" value="ETB 1,249.50" />
         </View>
@@ -65,7 +66,7 @@ export default function ConfirmationScreen() {
         <Pressable style={styles.cta} onPress={() => router.replace('/(tabs)/my-trips')}>
           <Text style={styles.ctaText}>View My Trips</Text>
         </Pressable>
-        <Pressable onPress={() => router.replace('/trip/mock-trip/tracking')}>
+        <Pressable onPress={() => router.push('/trip/mock-trip/tracking')}>
           <Text style={styles.trackLink}>Track my trip →</Text>
         </Pressable>
       </View>
@@ -85,11 +86,7 @@ function Row({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background.secondary },
   content: { padding: Spacing.lg, alignItems: 'center', gap: Spacing.md },
-  successCircle: {
-    width: 96, height: 96, borderRadius: 48, backgroundColor: Colors.semantic.successLight,
-    alignItems: 'center', justifyContent: 'center', marginTop: Spacing.lg,
-    borderWidth: 4, borderColor: Colors.semantic.success,
-  },
+  successCircle: { width: 96, height: 96, borderRadius: 48, backgroundColor: Colors.semantic.successLight, alignItems: 'center', justifyContent: 'center', marginTop: Spacing.lg, borderWidth: 4, borderColor: Colors.semantic.success },
   checkmark: { fontSize: 48, color: Colors.semantic.success, fontWeight: '900' },
   title: { fontSize: 26, fontWeight: '800', color: Colors.text.primary, textAlign: 'center' },
   subtitle: { fontSize: 14, color: Colors.text.tertiary, textAlign: 'center' },

@@ -1,7 +1,8 @@
+// app/(tabs)/trip/[id]/index.tsx  (moved from app/trip/[id]/index.tsx)
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Spacing, BorderRadius, Shadow } from '../../../src/constants';
+import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -53,8 +54,8 @@ export default function TripDetailScreen() {
 
         <View style={styles.busCard}>
           <Text style={styles.cardTitle}>Bus Information</Text>
-          <Row label="Vehicle" value="Toyota Coaster · 2022" />
-          <Row label="Plate" value="ET-A-12345" />
+          <Row label="Vehicle"  value="Toyota Coaster · 2022" />
+          <Row label="Plate"    value="ET-A-12345" />
           <Row label="Capacity" value="28 seats" />
           <View style={styles.amenityRow}>
             {['❄️ AC', '📶 WiFi', '🔌 Charging', '🧳 Luggage'].map((a) => (
@@ -71,15 +72,15 @@ export default function TripDetailScreen() {
             { time: '10:30', name: 'Ziway' },
             { time: '12:00', name: 'Shashemene' },
             { time: '13:30', name: 'Hawassa Main Station', primary: true },
-          ].map((s, i) => (
+          ].map((stop, i) => (
             <View key={i} style={styles.stop}>
               <View style={styles.stopLeft}>
-                <View style={[styles.stopDot, s.primary && styles.stopDotPrimary]} />
+                <View style={[styles.stopDot, stop.primary && styles.stopDotPrimary]} />
                 {i < 4 && <View style={styles.stopLine} />}
               </View>
               <View style={styles.stopRight}>
-                <Text style={styles.stopTime}>{s.time}</Text>
-                <Text style={[styles.stopName, s.primary && styles.stopNamePrimary]}>{s.name}</Text>
+                <Text style={styles.stopTime}>{stop.time}</Text>
+                <Text style={[styles.stopName, stop.primary && styles.stopNamePrimary]}>{stop.name}</Text>
               </View>
             </View>
           ))}
@@ -92,6 +93,7 @@ export default function TripDetailScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
+        {/* Tracking is a full-screen modal — stays at app/trip/[id]/tracking.tsx */}
         <Pressable style={styles.cta} onPress={() => router.push(`/trip/${id}/tracking`)}>
           <Text style={styles.ctaText}>Track Live Location</Text>
         </Pressable>

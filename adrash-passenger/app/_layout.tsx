@@ -17,7 +17,6 @@ export default function RootLayout() {
     const [i18nReady, setI18nReady] = useState(false);
 
     useEffect(() => {
-        // Initialize i18n synchronously with saved language preference
         const savedLanguage = readString(MMKVKeys.PREFERRED_LANGUAGE);
         initI18n(savedLanguage ?? undefined);
         setI18nReady(true);
@@ -37,28 +36,20 @@ export default function RootLayout() {
                 <QueryClientProvider client={queryClient}>
                     <StatusBar style="auto" />
                     <Stack screenOptions={{ headerShown: false }}>
-                        {/* Group layouts — expo-router renders _layout inside each */}
+                        {/* Auth group */}
                         <Stack.Screen name="(auth)" />
+
+                        {/* Tabs group — tab bar lives here.
+                            All screens that should SHOW the tab bar must be
+                            nested inside (tabs)/_layout.tsx, not here. */}
                         <Stack.Screen name="(tabs)" />
 
-                        {/* Standalone screens outside groups */}
-                        <Stack.Screen name="notifications" />
-                        <Stack.Screen name="search/results" />
+                        {/* ── Screens that intentionally hide the tab bar ── */}
 
-                        {/* Booking flow */}
-                        <Stack.Screen name="booking/pickup" />
-                        <Stack.Screen name="booking/seats" />
-                        <Stack.Screen name="booking/passengers" />
-                        <Stack.Screen name="booking/summary" />
-                        <Stack.Screen name="booking/payment" />
-                        <Stack.Screen name="booking/waiting" />
-                        <Stack.Screen name="booking/confirmation" />
-
-                        {/* Trip screens */}
-                        <Stack.Screen name="trip/[id]/index" />
+                        {/* Full-screen live tracking modal */}
                         <Stack.Screen
                             name="trip/[id]/tracking"
-                            options={{ presentation: 'fullScreenModal' }}
+                            options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
                         />
                     </Stack>
                 </QueryClientProvider>

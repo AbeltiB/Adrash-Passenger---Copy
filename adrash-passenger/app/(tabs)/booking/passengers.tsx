@@ -1,11 +1,11 @@
+// app/(tabs)/booking/passengers.tsx
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Spacing, BorderRadius, Shadow } from '../../src/constants';
+import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 
 const SEATS = [14, 15];
-
 type Pax = { name: string; phone: string; nokName: string; nokPhone: string; gender: 'M' | 'F' | null };
 
 export default function PassengersScreen() {
@@ -18,8 +18,8 @@ export default function PassengersScreen() {
     setPax((prev) => prev.map((p, idx) => (idx === i ? { ...p, [field]: value } : p)));
   };
 
-  const filled = (p: Pax) => p.name && p.phone && p.nokName && p.nokPhone && p.gender;
-  const allValid = pax.every(filled);
+  const filled  = (p: Pax) => p.name && p.phone && p.nokName && p.nokPhone && p.gender;
+  const allValid    = pax.every(filled);
   const filledCount = pax.filter(filled).length;
 
   return (
@@ -55,34 +55,22 @@ export default function PassengersScreen() {
                     </Pressable>
                   )}
                   <Text style={styles.label}>Full name</Text>
-                  <TextInput style={styles.input} placeholder="Full name" placeholderTextColor={Colors.text.disabled}
-                    value={pax[i].name} onChangeText={(v) => update(i, 'name', v)} />
-
+                  <TextInput style={styles.input} placeholder="Full name" placeholderTextColor={Colors.text.disabled} value={pax[i].name} onChangeText={(v) => update(i, 'name', v)} />
                   <Text style={styles.label}>Phone</Text>
-                  <TextInput style={styles.input} placeholder="+251 9XX XXX XXX" placeholderTextColor={Colors.text.disabled}
-                    keyboardType="phone-pad" value={pax[i].phone} onChangeText={(v) => update(i, 'phone', v)} />
-
+                  <TextInput style={styles.input} placeholder="+251 9XX XXX XXX" placeholderTextColor={Colors.text.disabled} keyboardType="phone-pad" value={pax[i].phone} onChangeText={(v) => update(i, 'phone', v)} />
                   <Text style={styles.label}>Gender</Text>
                   <View style={styles.genderRow}>
                     {(['M', 'F'] as const).map((g) => (
-                      <Pressable key={g}
-                        style={[styles.genderBtn, pax[i].gender === g && styles.genderActive]}
-                        onPress={() => update(i, 'gender', g)}>
-                        <Text style={[styles.genderText, pax[i].gender === g && styles.genderTextActive]}>
-                          {g === 'M' ? 'Male' : 'Female'}
-                        </Text>
+                      <Pressable key={g} style={[styles.genderBtn, pax[i].gender === g && styles.genderActive]} onPress={() => update(i, 'gender', g)}>
+                        <Text style={[styles.genderText, pax[i].gender === g && styles.genderTextActive]}>{g === 'M' ? 'Male' : 'Female'}</Text>
                       </Pressable>
                     ))}
                   </View>
-
                   <Text style={styles.divider}>Emergency contact</Text>
                   <Text style={styles.label}>Next of kin name</Text>
-                  <TextInput style={styles.input} placeholder="Next of kin name" placeholderTextColor={Colors.text.disabled}
-                    value={pax[i].nokName} onChangeText={(v) => update(i, 'nokName', v)} />
-
+                  <TextInput style={styles.input} placeholder="Next of kin name" placeholderTextColor={Colors.text.disabled} value={pax[i].nokName} onChangeText={(v) => update(i, 'nokName', v)} />
                   <Text style={styles.label}>Next of kin phone</Text>
-                  <TextInput style={styles.input} placeholder="+251 9XX XXX XXX" placeholderTextColor={Colors.text.disabled}
-                    keyboardType="phone-pad" value={pax[i].nokPhone} onChangeText={(v) => update(i, 'nokPhone', v)} />
+                  <TextInput style={styles.input} placeholder="+251 9XX XXX XXX" placeholderTextColor={Colors.text.disabled} keyboardType="phone-pad" value={pax[i].nokPhone} onChangeText={(v) => update(i, 'nokPhone', v)} />
                 </View>
               )}
             </View>
@@ -93,7 +81,7 @@ export default function PassengersScreen() {
       <View style={styles.footer}>
         <Pressable
           style={[styles.cta, !allValid && styles.ctaDisabled]}
-          onPress={() => allValid && router.push('/booking/summary')}
+          onPress={() => allValid && router.push('/(tabs)/booking/summary')}
           disabled={!allValid}
         >
           <Text style={styles.ctaText}>Continue to Summary</Text>
@@ -122,11 +110,7 @@ const styles = StyleSheet.create({
   copyBtn: { paddingVertical: 8 },
   copyText: { color: Colors.brand.primary, fontWeight: '700', fontSize: 13 },
   label: { fontSize: 12, color: Colors.text.secondary, fontWeight: '600', marginTop: Spacing.sm },
-  input: {
-    borderWidth: 1, borderColor: Colors.border.medium, borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md, paddingVertical: 10, fontSize: 14,
-    backgroundColor: Colors.background.primary, color: Colors.text.primary,
-  },
+  input: { borderWidth: 1, borderColor: Colors.border.medium, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, paddingVertical: 10, fontSize: 14, backgroundColor: Colors.background.primary, color: Colors.text.primary },
   genderRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
   genderBtn: { flex: 1, paddingVertical: 10, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: Colors.border.medium, alignItems: 'center' },
   genderActive: { backgroundColor: Colors.brand.primary, borderColor: Colors.brand.primary },

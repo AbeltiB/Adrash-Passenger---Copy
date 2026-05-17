@@ -1,14 +1,15 @@
+// app/(tabs)/booking/pickup.tsx
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Spacing, BorderRadius, Shadow } from '../../src/constants';
+import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 
 const PICKUPS = [
-  { id: 'p1', name: 'Kality Bus Terminal', desc: 'Main terminal · Adv. ticket pickup', dist: '2.4 km' },
-  { id: 'p2', name: 'Akaki Junction', desc: 'In front of Total petrol station', dist: '5.1 km' },
-  { id: 'p3', name: 'Bishoftu Roundabout', desc: 'Near city park entrance', dist: '38 km' },
-  { id: 'p4', name: 'Mojo Bus Station', desc: 'Mojo town centre', dist: '72 km' },
+  { id: 'p1', name: 'Kality Bus Terminal',   desc: 'Main terminal · Adv. ticket pickup',  dist: '2.4 km' },
+  { id: 'p2', name: 'Akaki Junction',        desc: 'In front of Total petrol station',     dist: '5.1 km' },
+  { id: 'p3', name: 'Bishoftu Roundabout',   desc: 'Near city park entrance',              dist: '38 km'  },
+  { id: 'p4', name: 'Mojo Bus Station',      desc: 'Mojo town centre',                     dist: '72 km'  },
 ];
 
 export default function PickupScreen() {
@@ -33,11 +34,7 @@ export default function PickupScreen() {
         {PICKUPS.map((p) => {
           const active = selected === p.id;
           return (
-            <Pressable
-              key={p.id}
-              style={[styles.card, active && styles.cardActive]}
-              onPress={() => setSelected(p.id)}
-            >
+            <Pressable key={p.id} style={[styles.card, active && styles.cardActive]} onPress={() => setSelected(p.id)}>
               <View style={[styles.pin, active && styles.pinActive]}>
                 <Text style={styles.pinText}>📍</Text>
               </View>
@@ -55,7 +52,7 @@ export default function PickupScreen() {
       <View style={styles.footer}>
         <Pressable
           style={[styles.cta, !selected && styles.ctaDisabled]}
-          onPress={() => selected && router.push('/booking/seats')}
+          onPress={() => selected && router.push('/(tabs)/booking/seats')}
           disabled={!selected}
         >
           <Text style={styles.ctaText}>Confirm Pickup</Text>
@@ -71,18 +68,11 @@ const styles = StyleSheet.create({
   back: { fontSize: 26, color: Colors.text.primary },
   title: { fontSize: 18, fontWeight: '800', color: Colors.text.primary },
   step: { fontSize: 12, color: Colors.text.tertiary },
-  mapPreview: {
-    height: 180, backgroundColor: '#E8F0E8', alignItems: 'center', justifyContent: 'center',
-    borderBottomWidth: 1, borderBottomColor: Colors.border.light, gap: 4,
-  },
+  mapPreview: { height: 180, backgroundColor: '#E8F0E8', alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: Colors.border.light, gap: 4 },
   mapEmoji: { fontSize: 48 },
   mapText: { color: Colors.text.tertiary, fontSize: 13, fontWeight: '500' },
   list: { padding: Spacing.lg, gap: Spacing.sm },
-  card: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    backgroundColor: Colors.background.primary, borderRadius: BorderRadius.lg,
-    padding: Spacing.md, borderWidth: 1.5, borderColor: 'transparent', ...Shadow.sm,
-  },
+  card: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, backgroundColor: Colors.background.primary, borderRadius: BorderRadius.lg, padding: Spacing.md, borderWidth: 1.5, borderColor: 'transparent', ...Shadow.sm },
   cardActive: { borderColor: Colors.brand.primary, backgroundColor: '#F1FAF4' },
   pin: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.background.secondary, alignItems: 'center', justifyContent: 'center' },
   pinActive: { backgroundColor: Colors.brand.secondary },

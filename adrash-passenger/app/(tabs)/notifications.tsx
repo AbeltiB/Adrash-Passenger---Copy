@@ -1,7 +1,8 @@
+// app/(tabs)/notifications.tsx  (moved from app/notifications.tsx)
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Spacing, BorderRadius, Shadow } from '../src/constants';
+import { SafeAreaView } from 'react-native-safe-area-co../../src/constants'
+import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 
 const NOTIFS = [
   { id: 'n1', icon: '🚌', title: 'Bus arriving at Kality Terminal', body: 'Your driver is 4 minutes away from your pickup.', time: 'Just now', unread: true, kind: 'trip' },
@@ -53,10 +54,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg, padding: Spacing.md, ...Shadow.sm,
   },
   itemUnread: { backgroundColor: '#F1FAF4' },
-  iconBox: {
-    width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.background.secondary,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  iconBox: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.background.secondary, alignItems: 'center', justifyContent: 'center' },
   icon: { fontSize: 22 },
   itemHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   itemTitle: { flex: 1, fontWeight: '700', color: Colors.text.primary, fontSize: 14 },

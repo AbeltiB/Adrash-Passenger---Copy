@@ -1,8 +1,9 @@
+// app/(tabs)/search/results.tsx  (moved from app/search/results.tsx)
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Spacing, BorderRadius, Shadow } from '../../src/constants';
+import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 
 const TRIPS = [
   { id: 't1', depart: '06:00 AM', arrive: '12:00 PM', bus: 'Toyota Coaster', amenities: ['AC', 'WiFi', 'Charging'], seats: 12, fare: 650 },
@@ -41,7 +42,7 @@ export default function ResultsScreen() {
 
       <ScrollView contentContainerStyle={styles.list}>
         {TRIPS.map((t) => (
-          <Pressable key={t.id} style={styles.card} onPress={() => router.push('/booking/pickup')}>
+          <Pressable key={t.id} style={styles.card} onPress={() => router.push('/(tabs)/booking/pickup')}>
             <View style={styles.times}>
               <Text style={styles.time}>{t.depart}</Text>
               <View style={styles.lineWrap}>

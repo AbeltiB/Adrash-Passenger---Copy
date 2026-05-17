@@ -1,18 +1,19 @@
+// app/(tabs)/my-trips.tsx
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Spacing, BorderRadius, Shadow } from '../../src/constants';
+import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 
 type Tab = 'upcoming' | 'completed' | 'cancelled';
 
 const UPCOMING = [
-  { id: 'mock-trip', from: 'Addis Ababa', to: 'Hawassa', date: 'Tue, 6 May · 07:30 AM', seats: '14, 15', fare: 1349.5, status: 'Confirmed' },
-  { id: 'trip-2', from: 'Addis Ababa', to: 'Bahir Dar', date: 'Sat, 10 May · 06:00 AM', seats: '8', fare: 950, status: 'Confirmed' },
+  { id: 'mock-trip', from: 'Addis Ababa', to: 'Hawassa',   date: 'Tue, 6 May · 07:30 AM', seats: '14, 15', fare: 1349.5, status: 'Confirmed' },
+  { id: 'trip-2',   from: 'Addis Ababa', to: 'Bahir Dar', date: 'Sat, 10 May · 06:00 AM', seats: '8',      fare: 950,    status: 'Confirmed' },
 ];
 const COMPLETED = [
-  { id: 't-c1', from: 'Hawassa', to: 'Addis Ababa', date: '27 Apr 2026', fare: 650, rating: 5 },
-  { id: 't-c2', from: 'Addis Ababa', to: 'Adama', date: '12 Apr 2026', fare: 280, rating: null },
+  { id: 't-c1', from: 'Hawassa',     to: 'Addis Ababa', date: '27 Apr 2026', fare: 650, rating: 5 },
+  { id: 't-c2', from: 'Addis Ababa', to: 'Adama',       date: '12 Apr 2026', fare: 280, rating: null },
 ];
 const CANCELLED = [
   { id: 't-x1', from: 'Addis Ababa', to: 'Gondar', date: '20 Mar 2026', refund: 'Refunded ETB 1,100' },
@@ -54,7 +55,7 @@ export default function MyTripsTab() {
               <Pressable style={styles.btnPrimary} onPress={() => router.push(`/trip/${t.id}/tracking`)}>
                 <Text style={styles.btnPrimaryText}>Track Trip</Text>
               </Pressable>
-              <Pressable style={styles.btnGhost} onPress={() => router.push(`/trip/${t.id}`)}>
+              <Pressable style={styles.btnGhost} onPress={() => router.push(`/(tabs)/trip/${t.id}`)}>
                 <Text style={styles.btnGhostText}>View Ticket</Text>
               </Pressable>
             </View>

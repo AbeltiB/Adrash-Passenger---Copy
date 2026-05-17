@@ -1,12 +1,13 @@
+// app/(tabs)/booking/waiting.tsx
 import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Spacing, BorderRadius } from '../../src/constants';
+import { Colors, Spacing, BorderRadius } from '@/constants';
 
 export default function WaitingScreen() {
   const [seconds, setSeconds] = useState(295);
-  const [pulse, setPulse] = useState(1);
+  const [pulse,   setPulse]   = useState(1);
 
   useEffect(() => {
     if (seconds <= 0) return;
@@ -48,14 +49,12 @@ export default function WaitingScreen() {
           <Text style={styles.refValue}>TRX-A8K2N9P</Text>
         </View>
 
-        <Text style={styles.timer}>
-          {m}:{String(s).padStart(2, '0')}
-        </Text>
+        <Text style={styles.timer}>{m}:{String(s).padStart(2, '0')}</Text>
         <Text style={styles.timerLabel}>Time remaining</Text>
       </View>
 
       <View style={styles.footer}>
-        <Pressable style={styles.cta} onPress={() => router.replace('/booking/confirmation')}>
+        <Pressable style={styles.cta} onPress={() => router.replace('/(tabs)/booking/confirmation')}>
           <Text style={styles.ctaText}>I&apos;ve completed the payment</Text>
         </Pressable>
         <Pressable onPress={() => router.back()}>
@@ -73,10 +72,7 @@ const styles = StyleSheet.create({
   providerLogo: { fontSize: 24 },
   providerName: { fontSize: 18, fontWeight: '800', color: Colors.payment.telebirr },
   pulseWrap: { width: 160, height: 160, alignItems: 'center', justifyContent: 'center' },
-  pulse1: {
-    width: 90, height: 90, borderRadius: 45, backgroundColor: Colors.brand.primary,
-    alignItems: 'center', justifyContent: 'center', position: 'absolute',
-  },
+  pulse1: { width: 90, height: 90, borderRadius: 45, backgroundColor: Colors.brand.primary, alignItems: 'center', justifyContent: 'center', position: 'absolute' },
   pulse2: { width: 90, height: 90, borderRadius: 45, backgroundColor: Colors.brand.primary, opacity: 0.3, position: 'absolute' },
   pulse3: { width: 90, height: 90, borderRadius: 45, backgroundColor: Colors.brand.primary, opacity: 0.15, position: 'absolute' },
   pulseEmoji: { fontSize: 36 },

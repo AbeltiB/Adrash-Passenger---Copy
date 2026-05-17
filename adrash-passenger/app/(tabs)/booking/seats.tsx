@@ -1,12 +1,13 @@
+// app/(tabs)/booking/seats.tsx
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Spacing, BorderRadius, Shadow } from '../../src/constants';
+import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 
 const TAKEN = new Set([2, 5, 6, 11, 17, 22, 23]);
 const TOTAL = 28;
-const COLS = 4; // 2-aisle-2
+const COLS  = 4;
 
 export default function SeatsScreen() {
   const [selected, setSelected] = useState<number[]>([]);
@@ -19,13 +20,13 @@ export default function SeatsScreen() {
   };
 
   const seatStyle = (n: number) => {
-    if (TAKEN.has(n)) return [styles.seat, styles.seatTaken];
+    if (TAKEN.has(n))    return [styles.seat, styles.seatTaken];
     if (selected.includes(n)) return [styles.seat, styles.seatSelected];
     return [styles.seat, styles.seatAvail];
   };
 
   const seatTextStyle = (n: number) => {
-    if (TAKEN.has(n)) return [styles.seatText, styles.seatTakenText];
+    if (TAKEN.has(n))    return [styles.seatText, styles.seatTakenText];
     if (selected.includes(n)) return [styles.seatText, styles.seatSelectedText];
     return styles.seatText;
   };
@@ -48,7 +49,7 @@ export default function SeatsScreen() {
 
       <View style={styles.legend}>
         <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: Colors.seat.available, borderColor: Colors.seat.availableBorder }]} /><Text style={styles.legendText}>Available</Text></View>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: Colors.seat.occupied, borderColor: Colors.seat.occupiedBorder }]} /><Text style={styles.legendText}>Taken</Text></View>
+        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: Colors.seat.occupied,  borderColor: Colors.seat.occupiedBorder  }]} /><Text style={styles.legendText}>Taken</Text></View>
         <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: Colors.seat.selected }]} /><Text style={styles.legendText}>Selected</Text></View>
       </View>
 
@@ -90,7 +91,7 @@ export default function SeatsScreen() {
         </View>
         <Pressable
           style={[styles.cta, selected.length === 0 && styles.ctaDisabled]}
-          onPress={() => selected.length > 0 && router.push('/booking/passengers')}
+          onPress={() => selected.length > 0 && router.push('/(tabs)/booking/passengers')}
           disabled={selected.length === 0}
         >
           <Text style={styles.ctaText}>Continue</Text>
@@ -115,26 +116,18 @@ const styles = StyleSheet.create({
   bus: { padding: Spacing.lg, alignItems: 'center' },
   driverRow: { width: '100%', alignItems: 'flex-end', marginBottom: Spacing.md },
   driverLabel: { color: Colors.text.tertiary, fontWeight: '600' },
-  grid: {
-    backgroundColor: Colors.background.primary, borderRadius: BorderRadius.xl,
-    padding: Spacing.md, gap: Spacing.sm, ...Shadow.sm,
-    borderWidth: 2, borderColor: Colors.border.light,
-  },
+  grid: { backgroundColor: Colors.background.primary, borderRadius: BorderRadius.xl, padding: Spacing.md, gap: Spacing.sm, ...Shadow.sm, borderWidth: 2, borderColor: Colors.border.light },
   row: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   seat: { width: 44, height: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
   seatPlaceholder: { width: 44, height: 44 },
-  seatAvail: { backgroundColor: Colors.seat.available, borderColor: Colors.seat.availableBorder },
-  seatTaken: { backgroundColor: Colors.seat.occupied, borderColor: Colors.seat.occupiedBorder },
-  seatSelected: { backgroundColor: Colors.seat.selected, borderColor: Colors.seat.selected },
-  seatText: { fontWeight: '700', color: Colors.text.primary },
-  seatTakenText: { color: Colors.semantic.error, textDecorationLine: 'line-through' },
+  seatAvail:    { backgroundColor: Colors.seat.available, borderColor: Colors.seat.availableBorder },
+  seatTaken:    { backgroundColor: Colors.seat.occupied,  borderColor: Colors.seat.occupiedBorder  },
+  seatSelected: { backgroundColor: Colors.seat.selected,  borderColor: Colors.seat.selected        },
+  seatText:         { fontWeight: '700', color: Colors.text.primary },
+  seatTakenText:    { color: Colors.semantic.error, textDecorationLine: 'line-through' },
   seatSelectedText: { color: '#fff' },
   aisle: { width: 16 },
-  footer: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    padding: Spacing.lg, borderTopWidth: 1, borderTopColor: Colors.border.light,
-    backgroundColor: Colors.background.primary,
-  },
+  footer: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderTopWidth: 1, borderTopColor: Colors.border.light, backgroundColor: Colors.background.primary },
   selSub: { fontWeight: '700', color: Colors.text.primary },
   selNums: { color: Colors.text.tertiary, fontSize: 12 },
   cta: { backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg, paddingVertical: 12, paddingHorizontal: Spacing.lg },
