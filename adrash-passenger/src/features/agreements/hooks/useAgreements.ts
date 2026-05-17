@@ -1,7 +1,7 @@
 // src/features/agreements/hooks/useAgreements.ts
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { apiClient, API_ORIGIN } from '../../../api/client';
+import { apiClient } from '../../../api/client';
 import { ENDPOINTS } from '../../../api/endpoints';
 import {
     LANG_MAP,
@@ -137,7 +137,7 @@ export function useCurrentAgreement() {
         queryKey: agreementKeys.current(apiLang),
         queryFn: async () => {
             const res = await apiClient.get<unknown>(
-                `${API_ORIGIN}${ENDPOINTS.AGREEMENTS.CURRENT}`,
+                ENDPOINTS.AGREEMENTS.CURRENT,
                 {
                     params: {
                         type: 'Passenger',
@@ -171,7 +171,7 @@ export function useAcceptAgreement() {
     >({
         mutationFn: async (body) => {
             const res = await apiClient.post<unknown>(
-                `${API_ORIGIN}${ENDPOINTS.AGREEMENTS.ACCEPT}`,
+                ENDPOINTS.AGREEMENTS.ACCEPT,
                 body,
             );
             return normalizeAcceptResponse(res.data);
