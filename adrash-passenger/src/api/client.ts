@@ -23,7 +23,7 @@ import {
 } from '../features/auth/utils/token';
 import type { AuthTokens } from '../types';
 
-const RAW_API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.adrash.app';
+const RAW_API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.adrash.et';
 
 function trimTrailingSlash(url: string): string {
     return url.replace(/\/+$/, '');

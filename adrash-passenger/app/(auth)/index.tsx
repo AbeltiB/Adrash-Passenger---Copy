@@ -75,6 +75,11 @@ export default function SplashScreen() {
 
     // ── Language selection ────────────────────────────────────────────────────
     const handleSelectLanguage = useCallback(async (lang: Lang) => {
+        if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.log('[Language] selected:', lang);
+        }
+
         setSelected(lang);
         // Update i18n immediately so next screen renders in the right language
         await changeLanguage(lang);
@@ -85,10 +90,15 @@ export default function SplashScreen() {
 
     // ── Continue ──────────────────────────────────────────────────────────────
     const handleContinue = useCallback(() => {
+        if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.log('[Language] continuing with:', selected);
+        }
+
         // The agreement screen reads the active i18n language automatically,
         // so no params need to be passed.
         router.push('/(auth)/agreement');
-    }, []);
+    }, [selected]);
 
     // ── Loading state while checking tokens ───────────────────────────────────
     if (checking) {
