@@ -19,6 +19,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ADRASH_LOGO from '../../assets/Logo Adrash one.png';
 import { Colors, Spacing, BorderRadius } from '../../src/constants';
 import { MMKVKeys } from '../../src/constants/mmkvKeys';
 import { changeLanguage } from '../../src/lib/i18n';
@@ -26,7 +27,6 @@ import { writeString } from '../../src/lib/storage';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
 import { getAccessToken } from '../../src/features/auth/utils/token';
 
-const ADRASH_LOGO = require('../../assets/Logo Adrash one.png');
 
 // ─── Language options ─────────────────────────────────────────────────────────
 
@@ -75,6 +75,11 @@ export default function SplashScreen() {
 
     // ── Language selection ────────────────────────────────────────────────────
     const handleSelectLanguage = useCallback(async (lang: Lang) => {
+        if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.log('[Language] selected:', lang);
+        }
+
         setSelected(lang);
         // Update i18n immediately so next screen renders in the right language
         await changeLanguage(lang);
@@ -85,10 +90,15 @@ export default function SplashScreen() {
 
     // ── Continue ──────────────────────────────────────────────────────────────
     const handleContinue = useCallback(() => {
+        if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.log('[Language] continuing with:', selected);
+        }
+
         // The agreement screen reads the active i18n language automatically,
         // so no params need to be passed.
         router.push('/(auth)/agreement');
-    }, []);
+    }, [selected]);
 
     // ── Loading state while checking tokens ───────────────────────────────────
     if (checking) {

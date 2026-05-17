@@ -40,4 +40,4 @@ export const Colors = {
     },
 } as const;
 
-export type Colors = typeof Colors;
+export type ColorTokens = typeof Colors;

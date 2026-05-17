@@ -23,11 +23,18 @@ import {
 } from '../features/auth/utils/token';
 import type { AuthTokens } from '../types';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.adrash.et';
+const RAW_API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.adrash.et';
+
+function trimTrailingSlash(url: string): string {
+    return url.replace(/\/+$/, '');
+}
+
+export const API_ORIGIN = trimTrailingSlash(RAW_API_BASE).replace(/\/api\/v1$/i, '');
+export const API_V1_BASE = `${API_ORIGIN}/api/v1`;
 
 // ── Lazy auth store access (avoids circular deps + MMKV init order issues) ───
 function getAuthStore() {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
     return require('../features/auth/store/authStore').useAuthStore;
 }
 
@@ -49,7 +56,7 @@ function flushQueue(err: unknown, token: string | null) {
 
 // ── Axios instance ────────────────────────────────────────────────────────────
 export const apiClient: AxiosInstance = axios.create({
-    baseURL: `${API_BASE}/api/v1`,
+    baseURL: API_V1_BASE,
     timeout: 30_000,
     headers: {
         'Content-Type': 'application/json',
@@ -126,7 +133,7 @@ apiClient.interceptors.response.use(
                 expires_in: number;
                 refresh_token?: string;
             }>(
-                `${API_BASE}/api/v1${ENDPOINTS.AUTH.REFRESH}`,
+                `${API_V1_BASE}${ENDPOINTS.AUTH.REFRESH}`,
                 { refresh_token: rt },
                 {
                     headers: {

@@ -1,11 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
+import { API_V1_BASE } from '../../../api/client';
 import { ENDPOINTS } from '../../../api/endpoints';
 import { getRefreshToken, storeTokens, clearTokens } from '../utils/token';
 import { useAuthStore } from '../store/authStore';
 import type { AuthTokens, RefreshTokenResponse } from '../../../types';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.adrash.app';
 
 /** Manual token refresh hook. The apiClient interceptor handles automatic 401 refreshes. */
 export function useRefreshToken() {
@@ -17,7 +17,7 @@ export function useRefreshToken() {
             if (!refreshToken) throw new Error('No refresh token available');
 
             const { data } = await axios.post<RefreshTokenResponse>(
-                `${API_BASE}${ENDPOINTS.AUTH.REFRESH}`,
+                `${API_V1_BASE}${ENDPOINTS.AUTH.REFRESH}`,
                 { refresh_token: refreshToken },
                 { headers: { 'Content-Type': 'application/json', Accept: 'application/json' } },
             );

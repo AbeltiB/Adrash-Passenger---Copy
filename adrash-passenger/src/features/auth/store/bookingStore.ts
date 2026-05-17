@@ -2,7 +2,7 @@
 // (also present at src/features/booking/store/bookingStore.ts — keep both in sync)
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { MMKV } from 'react-native-mmkv';
+import { createZustandStorage } from '../../../lib/storage';
 import type {
     Route,
     Seat,
@@ -12,18 +12,7 @@ import type {
     PaymentProvider,
 } from '../../../types';
 
-// ── Lazy MMKV to avoid TurboModule crash on module load ──────────────────────
-let _mmkv: MMKV | null = null;
-function getMMKV(): MMKV {
-    if (!_mmkv) _mmkv = new MMKV({ id: 'booking' });
-    return _mmkv;
-}
-
-const storage = {
-    getItem:    (k: string) => getMMKV().getString(k) ?? null,
-    setItem:    (k: string, v: string) => getMMKV().set(k, v),
-    removeItem: (k: string) => getMMKV().delete(k),
-};
+const storage = createZustandStorage('booking');
 
 interface BookingState {
     selectedRoute:    Route | null;
