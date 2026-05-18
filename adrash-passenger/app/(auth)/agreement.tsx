@@ -1,14 +1,13 @@
 // app/(auth)/agreement.tsx
 //
-// Two modes:
-//   1. First-time onboarding  — reached from splash after language selection
-//   2. Re-accept (mid-session) — reached when the API interceptor catches a
-//      403 Auth.AgreementUpdateRequired and calls router.replace('/agreement')
-//
-// Mode is detected via the `reaccept` search param:
-//   router.replace({ pathname: '/(auth)/agreement', params: { reaccept: '1' } })
+// Three modes:
+//   1. First-time onboarding  — from splash → after accept goes to /(auth)/phone
+//   2. Re-accept (mid-session 403) — params: { reaccept: '1' }
+//      → after accept, router.back() returns to wherever the 403 fired
+//   3. Re-accept after PIN login  — params: { reaccept: '1', fromPin: '1' }
+//      → after accept goes straight to /(tabs) (PIN is already done)
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
     ActivityIndicator,
@@ -25,8 +24,6 @@ import {
     useCurrentAgreement,
 } from '../../src/features/agreements/hooks/useAgreements';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string): string {
     return new Date(iso).toLocaleDateString(undefined, {
@@ -51,14 +48,15 @@ function decodeAgreementContent(content: string): string {
         .trim();
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export default function AgreementScreen() {
-    // Is this a mid-session re-accept (triggered by 403)?
-    const { reaccept } = useLocalSearchParams<{ reaccept?: string }>();
-    const isReaccept = reaccept === '1';
+    const { reaccept, fromPin } = useLocalSearchParams<{
+        reaccept?: string;
+        fromPin?:  string;
+    }>();
 
-    // ── Data ─────────────────────────────────────────────────────────────────
+    const isReaccept = reaccept === '1';
+    const isFromPin  = fromPin  === '1';   // came here after PIN login, skip PIN setup
+
     const { data: agreement, isLoading, isError, refetch } = useCurrentAgreement();
     const { mutate: accept, isPending: accepting, error: acceptError } = useAcceptAgreement();
     const authAccept = useAuthStore((s) => s.acceptAgreement);
@@ -68,7 +66,6 @@ export default function AgreementScreen() {
         [agreement],
     );
 
-    // ── Accept handler ────────────────────────────────────────────────────────
     const handleAgree = useCallback(() => {
         if (!agreement || accepting) return;
 
@@ -76,35 +73,36 @@ export default function AgreementScreen() {
             { agreementType: 'Passenger', documentVersion: agreement.version },
             {
                 onSuccess: () => {
-                    // 1. Persist acceptance in local auth store
                     authAccept(agreement.version);
 
-                    // 2. Navigate based on mode
-                    if (isReaccept) {
+                    if (isReaccept && isFromPin) {
+                        // Came from PIN login → straight to home (PIN already set)
+                        router.replace('/(tabs)');
+                    } else if (isReaccept) {
+                        // Mid-session 403 re-accept → return to the screen that triggered it
                         router.back();
                     } else {
+                        // First-time onboarding → phone number entry
                         router.replace('/(auth)/phone');
                     }
                 },
             },
         );
-    }, [agreement, accepting, accept, authAccept, isReaccept]);
+    }, [agreement, accepting, accept, authAccept, isReaccept, isFromPin]);
 
-    // ── Decline handler ───────────────────────────────────────────────────────
     const handleDecline = useCallback(() => {
         if (isReaccept) {
-            router.replace('/(auth)/phone');
+            router.replace('/(auth)/pin-login');
         } else {
             router.replace('/(auth)');
         }
     }, [isReaccept]);
 
-    // ── Derived ───────────────────────────────────────────────────────────────
     const canAgree = !accepting && !isLoading && !isError;
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-            {/* ── Header ── */}
+            {/* Header */}
             <View style={styles.header}>
                 {isReaccept && (
                     <View style={styles.updateBanner}>
@@ -123,7 +121,7 @@ export default function AgreementScreen() {
                 )}
             </View>
 
-            {/* ── Body ── */}
+            {/* Body */}
             {isLoading ? (
                 <View style={styles.centered}>
                     <ActivityIndicator size="large" color={Colors.brand.primary} />
@@ -133,9 +131,7 @@ export default function AgreementScreen() {
                 <View style={styles.centered}>
                     <Text style={styles.errorEmoji}>⚠️</Text>
                     <Text style={styles.errorTitle}>Could not load agreement</Text>
-                    <Text style={styles.errorBody}>
-                        Check your connection and try again.
-                    </Text>
+                    <Text style={styles.errorBody}>Check your connection and try again.</Text>
                     <Pressable style={styles.retryBtn} onPress={() => refetch()}>
                         <Text style={styles.retryText}>Retry</Text>
                     </Pressable>
@@ -156,7 +152,7 @@ export default function AgreementScreen() {
                 </ScrollView>
             )}
 
-            {/* ── Footer ── */}
+            {/* Footer */}
             <View style={styles.footer}>
                 {acceptError && (
                     <Text style={styles.acceptError}>
@@ -184,10 +180,10 @@ export default function AgreementScreen() {
                     onPress={handleDecline}
                     disabled={accepting}
                     accessibilityRole="button"
-                    accessibilityLabel={isReaccept ? 'Log out' : 'I do not agree'}
+                    accessibilityLabel={isReaccept ? 'Go back' : 'I do not agree'}
                 >
                     <Text style={styles.declineBtnText}>
-                        {isReaccept ? 'Log out' : 'I do not agree'}
+                        {isReaccept ? 'Go back' : 'I do not agree'}
                     </Text>
                 </Pressable>
             </View>
@@ -195,15 +191,8 @@ export default function AgreementScreen() {
     );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.background.primary,
-    },
-
-    // ── Header ──
+    container: { flex: 1, backgroundColor: Colors.background.primary },
     header: {
         paddingHorizontal: Spacing.xl,
         paddingTop: Spacing.lg,
@@ -223,41 +212,16 @@ const styles = StyleSheet.create({
         fontSize: 13,
         lineHeight: 18,
     },
-    title: {
-        fontSize: 22,
-        fontWeight: '800',
-        color: Colors.text.primary,
-    },
-    meta: {
-        fontSize: 12,
-        color: Colors.text.tertiary,
-        marginTop: 4,
-    },
-
-    // ── Loading / error ──
+    title: { fontSize: 22, fontWeight: '800', color: Colors.text.primary },
+    meta:  { fontSize: 12, color: Colors.text.tertiary, marginTop: 4 },
     centered: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: Spacing.xl,
-        gap: Spacing.md,
+        flex: 1, alignItems: 'center', justifyContent: 'center',
+        padding: Spacing.xl, gap: Spacing.md,
     },
-    loadingText: {
-        color: Colors.text.tertiary,
-        fontSize: 14,
-        marginTop: Spacing.sm,
-    },
+    loadingText: { color: Colors.text.tertiary, fontSize: 14, marginTop: Spacing.sm },
     errorEmoji: { fontSize: 48 },
-    errorTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: Colors.text.primary,
-    },
-    errorBody: {
-        fontSize: 14,
-        color: Colors.text.tertiary,
-        textAlign: 'center',
-    },
+    errorTitle: { fontSize: 18, fontWeight: '700', color: Colors.text.primary },
+    errorBody:  { fontSize: 14, color: Colors.text.tertiary, textAlign: 'center' },
     retryBtn: {
         backgroundColor: Colors.brand.primary,
         borderRadius: BorderRadius.lg,
@@ -265,31 +229,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.xl,
         marginTop: Spacing.sm,
     },
-    retryText: {
-        color: Colors.neutral.white,
-        fontWeight: '700',
-        fontSize: 15,
-    },
-
-    // ── Scroll body ──
-    scroll: { flex: 1 },
-    scrollContent: {
-        paddingHorizontal: Spacing.xl,
-        paddingTop: Spacing.lg,
-    },
+    retryText: { color: Colors.neutral.white, fontWeight: '700', fontSize: 15 },
+    scroll:        { flex: 1 },
+    scrollContent: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg },
     agreementTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: Colors.text.primary,
-        marginBottom: Spacing.md,
+        fontSize: 18, fontWeight: '700',
+        color: Colors.text.primary, marginBottom: Spacing.md,
     },
-    agreementBody: {
-        fontSize: 14,
-        lineHeight: 22,
-        color: Colors.text.secondary,
-    },
-
-    // ── Footer ──
+    agreementBody: { fontSize: 14, lineHeight: 22, color: Colors.text.secondary },
     footer: {
         paddingHorizontal: Spacing.xl,
         paddingVertical: Spacing.lg,
@@ -304,27 +251,12 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         alignItems: 'center',
     },
-    agreeBtnDisabled: {
-        backgroundColor: Colors.neutral.gray300,
-    },
-    agreeBtnText: {
-        color: Colors.neutral.white,
-        fontWeight: '700',
-        fontSize: 16,
-    },
+    agreeBtnDisabled: { backgroundColor: Colors.neutral.gray300 },
+    agreeBtnText: { color: Colors.neutral.white, fontWeight: '700', fontSize: 16 },
     acceptError: {
-        color: Colors.semantic.error,
-        fontSize: 12,
-        textAlign: 'center',
-        fontWeight: '600',
+        color: Colors.semantic.error, fontSize: 12,
+        textAlign: 'center', fontWeight: '600',
     },
-    declineBtn: {
-        alignItems: 'center',
-        paddingVertical: Spacing.sm,
-    },
-    declineBtnText: {
-        color: Colors.text.tertiary,
-        fontWeight: '500',
-        fontSize: 14,
-    },
+    declineBtn: { alignItems: 'center', paddingVertical: Spacing.sm },
+    declineBtnText: { color: Colors.text.tertiary, fontWeight: '500', fontSize: 14 },
 });

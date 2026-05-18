@@ -1,12 +1,13 @@
 // app/(auth)/index.tsx
 // Splash + language selector.
 //
-// Flow:
-//   1. Show logo + animated tagline
-//   2. Show 3 language buttons
-//   3. User taps a language → stored in MMKV, i18n updated immediately
-//   4. "Continue" → navigate to agreement screen
-//   5. Returning user with valid tokens → skip straight to tabs (biometric path)
+// Routing logic on mount:
+//   1. Read saved language → initialise i18n
+//   2. Check SecureStore for access token
+//      a. Token valid + agreement current  → /(tabs)            [home]
+//      b. Token valid + new agreement      → /(auth)/agreement  [re-accept then PIN then home]
+//      c. Token expired + deviceToken      → /(auth)/pin-login  [PIN login directly]
+//      d. No token / no device token       → show language selector → agreement → phone → OTP
 
 import { useCallback, useEffect, useState } from 'react';
 import { router } from 'expo-router';
@@ -25,82 +26,83 @@ import { MMKVKeys } from '../../src/constants/mmkvKeys';
 import { changeLanguage } from '../../src/lib/i18n';
 import { writeString } from '../../src/lib/storage';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
-import { getAccessToken } from '../../src/features/auth/utils/token';
-
-
-// ─── Language options ─────────────────────────────────────────────────────────
+import {
+    getAccessToken,
+    getDeviceToken,
+    isTokenExpired,
+} from '../../src/features/auth/utils/token';
 
 type Lang = 'en' | 'am' | 'om';
 
 const LANGUAGES: { code: Lang; native: string; label: string }[] = [
-    { code: 'en', native: 'English',      label: 'English'      },
-    { code: 'am', native: 'አማርኛ',         label: 'Amharic'      },
-    { code: 'om', native: 'Afaan Oromoo', label: 'Oromiffa'     },
+    { code: 'en', native: 'English',      label: 'English'  },
+    { code: 'am', native: 'አማርኛ',         label: 'Amharic'  },
+    { code: 'om', native: 'Afaan Oromoo', label: 'Oromiffa' },
 ];
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export default function SplashScreen() {
-    const [selected, setSelected] = useState<Lang>('en');
-    const [checking, setChecking]  = useState(true);
+    const [selected, setSelected]   = useState<Lang>('en');
+    const [checking, setChecking]   = useState(true);
 
     const isAuthenticated        = useAuthStore((s) => s.isAuthenticated);
     const hasAcceptedAgreement   = useAuthStore((s) => s.hasAcceptedAgreement);
     const setLanguage            = useAuthStore((s) => s.setLanguage);
 
-    // ── On mount: check for existing session ──────────────────────────────────
+    // ── On mount: decide where to send the user ───────────────────────────────
     useEffect(() => {
         (async () => {
             try {
-                const token = await getAccessToken();
-                if (token && isAuthenticated) {
-                    if (hasAcceptedAgreement) {
-                        // Returning user — go straight to tabs
-                        router.replace('/(tabs)');
+                const [token, expired, deviceToken] = await Promise.all([
+                    getAccessToken(),
+                    isTokenExpired(),
+                    getDeviceToken(),
+                ]);
+
+                const hasValidToken = token !== null && !expired;
+
+                if (hasValidToken) {
+                    // Valid session — check agreement state
+                    if (!hasAcceptedAgreement) {
+                        // Authenticated but agreement not yet accepted
+                        router.replace('/(auth)/agreement');
                         return;
                     }
-                    // Authenticated but never accepted agreement
-                    router.replace('/(auth)/agreement');
+                    // Fully authenticated + agreement current → home
+                    router.replace('/(tabs)');
                     return;
                 }
+
+                // Token expired or missing — check if we have a device token
+                // so we can offer PIN login instead of full OTP flow
+                if (deviceToken) {
+                    router.replace('/(auth)/pin-login');
+                    return;
+                }
+
+                // No token and no device token → fresh install / logged out
+                // Fall through to show the language selector
             } catch {
-                // No valid token — fall through to language selector
+                // Any error → show language selector (safe fallback)
             } finally {
                 setChecking(false);
             }
         })();
-    // Run once on mount only
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // ── Language selection ────────────────────────────────────────────────────
     const handleSelectLanguage = useCallback(async (lang: Lang) => {
-        if (__DEV__) {
-            // eslint-disable-next-line no-console
-            console.log('[Language] selected:', lang);
-        }
-
         setSelected(lang);
-        // Update i18n immediately so next screen renders in the right language
         await changeLanguage(lang);
-        // Persist so the store and future launches restore the preference
         writeString(MMKVKeys.PREFERRED_LANGUAGE, lang);
         setLanguage(lang);
     }, [setLanguage]);
 
-    // ── Continue ──────────────────────────────────────────────────────────────
+    // ── Continue button ───────────────────────────────────────────────────────
     const handleContinue = useCallback(() => {
-        if (__DEV__) {
-            // eslint-disable-next-line no-console
-            console.log('[Language] continuing with:', selected);
-        }
-
-        // The agreement screen reads the active i18n language automatically,
-        // so no params need to be passed.
         router.push('/(auth)/agreement');
-    }, [selected]);
+    }, []);
 
-    // ── Loading state while checking tokens ───────────────────────────────────
     if (checking) {
         return (
             <SafeAreaView style={styles.centered}>
@@ -111,7 +113,6 @@ export default function SplashScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-            {/* Brand */}
             <View style={styles.brand}>
                 <Image
                     source={ADRASH_LOGO}
@@ -122,7 +123,6 @@ export default function SplashScreen() {
                 <Text style={styles.tagline}>Your journey, safely delivered.</Text>
             </View>
 
-            {/* Language picker */}
             <View style={styles.langSection}>
                 <Text style={styles.langHeading}>Choose your language</Text>
 
@@ -158,8 +158,6 @@ export default function SplashScreen() {
     );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -173,7 +171,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: Colors.background.primary,
     },
-
     brand: {
         alignItems: 'center',
         marginTop: Spacing['4xl'],
@@ -189,7 +186,6 @@ const styles = StyleSheet.create({
         marginTop: Spacing.sm,
         textAlign: 'center',
     },
-
     langSection: {
         gap: Spacing.md,
         marginBottom: Spacing.lg,
@@ -229,7 +225,6 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
     },
-
     cta: {
         backgroundColor: Colors.brand.primary,
         borderRadius: BorderRadius.lg,
