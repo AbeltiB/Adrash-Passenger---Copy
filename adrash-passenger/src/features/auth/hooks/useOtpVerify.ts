@@ -2,7 +2,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '../../../api/client';
 import { ENDPOINTS } from '../../../api/endpoints';
-import { storeTokens } from '../utils/token';
+import { storeDevicePhone, storeDeviceToken, storeTokens } from '../utils/token';
 import { useAuthStore } from '../store/authStore';
 import type { ApiResponse, AuthTokens, LoginResponse } from '../../../types';
 
@@ -51,20 +51,18 @@ function normalizeTokens(tokens: { accessToken: string; refreshToken: string } |
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useOtpVerify() {
-  const { setUser, setAuthenticated } = useAuthStore();
+  const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
 
   return useMutation<OtpVerifyResult, unknown, OtpVerifyPayload>({
     mutationFn: async (data) => {
       const res = await apiClient.post<MaybeWrapped>(ENDPOINTS.AUTH.VERIFY_OTP, data);
       return unwrap(res.data);
     },
-    onSuccess: async (result) => {
+    onSuccess: async (result, payload) => {
       await storeTokens(normalizeTokens(result.tokens));
+      if (result.deviceToken) await storeDeviceToken(result.deviceToken);
+      await storeDevicePhone(payload.phone);
       setAuthenticated(true);
-      // User object is populated after profile setup; only set if available
-      if (!result.isNewUser && !result.needsSetup) {
-        // Existing user with full profile — auth store already authenticated
-      }
     },
   });
 }

@@ -44,7 +44,6 @@ export default function SplashScreen() {
     const [selected, setSelected]   = useState<Lang>('en');
     const [checking, setChecking]   = useState(true);
 
-    const isAuthenticated        = useAuthStore((s) => s.isAuthenticated);
     const hasAcceptedAgreement   = useAuthStore((s) => s.hasAcceptedAgreement);
     const setLanguage            = useAuthStore((s) => s.setLanguage);
 

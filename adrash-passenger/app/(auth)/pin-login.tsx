@@ -22,8 +22,9 @@ import { Colors, Spacing, BorderRadius } from '../../src/constants';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
 import { usePinVerify } from '../../src/features/auth/hooks/usePinVerify';
 import {
-    getDeviceToken,
     clearAllSecureData,
+    getDevicePhone,
+    getDeviceToken,
 } from '../../src/features/auth/utils/token';
 
 const PIN_LENGTH = 6;
@@ -116,6 +117,7 @@ export default function PinLoginScreen() {
     const [pin, setPin]           = useState('');
     const [hasError, setHasError] = useState(false);
     const [attempts, setAttempts] = useState(0);
+    const [errorMessage, setErrorMessage] = useState('');
     const shakeAnim               = useRef(new Animated.Value(0)).current;
 
     const user      = useAuthStore((s) => s.user);
@@ -139,15 +141,16 @@ export default function PinLoginScreen() {
     }, [shakeAnim]);
 
     const submitPin = useCallback(async (fullPin: string) => {
-        const deviceToken = await getDeviceToken();
-        if (!deviceToken || !user?.phoneNumber) {
+        const [deviceToken, storedPhone] = await Promise.all([getDeviceToken(), getDevicePhone()]);
+        const phone = user?.phoneNumber ?? storedPhone;
+        if (!deviceToken || !phone) {
             // No device token or phone on record — fall back to full OTP flow
             router.replace('/(auth)');
             return;
         }
 
         verifyPin(
-            { phone: user.phoneNumber, pin: fullPin, deviceToken },
+            { phone, pin: fullPin, deviceToken },
             {
                 onSuccess: (result) => {
                     if (result.agreementRequired) {
@@ -162,7 +165,8 @@ export default function PinLoginScreen() {
                         router.replace('/(tabs)');
                     }
                 },
-                onError: (err) => {
+                onError: (error) => {
+                    setErrorMessage(getErrorMessage(error));
                     const next = attempts + 1;
                     setAttempts(next);
                     setHasError(true);
@@ -184,6 +188,7 @@ export default function PinLoginScreen() {
         if (next.length > PIN_LENGTH) return;
         setPin(next);
         setHasError(false);
+        setErrorMessage('');
 
         if (next.length === PIN_LENGTH) {
             submitPin(next);
@@ -194,6 +199,7 @@ export default function PinLoginScreen() {
         if (isPending) return;
         setPin((p) => p.slice(0, -1));
         setHasError(false);
+        setErrorMessage('');
     }, [isPending]);
 
     // If user somehow lands here without a device token, redirect immediately
@@ -227,6 +233,9 @@ export default function PinLoginScreen() {
                 </Animated.View>
 
                 {/* Attempt warning */}
+                {errorMessage ? (
+                    <Text style={styles.attemptsText}>{errorMessage}</Text>
+                ) : null}
                 {attempts > 0 && attempts < 5 && (
                     <Text style={styles.attemptsText}>
                         {5 - attempts} attempt{5 - attempts !== 1 ? 's' : ''} remaining
