@@ -1,142 +1,22 @@
-// app/(tabs)/index.tsx
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ADRASH_LOGO from '../../assets/Logo Adrash one.png';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
-
-const POPULAR_ROUTES = [
-  { from: 'Addis Ababa', to: 'Hawassa',   fare: 650  },
-  { from: 'Addis Ababa', to: 'Bahir Dar', fare: 950  },
-  { from: 'Addis Ababa', to: 'Gondar',    fare: 1100 },
-  { from: 'Addis Ababa', to: 'Mekelle',   fare: 1450 },
-];
-
-const RECENT = [
-  { from: 'Addis Ababa', to: 'Adama',        date: 'Mon, 4 May'  },
-  { from: 'Hawassa',     to: 'Addis Ababa',  date: 'Sun, 27 Apr' },
-];
+import { Field, StateView } from '@/features/passenger-booking/components/BookingUi';
+import { useRoutes } from '@/features/passenger-booking/hooks/usePassengerBooking';
+import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
+import { routeService } from '@/features/passenger-booking/services/routeService';
 
 export default function HomeTab() {
-  const [from, setFrom] = useState('Addis Ababa');
-  const [to, setTo]     = useState('Hawassa');
-  const swap = () => { const a = from; setFrom(to); setTo(a); };
-
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Image source={ADRASH_LOGO} style={styles.logo} resizeMode="contain" />
-          <View style={styles.headerRight}>
-            <Pressable style={styles.iconBtn} onPress={() => router.push('/(tabs)/notifications')}>
-              <Text style={styles.iconText}>🔔</Text>
-              <View style={styles.badge}><Text style={styles.badgeText}>2</Text></View>
-            </Pressable>
-            <View style={styles.avatar}><Text style={styles.avatarText}>S</Text></View>
-          </View>
-        </View>
-
-        <Text style={styles.greeting}>Good morning, Selam 👋</Text>
-        <Text style={styles.greetingSub}>Where are you going today?</Text>
-
-        {/* Search card */}
-        <View style={styles.searchCard}>
-          <Pressable style={styles.field}>
-            <Text style={styles.fieldLabel}>FROM</Text>
-            <Text style={styles.fieldValue}>{from}</Text>
-          </Pressable>
-          <Pressable style={styles.swap} onPress={swap}>
-            <Text style={styles.swapIcon}>⇅</Text>
-          </Pressable>
-          <Pressable style={styles.field}>
-            <Text style={styles.fieldLabel}>TO</Text>
-            <Text style={styles.fieldValue}>{to}</Text>
-          </Pressable>
-          <View style={styles.row}>
-            <View style={styles.subField}>
-              <Text style={styles.fieldLabel}>📅 DATE</Text>
-              <Text style={styles.subValue}>Tue, 6 May</Text>
-            </View>
-            <View style={styles.subField}>
-              <Text style={styles.fieldLabel}>👥 PASSENGERS</Text>
-              <Text style={styles.subValue}>1 passenger</Text>
-            </View>
-          </View>
-          <Pressable style={styles.searchBtn} onPress={() => router.push('/(tabs)/search/results')}>
-            <Text style={styles.searchBtnText}>Search Routes</Text>
-          </Pressable>
-        </View>
-
-        {/* Recent routes */}
-        <Text style={styles.sectionTitle}>Your recent routes</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentRow}>
-          {RECENT.map((r, i) => (
-            <Pressable key={i} style={styles.recentCard} onPress={() => router.push('/(tabs)/search/results')}>
-              <Text style={styles.recentRoute}>{r.from} → {r.to}</Text>
-              <Text style={styles.recentDate}>{r.date}</Text>
-              <Text style={styles.recentLink}>Book again →</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {/* Popular routes */}
-        <Text style={styles.sectionTitle}>Popular routes</Text>
-        {POPULAR_ROUTES.map((r, i) => (
-          <Pressable key={i} style={styles.popularCard} onPress={() => router.push('/(tabs)/search/results')}>
-            <View style={styles.popularLeft}>
-              <Text style={styles.popularIcon}>🚌</Text>
-              <View>
-                <Text style={styles.popularRoute}>{r.from} → {r.to}</Text>
-                <Text style={styles.popularSub}>From ETB {r.fare} · 6h journey</Text>
-              </View>
-            </View>
-            <Text style={styles.chev}>›</Text>
-          </Pressable>
-        ))}
-
-        <View style={{ height: Spacing.xl }} />
-      </ScrollView>
-    </SafeAreaView>
-  );
+  const { origin, destination, date, passengersCount, recentSearches, setSearch, swap, rememberSearch, selectRoute } = useBookingFlowStore();
+  const [query, setQuery] = useState('');
+  const routesQuery = useRoutes();
+  const routes = useMemo(() => routesQuery.data?.pages.flatMap((p) => p.items) ?? [], [routesQuery.data]);
+  const filteredRoutes = useMemo(() => routeService.filter(routes, origin || query, destination).slice(0, 8), [routes, origin, destination, query]);
+  const cities = useMemo(() => Array.from(new Set(routes.flatMap((r) => [r.originCity, r.destinationCity]))).filter((c) => c.toLowerCase().includes(query.toLowerCase())).slice(0, 8), [routes, query]);
+  const search = () => { rememberSearch(); router.push('/(tabs)/search/results'); };
+  return <SafeAreaView style={styles.container} edges={['top']}><ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled"><View style={styles.header}><Image source={ADRASH_LOGO} style={styles.logo} resizeMode="contain" /><View style={styles.headerRight}><Pressable style={styles.iconBtn} onPress={() => router.push('/(tabs)/notifications')}><Text>🔔</Text></Pressable><View style={styles.avatar}><Text style={styles.avatarText}>A</Text></View></View></View><Text style={styles.greeting}>Where are you going today?</Text><Text style={styles.greetingSub}>Search active Adrash routes, pick stops, and reserve seats.</Text><View style={styles.searchCard}><Field label="Search city" value={query} onChangeText={setQuery} placeholder="Type Addis, Hawassa..." /><View style={styles.chips}>{cities.map((city) => <Pressable key={city} style={styles.chip} onPress={() => setSearch(origin ? { destination: city } : { origin: city })}><Text style={styles.chipText}>{city}</Text></Pressable>)}</View><Field label="FROM" value={origin} onChangeText={(v) => setSearch({ origin: v })} placeholder="Departure city" /><Pressable style={styles.swap} onPress={swap}><Text style={styles.swapIcon}>⇅</Text></Pressable><Field label="TO" value={destination} onChangeText={(v) => setSearch({ destination: v })} placeholder="Destination city" /><View style={styles.row}><View style={{ flex: 1 }}><Field label="DATE" value={date} onChangeText={(v) => setSearch({ date: v })} /></View><View style={{ flex: 1 }}><Field label="PASSENGERS" value={String(passengersCount)} onChangeText={(v) => setSearch({ passengersCount: Math.max(1, Number(v) || 1) })} keyboardType="numeric" /></View></View><Pressable style={[styles.searchBtn, (!origin || !destination || origin === destination) && styles.disabled]} disabled={!origin || !destination || origin === destination} onPress={search}><Text style={styles.searchBtnText}>Search Trips</Text></Pressable>{origin === destination && origin ? <Text style={styles.error}>Origin and destination must be different.</Text> : null}</View><Text style={styles.sectionTitle}>Matching routes</Text>{routesQuery.isLoading ? <StateView title="Loading routes" loading /> : routesQuery.isError ? <StateView title="Could not load routes" subtitle="Check your connection and retry." actionLabel="Retry" onAction={() => void routesQuery.refetch()} /> : filteredRoutes.length === 0 ? <StateView title="No active routes found" subtitle="Try a different city pair." /> : filteredRoutes.map((r) => <Pressable key={r.id} style={styles.popularCard} onPress={() => { selectRoute(r); setSearch({ origin: r.originCity, destination: r.destinationCity }); router.push('/(tabs)/search/results'); }}><View><Text style={styles.popularRoute}>{r.originCity} → {r.destinationCity}</Text><Text style={styles.popularSub}>{r.distanceKm} km · {Math.round(r.estimatedDurationMin / 60)}h {r.estimatedDurationMin % 60}m</Text></View><Text style={styles.chev}>›</Text></Pressable>)}<Text style={styles.sectionTitle}>Recent searches</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentRow}>{recentSearches.map((r, i) => <Pressable key={`${r.origin}-${r.destination}-${i}`} style={styles.recentCard} onPress={() => { setSearch(r); router.push('/(tabs)/search/results'); }}><Text style={styles.recentRoute}>{r.origin} → {r.destination}</Text><Text style={styles.recentDate}>{r.date}</Text></Pressable>)}</ScrollView><View style={{ height: Spacing.xl }} /></ScrollView></SafeAreaView>;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background.secondary },
-  scroll: { padding: Spacing.lg, gap: Spacing.md },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  logo: { width: 100, height: 36 },
-  headerRight: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
-  iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.background.primary, alignItems: 'center', justifyContent: 'center' },
-  iconText: { fontSize: 18 },
-  badge: { position: 'absolute', top: 4, right: 4, width: 16, height: 16, borderRadius: 8, backgroundColor: Colors.semantic.error, alignItems: 'center', justifyContent: 'center' },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.brand.primary, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#fff', fontWeight: '700' },
-  greeting: { fontSize: 22, fontWeight: '800', color: Colors.text.primary, marginTop: Spacing.sm },
-  greetingSub: { fontSize: 14, color: Colors.text.tertiary, marginBottom: Spacing.sm },
-  searchCard: { backgroundColor: Colors.background.primary, borderRadius: BorderRadius.xl, padding: Spacing.base, gap: Spacing.sm, ...Shadow.md },
-  field: { backgroundColor: Colors.background.secondary, borderRadius: BorderRadius.md, padding: Spacing.md },
-  fieldLabel: { fontSize: 11, color: Colors.text.tertiary, fontWeight: '700', letterSpacing: 0.5 },
-  fieldValue: { fontSize: 17, color: Colors.text.primary, fontWeight: '700', marginTop: 2 },
-  swap: { alignSelf: 'center', position: 'absolute', right: 24, top: 64, width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.brand.primary, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
-  swapIcon: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  row: { flexDirection: 'row', gap: Spacing.sm },
-  subField: { flex: 1, backgroundColor: Colors.background.secondary, borderRadius: BorderRadius.md, padding: Spacing.md },
-  subValue: { fontSize: 14, color: Colors.text.primary, fontWeight: '600', marginTop: 2 },
-  searchBtn: { backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg, paddingVertical: 14, alignItems: 'center', marginTop: Spacing.xs },
-  searchBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.text.primary, marginTop: Spacing.md },
-  recentRow: { gap: Spacing.sm, paddingVertical: 4 },
-  recentCard: { backgroundColor: Colors.background.primary, borderRadius: BorderRadius.lg, padding: Spacing.md, width: 200, ...Shadow.sm },
-  recentRoute: { fontWeight: '700', color: Colors.text.primary },
-  recentDate: { color: Colors.text.tertiary, fontSize: 12, marginTop: 2 },
-  recentLink: { color: Colors.brand.primary, fontWeight: '700', marginTop: Spacing.sm, fontSize: 13 },
-  popularCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.background.primary, borderRadius: BorderRadius.lg, padding: Spacing.md, ...Shadow.sm },
-  popularLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  popularIcon: { fontSize: 24 },
-  popularRoute: { fontWeight: '700', color: Colors.text.primary, fontSize: 15 },
-  popularSub: { color: Colors.text.tertiary, fontSize: 12, marginTop: 2 },
-  chev: { fontSize: 24, color: Colors.text.tertiary },
-});
+const styles = StyleSheet.create({ container: { flex: 1, backgroundColor: Colors.background.secondary }, scroll: { padding: Spacing.lg, gap: Spacing.md }, header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, logo: { width: 100, height: 36 }, headerRight: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }, iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.background.primary, alignItems: 'center', justifyContent: 'center' }, avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.brand.primary, alignItems: 'center', justifyContent: 'center' }, avatarText: { color: '#fff', fontWeight: '700' }, greeting: { fontSize: 24, fontWeight: '900', color: Colors.text.primary, marginTop: Spacing.sm }, greetingSub: { fontSize: 14, color: Colors.text.tertiary }, searchCard: { backgroundColor: Colors.background.primary, borderRadius: BorderRadius.xl, padding: Spacing.base, gap: Spacing.sm, ...Shadow.md }, swap: { alignSelf: 'center', width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.brand.primary, alignItems: 'center', justifyContent: 'center', marginVertical: -2 }, swapIcon: { color: '#fff', fontSize: 18, fontWeight: '700' }, row: { flexDirection: 'row', gap: Spacing.sm }, searchBtn: { backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg, paddingVertical: 14, alignItems: 'center', marginTop: Spacing.xs }, searchBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 }, disabled: { opacity: 0.4 }, error: { color: Colors.semantic.error, fontWeight: '700' }, sectionTitle: { fontSize: 16, fontWeight: '800', color: Colors.text.primary, marginTop: Spacing.md }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }, chip: { backgroundColor: Colors.semantic.infoLight, paddingHorizontal: Spacing.md, paddingVertical: 7, borderRadius: BorderRadius.full }, chipText: { color: Colors.semantic.info, fontWeight: '700' }, popularCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.background.primary, borderRadius: BorderRadius.lg, padding: Spacing.md, ...Shadow.sm }, popularRoute: { fontWeight: '800', color: Colors.text.primary, fontSize: 15 }, popularSub: { color: Colors.text.tertiary, fontSize: 12, marginTop: 2 }, chev: { fontSize: 24, color: Colors.text.tertiary }, recentRow: { gap: Spacing.sm, paddingVertical: 4 }, recentCard: { backgroundColor: Colors.background.primary, borderRadius: BorderRadius.lg, padding: Spacing.md, width: 220, ...Shadow.sm }, recentRoute: { fontWeight: '700', color: Colors.text.primary }, recentDate: { color: Colors.text.tertiary, fontSize: 12, marginTop: 2 } });

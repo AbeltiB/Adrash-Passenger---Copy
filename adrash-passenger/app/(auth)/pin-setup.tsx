@@ -11,7 +11,6 @@ import {
     Pressable,
     StyleSheet,
     Text,
-    TextInput,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -203,15 +202,15 @@ export default function PinSetupScreen() {
                 </Text>
 
                 {/* Dots */}
-                <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
-                    <PinDots filled={activePin.length} total={PIN_LENGTH} hasError={hasError} />
-                </Animated.View>
+                <View>
+                    <PinDots filled={activePin.length} total={PIN_LENGTH} hasError={Boolean(hasError)} />
+                </View>
 
                 {/* Error messages */}
                 {mismatch && (
                     <Text style={styles.errorText}>PINs don't match. Try again.</Text>
                 )}
-                {apiError && !mismatch && (
+                {Boolean(apiError) && !mismatch && (
                     <Text style={styles.errorText}>{getErrorMessage(apiError)}</Text>
                 )}
 

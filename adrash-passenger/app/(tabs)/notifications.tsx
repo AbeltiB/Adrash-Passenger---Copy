@@ -1,7 +1,7 @@
 // app/(tabs)/notifications.tsx  (moved from app/notifications.tsx)
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-co../../src/constants'
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 
 const NOTIFS = [
