@@ -1,0 +1,9 @@
+import { apiClient } from '@/api/client';
+import type { ApiResponse, PaginationMeta } from '@/api/types';
+import { AppError } from '../utils/errors';
+export interface Page<T> { items: T[]; meta: PaginationMeta | null; }
+function pickList<T>(data: unknown): T[] { if (Array.isArray(data)) return data as T[]; const obj = data as { items?: T[]; results?: T[]; data?: T[] } | null; return obj?.items ?? obj?.results ?? obj?.data ?? []; }
+function config(params?: Record<string, unknown>, signal?: AbortSignal) { return { ...(params ? { params } : {}), ...(signal ? { signal } : {}) }; }
+export async function getData<T>(url: string, params?: Record<string, unknown>, signal?: AbortSignal): Promise<T> { const res = await apiClient.get(url, config(params, signal)); const envelope = res.data as ApiResponse<T>; if (!envelope.success) throw new AppError(envelope.errors?.[0] ?? 'Request failed', 'API_ERROR'); return envelope.data; }
+export async function getPage<T>(url: string, params?: Record<string, unknown>, signal?: AbortSignal): Promise<Page<T>> { const res = await apiClient.get(url, config(params, signal)); const envelope = res.data as ApiResponse<T[] | { items?: T[]; results?: T[]; data?: T[] }>; if (!envelope.success) throw new AppError(envelope.errors?.[0] ?? 'Request failed', 'API_ERROR'); return { items: pickList<T>(envelope.data), meta: envelope.meta }; }
+export async function postData<T, B>(url: string, body: B, signal?: AbortSignal): Promise<T> { const res = await apiClient.post(url, body, config(undefined, signal)); const envelope = res.data as ApiResponse<T>; if (!envelope.success) throw new AppError(envelope.errors?.[0] ?? 'Request failed', 'API_ERROR'); return envelope.data; }
