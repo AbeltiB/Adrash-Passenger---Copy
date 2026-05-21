@@ -1,7 +1,7 @@
 // app/(tabs)/_layout.tsx
-// ALL screens that should display the bottom tab bar are registered here.
-// The tab bar uses safe-area insets so it sits above the Android gesture
-// navigation bar (edge-to-edge is enabled in app.json).
+// Bottom-tab navigation: Home · Trips · Rewards · Profile
+// All booking/search sub-screens live inside this group so the tab bar stays
+// visible; they are hidden from the tab strip via `href: null`.
 
 import { Tabs, Redirect } from 'expo-router';
 import { Text } from 'react-native';
@@ -24,7 +24,7 @@ export default function TabsLayout() {
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
     const insets = useSafeAreaInsets();
 
-    if (!isAuthenticated) return <Redirect href="/(auth)/phone" />;
+    if (!isAuthenticated) return <Redirect href="/(auth)" />;
 
     const tabBarHeight = 56 + insets.bottom;
 
@@ -46,7 +46,7 @@ export default function TabsLayout() {
                 tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
             }}
         >
-            {/* ── Main tabs ────────────────────────────────────────────── */}
+            {/* ── The four visible tab items ─────────────────────────────── */}
             <Tabs.Screen
                 name="index"
                 options={{ title: 'Home', tabBarIcon: tabIcon('🏠') }}
@@ -64,19 +64,11 @@ export default function TabsLayout() {
                 options={{ title: 'Profile', tabBarIcon: tabIcon('👤') }}
             />
 
-            {/* ── Screens that show tab bar but are NOT tab items ───────
-                tabBarStyle: { display: 'none' } would hide the bar;
-                we want it visible so we just hide the tab button itself. */}
-            <Tabs.Screen
-                name="notifications"
-                options={{ href: null }} // no tab button
-            />
-            <Tabs.Screen
-                name="search/results"
-                options={{ href: null }}
-            />
+            {/* ── Screens inside (tabs) that have NO tab button ─────────── */}
+            <Tabs.Screen name="notifications"      options={{ href: null }} />
+            <Tabs.Screen name="search/results"     options={{ href: null }} />
 
-            {/* Booking flow — tab bar stays visible throughout */}
+            {/* Booking flow */}
             <Tabs.Screen name="booking/pickup"       options={{ href: null }} />
             <Tabs.Screen name="booking/seats"        options={{ href: null }} />
             <Tabs.Screen name="booking/passengers"   options={{ href: null }} />
@@ -85,8 +77,12 @@ export default function TabsLayout() {
             <Tabs.Screen name="booking/waiting"      options={{ href: null }} />
             <Tabs.Screen name="booking/confirmation" options={{ href: null }} />
 
-            {/* Trip detail (not tracking — that's a full-screen modal) */}
-            <Tabs.Screen name="trip/[id]/index"     options={{ href: null }} />
+            {/* Trip detail — accessed via router.push, not a tab button */}
+            <Tabs.Screen name="trip/[id]/index"      options={{ href: null }} />
+
+            {/* trips/[id]/index is intentionally NOT registered here.
+                That duplicate route (app/(tabs)/trips/[id]/index.tsx) should be
+                deleted from the project — trip detail lives at trip/[id]/index. */}
         </Tabs>
     );
 }

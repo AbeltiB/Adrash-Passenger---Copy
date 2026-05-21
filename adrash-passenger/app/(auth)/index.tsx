@@ -3,10 +3,10 @@
 //
 // Routing logic on mount:
 //   1. Read saved language → initialise i18n
-//   2. Check SecureStore for access token
-//      a. Token valid + agreement current  → /(tabs)            [home]
-//      b. Token valid + new agreement      → /(auth)/agreement  [re-accept then PIN then home]
-//      c. Token expired + deviceToken      → /(auth)/pin-login  [PIN login directly]
+//   2. Check SecureStore for access token + device token
+//      a. Token valid + agreement current  → /(tabs)                [straight to home]
+//      b. Token valid + new agreement      → /(auth)/agreement      [re-accept]
+//      c. Token expired + deviceToken      → /(auth)/phone-login    [phone → PIN login]
 //      d. No token / no device token       → show language selector → agreement → phone → OTP
 
 import { useCallback, useEffect, useState } from 'react';
@@ -41,13 +41,13 @@ const LANGUAGES: { code: Lang; native: string; label: string }[] = [
 ];
 
 export default function SplashScreen() {
-    const [selected, setSelected]   = useState<Lang>('en');
-    const [checking, setChecking]   = useState(true);
+    const [selected, setSelected] = useState<Lang>('en');
+    const [checking, setChecking] = useState(true);
 
-    const hasAcceptedAgreement   = useAuthStore((s) => s.hasAcceptedAgreement);
-    const setLanguage            = useAuthStore((s) => s.setLanguage);
+    const hasAcceptedAgreement = useAuthStore((s) => s.hasAcceptedAgreement);
+    const setLanguage           = useAuthStore((s) => s.setLanguage);
 
-    // ── On mount: decide where to send the user ───────────────────────────────
+    // ── On mount: decide where to send the user ───────────────────────────
     useEffect(() => {
         (async () => {
             try {
@@ -60,26 +60,22 @@ export default function SplashScreen() {
                 const hasValidToken = token !== null && !expired;
 
                 if (hasValidToken) {
-                    // Valid session — check agreement state
                     if (!hasAcceptedAgreement) {
-                        // Authenticated but agreement not yet accepted
                         router.replace('/(auth)/agreement');
                         return;
                     }
-                    // Fully authenticated + agreement current → home
                     router.replace('/(tabs)');
                     return;
                 }
 
-                // Token expired or missing — check if we have a device token
-                // so we can offer PIN login instead of full OTP flow
+                // Token expired/missing but this device has been registered before →
+                // send to phone-login (phone number + PIN).
                 if (deviceToken) {
-                    router.replace('/(auth)/pin-login');
+                    router.replace('/(auth)/phone-login');
                     return;
                 }
 
-                // No token and no device token → fresh install / logged out
-                // Fall through to show the language selector
+                // Completely fresh — show language selector, then OTP onboarding.
             } catch {
                 // Any error → show language selector (safe fallback)
             } finally {
@@ -89,7 +85,6 @@ export default function SplashScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // ── Language selection ────────────────────────────────────────────────────
     const handleSelectLanguage = useCallback(async (lang: Lang) => {
         setSelected(lang);
         await changeLanguage(lang);
@@ -97,7 +92,6 @@ export default function SplashScreen() {
         setLanguage(lang);
     }, [setLanguage]);
 
-    // ── Continue button ───────────────────────────────────────────────────────
     const handleContinue = useCallback(() => {
         router.push('/(auth)/agreement');
     }, []);
@@ -174,66 +168,26 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginTop: Spacing['4xl'],
     },
-    logo: {
-        width: 220,
-        height: 110,
-        marginBottom: Spacing.md,
-    },
-    tagline: {
-        fontSize: 15,
-        color: Colors.text.secondary,
-        marginTop: Spacing.sm,
-        textAlign: 'center',
-    },
-    langSection: {
-        gap: Spacing.md,
-        marginBottom: Spacing.lg,
-    },
+    logo:    { width: 220, height: 110, marginBottom: Spacing.md },
+    tagline: { fontSize: 15, color: Colors.text.secondary, marginTop: Spacing.sm, textAlign: 'center' },
+    langSection: { gap: Spacing.md, marginBottom: Spacing.lg },
     langHeading: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: Colors.text.secondary,
-        marginBottom: Spacing.sm,
+        fontSize: 16, fontWeight: '600',
+        color: Colors.text.secondary, marginBottom: Spacing.sm,
     },
     langBtn: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderWidth: 1.5,
-        borderColor: Colors.border.light,
-        borderRadius: BorderRadius.lg,
-        paddingVertical: 14,
-        paddingHorizontal: Spacing.base,
-        backgroundColor: Colors.background.primary,
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        borderWidth: 1.5, borderColor: Colors.border.light,
+        borderRadius: BorderRadius.lg, paddingVertical: 14,
+        paddingHorizontal: Spacing.base, backgroundColor: Colors.background.primary,
     },
-    langBtnActive: {
-        borderColor: Colors.brand.primary,
-        backgroundColor: '#F1FAF4',
-    },
-    langText: {
-        fontSize: 16,
-        color: Colors.text.primary,
-        fontWeight: '500',
-    },
-    langTextActive: {
-        color: Colors.brand.primary,
-        fontWeight: '700',
-    },
-    check: {
-        color: Colors.brand.primary,
-        fontSize: 18,
-        fontWeight: '700',
-    },
+    langBtnActive: { borderColor: Colors.brand.primary, backgroundColor: '#F1FAF4' },
+    langText:      { fontSize: 16, color: Colors.text.primary, fontWeight: '500' },
+    langTextActive: { color: Colors.brand.primary, fontWeight: '700' },
+    check: { color: Colors.brand.primary, fontSize: 18, fontWeight: '700' },
     cta: {
-        backgroundColor: Colors.brand.primary,
-        borderRadius: BorderRadius.lg,
-        paddingVertical: 16,
-        alignItems: 'center',
-        marginTop: Spacing.md,
+        backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg,
+        paddingVertical: 16, alignItems: 'center', marginTop: Spacing.md,
     },
-    ctaText: {
-        color: Colors.neutral.white,
-        fontWeight: '700',
-        fontSize: 16,
-    },
+    ctaText: { color: Colors.neutral.white, fontWeight: '700', fontSize: 16 },
 });

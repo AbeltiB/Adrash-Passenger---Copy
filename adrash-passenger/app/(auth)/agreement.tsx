@@ -1,11 +1,11 @@
 // app/(auth)/agreement.tsx
 //
 // Three modes:
-//   1. First-time onboarding  — from splash → after accept goes to /(auth)/phone
+//   1. First-time onboarding  — from splash → after accept goes to /(auth)/phone (OTP)
 //   2. Re-accept (mid-session 403) — params: { reaccept: '1' }
 //      → after accept, router.back() returns to wherever the 403 fired
-//   3. Re-accept after PIN login  — params: { reaccept: '1', fromPin: '1' }
-//      → after accept goes straight to /(tabs) (PIN is already done)
+//   3. Re-accept after returning-user login — params: { reaccept: '1' }
+//      → same as above; phone-login already authenticated the user
 
 import { useCallback, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -49,13 +49,8 @@ function decodeAgreementContent(content: string): string {
 }
 
 export default function AgreementScreen() {
-    const { reaccept, fromPin } = useLocalSearchParams<{
-        reaccept?: string;
-        fromPin?:  string;
-    }>();
-
-    const isReaccept = reaccept === '1';
-    const isFromPin  = fromPin  === '1';   // came here after PIN login, skip PIN setup
+    const { reaccept } = useLocalSearchParams<{ reaccept?: string }>();
+    const isReaccept   = reaccept === '1';
 
     const { data: agreement, isLoading, isError, refetch } = useCurrentAgreement();
     const { mutate: accept, isPending: accepting, error: acceptError } = useAcceptAgreement();
@@ -75,24 +70,22 @@ export default function AgreementScreen() {
                 onSuccess: () => {
                     authAccept(agreement.version);
 
-                    if (isReaccept && isFromPin) {
-                        // Came from PIN login → straight to home (PIN already set)
-                        router.replace('/(tabs)');
-                    } else if (isReaccept) {
-                        // Mid-session 403 re-accept → return to the screen that triggered it
+                    if (isReaccept) {
+                        // Mid-session re-accept → return to the screen that triggered it
                         router.back();
                     } else {
-                        // First-time onboarding → phone number entry
+                        // First-time onboarding → phone number + OTP
                         router.replace('/(auth)/phone');
                     }
                 },
             },
         );
-    }, [agreement, accepting, accept, authAccept, isReaccept, isFromPin]);
+    }, [agreement, accepting, accept, authAccept, isReaccept]);
 
     const handleDecline = useCallback(() => {
         if (isReaccept) {
-            router.replace('/(auth)/pin-login');
+            // Return to phone-login rather than pin-login
+            router.replace('/(auth)/phone-login');
         } else {
             router.replace('/(auth)');
         }
