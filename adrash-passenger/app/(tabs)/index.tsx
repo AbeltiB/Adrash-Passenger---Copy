@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ADRASH_LOGO from '../../assets/Logo Adrash one.png';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { Field, StateView } from '@/features/passenger-booking/components/BookingUi';
+import { DateTimePicker } from '@/features/passenger-booking/components/DateTimePicker';
 import { useRoutes } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
 import { routeService } from '@/features/passenger-booking/services/routeService';
@@ -123,7 +124,7 @@ function AvatarMenu() {
 export default function HomeTab() {
     const { t } = useTranslation();
     const {
-        origin, destination, date, passengersCount,
+        origin, destination, date, time, passengersCount,
         recentSearches, setSearch, swap, rememberSearch, selectRoute,
     } = useBookingFlowStore();
 
@@ -209,25 +210,19 @@ export default function HomeTab() {
                         placeholder={t('home.to')}
                     />
 
-                    <View style={styles.row}>
-                        <View style={{ flex: 1 }}>
-                            <Field
-                                label={t('home.date')}
-                                value={date}
-                                onChangeText={(v) => setSearch({ date: v })}
-                            />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Field
-                                label={t('home.passengers')}
-                                value={String(passengersCount)}
-                                onChangeText={(v) =>
-                                    setSearch({ passengersCount: Math.max(1, Number(v) || 1) })
-                                }
-                                keyboardType="numeric"
-                            />
-                        </View>
-                    </View>
+                    <DateTimePicker
+                        date={date}
+                        time={time}
+                        onChange={(d, tm) => setSearch({ date: d, time: tm })}
+                    />
+                    <Field
+                        label={t('home.passengers')}
+                        value={String(passengersCount)}
+                        onChangeText={(v) =>
+                            setSearch({ passengersCount: Math.max(1, Number(v) || 1) })
+                        }
+                        keyboardType="numeric"
+                    />
 
                     <Pressable
                         style={[
@@ -392,7 +387,6 @@ const styles = StyleSheet.create({
         marginVertical: -2,
     },
     swapIcon:      { color: '#fff', fontSize: 18, fontWeight: '700' },
-    row:           { flexDirection: 'row', gap: Spacing.sm },
     searchBtn: {
         backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg,
         paddingVertical: 14, alignItems: 'center', marginTop: Spacing.xs,

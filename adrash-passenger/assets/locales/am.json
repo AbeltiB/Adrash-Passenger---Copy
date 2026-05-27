@@ -109,9 +109,10 @@
         "greeting_sub": "ንቁ የAdrash መስመሮችን ፈልጉ፣ ማቆሚያ ይምረጡ፣ ወንበር ያስይዙ።",
         "search_city": "ከተማ ፈልግ",
         "search_city_placeholder": "አዲስ፣ ሃዋሳ…",
-        "from": "ከ",
-        "to": "ወደ",
+        "from": "የመነሻ ከተማ",
+        "to": "የመድረሻ ከተማ",
         "date": "ቀን",
+        "date_time": "ቀን እና ሰዓት",
         "passengers": "ተሳፋሪዎች",
         "search_trips": "ጉዞ ፈልግ",
         "origin_destination_same": "መነሻ እና መድረሻ ሊለያዩ ይገባቸዋል።",
@@ -191,6 +192,12 @@
             "booking_id": "የማስያዝ መለያ: {{id}}",
             "view_ticket": "ትኬት ይመልከቱ",
             "go_home": "ወደ መነሻ ተመለስ"
+        },
+        "date_picker": {
+            "title": "ቀን እና ሰዓት ይምረጡ",
+            "select_date": "ቀን",
+            "select_time": "የመነሻ ሰዓት",
+            "confirm": "አረጋግጥ"
         }
     },
     "trips": {

@@ -109,9 +109,10 @@
         "greeting_sub": "Karaalee Adrash qorachuuf, bakka dhaabbii filadhuu, teessoo qabadhu.",
         "search_city": "Magaala barbaadi",
         "search_city_placeholder": "Finfinnee, Shaashamannee…",
-        "from": "IRRAA",
-        "to": "GARA",
+        "from": "MAGAALA KA'UMSAA",
+        "to": "MAGAALA GALMEE",
         "date": "GUYYAA",
+        "date_time": "GUYYAA FI YEROO",
         "passengers": "KONKOLAATAA",
         "search_trips": "Imala Barbaadi",
         "origin_destination_same": "Ka'umsi fi galmeen adda ta'uu qabu.",
@@ -191,6 +192,12 @@
             "booking_id": "ID Eeyyamaa: {{id}}",
             "view_ticket": "Tikeettii Ilaali",
             "go_home": "Gara Mana Deebi'i"
+        },
+        "date_picker": {
+            "title": "Guyyaa fi Yeroo Filadhu",
+            "select_date": "GUYYAA",
+            "select_time": "YEROO KA'UMSAA",
+            "confirm": "Mirkaneessi"
         }
     },
     "trips": {

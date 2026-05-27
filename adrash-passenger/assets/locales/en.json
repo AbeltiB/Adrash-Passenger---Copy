@@ -109,9 +109,10 @@
         "greeting_sub": "Search active Adrash routes, pick stops, and reserve seats.",
         "search_city": "Search city",
         "search_city_placeholder": "Type Addis, Hawassa…",
-        "from": "FROM",
-        "to": "TO",
+        "from": "ORIGIN CITY",
+        "to": "DESTINATION CITY",
         "date": "DATE",
+        "date_time": "DATE & TIME",
         "passengers": "PASSENGERS",
         "search_trips": "Search Trips",
         "origin_destination_same": "Origin and destination must be different.",
@@ -191,6 +192,12 @@
             "booking_id": "Booking ID: {{id}}",
             "view_ticket": "View Ticket",
             "go_home": "Back to Home"
+        },
+        "date_picker": {
+            "title": "Select Date & Time",
+            "select_date": "DATE",
+            "select_time": "DEPARTURE TIME",
+            "confirm": "Confirm"
         }
     },
     "trips": {
