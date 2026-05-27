@@ -432,11 +432,11 @@ const styles = StyleSheet.create({
 
     // Balance card
     balanceCard: { backgroundColor: Colors.brand.primary, gap: 4 },
-    balanceLabel: { color: '#D7F5E2', fontSize: 13, fontWeight: '600' },
+    balanceLabel: { color: Colors.brand.onPrimary, fontSize: 13, fontWeight: '600' },
     balanceRow: { flexDirection: 'row', alignItems: 'baseline' },
     balanceValue: { color: Colors.neutral.white, fontSize: 40, fontWeight: '800' },
-    balanceUnit: { color: '#D7F5E2', fontSize: 16 },
-    balanceEquiv: { color: '#D7F5E2', fontSize: 12 },
+    balanceUnit: { color: Colors.brand.onPrimary, fontSize: 16 },
+    balanceEquiv: { color: Colors.brand.onPrimary, fontSize: 12 },
 
     // Referral
     refTitle: { fontWeight: '700', color: Colors.text.primary, fontSize: 15 },
@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
         borderWidth: 1.5, borderColor: Colors.border.light,
         alignItems: 'center',
     },
-    langOptActive: { borderColor: Colors.brand.primary, backgroundColor: '#F1FAF4' },
+    langOptActive: { borderColor: Colors.brand.primary, backgroundColor: Colors.brand.primaryTint },
     langOptText: { color: Colors.text.secondary, fontWeight: '600', fontSize: 13 },
     langOptTextActive: { color: Colors.brand.primary },
     modalBtns: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm },

@@ -1,4 +1,14 @@
 // app/(auth)/otp.tsx
+// OTP verification screen.
+//
+// Post-verification routing:
+//   isNewUser || needsSetup  → /(auth)/setup        (profile setup for brand new accounts)
+//   agreementRequired        → /(auth)/agreement    (terms changed)
+//   isNewUser === false       → /(auth)/pin-setup   (existing account on new device — offer PIN setup)
+//   skip / returning         → /(tabs)              (straight home)
+//
+// NOTE: "returning user on new device" lands here via phone-login → OTP.
+// We offer pin-setup so they can register this new device with a PIN.
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -77,7 +87,6 @@ export default function OtpScreen() {
         setError('');
         verifyOtp.mutate(
             {
-                // API expects { phone, code } — not phoneNumber / otp
                 phone,
                 code,
                 deviceLabel: 'Mobile App',
@@ -89,12 +98,14 @@ export default function OtpScreen() {
                     setVerified(true);
                     setTimeout(() => {
                         if (result.isNewUser || result.needsSetup) {
-                            // New user → profile setup first
+                            // Brand new account → profile setup
                             router.replace('/(auth)/setup');
                         } else if (result.agreementRequired) {
+                            // Terms changed
                             router.replace('/(auth)/agreement');
                         } else {
-                            // Returning user → pin setup / tabs
+                            // Returning user (on a new device, or OTP was explicitly chosen):
+                            // offer PIN setup for this device, they can skip
                             router.replace('/(auth)/pin-setup');
                         }
                     }, 500);
@@ -249,10 +260,10 @@ const styles = StyleSheet.create({
         borderColor: Colors.border.medium, textAlign: 'center', fontSize: 22,
         fontWeight: '700', color: Colors.text.primary, backgroundColor: Colors.background.secondary,
     },
-    boxFilled: { borderColor: Colors.brand.primary, backgroundColor: '#F1FAF4' },
-    boxError: { borderColor: Colors.semantic.error, backgroundColor: Colors.semantic.errorLight },
+    boxFilled:   { borderColor: Colors.brand.primary, backgroundColor: Colors.brand.primaryTint },
+    boxError:    { borderColor: Colors.semantic.error, backgroundColor: Colors.semantic.errorLight },
     boxVerified: { borderColor: Colors.semantic.success, backgroundColor: Colors.semantic.successLight },
-    errorText: { color: Colors.semantic.error, fontSize: 13, textAlign: 'center', fontWeight: '600' },
+    errorText:   { color: Colors.semantic.error, fontSize: 13, textAlign: 'center', fontWeight: '600' },
     successText: { color: Colors.semantic.success, fontSize: 14, textAlign: 'center', fontWeight: '700' },
     cta: {
         backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg,
@@ -261,6 +272,6 @@ const styles = StyleSheet.create({
     ctaDisabled: { backgroundColor: Colors.neutral.gray300 },
     ctaText: { color: '#fff', fontWeight: '700', fontSize: 16 },
     resendRow: { alignItems: 'center', marginTop: Spacing.sm },
-    timer: { color: Colors.text.tertiary, fontSize: 14 },
+    timer:  { color: Colors.text.tertiary, fontSize: 14 },
     resend: { color: Colors.brand.primary, fontWeight: '700', fontSize: 14 },
 });

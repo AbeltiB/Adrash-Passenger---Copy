@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background.primary, padding: Spacing.xl },
     content: { flex: 1, justifyContent: 'center', gap: Spacing.sm },
     illust: {
-        width: 80, height: 80, borderRadius: 40, backgroundColor: '#F1FAF4',
+        width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.brand.primaryTint,
         alignItems: 'center', justifyContent: 'center',
         alignSelf: 'center', marginBottom: Spacing.md,
     },

@@ -1,7 +1,7 @@
 // app/(tabs)/_layout.tsx
-// Bottom-tab navigation: Home · Trips · Rewards · Profile
-// All booking/search sub-screens live inside this group so the tab bar stays
-// visible; they are hidden from the tab strip via `href: null`.
+// Bottom-tab navigation: Home · Trips · Rewards · Profile (exactly 4 tabs).
+// All booking/search/detail sub-screens live inside this group so the tab bar
+// stays visible; they are hidden from the tab strip via href: null.
 
 import { Tabs, Redirect } from 'expo-router';
 import { Text } from 'react-native';
@@ -64,9 +64,9 @@ export default function TabsLayout() {
                 options={{ title: 'Profile', tabBarIcon: tabIcon('👤') }}
             />
 
-            {/* ── Screens inside (tabs) that have NO tab button ─────────── */}
-            <Tabs.Screen name="notifications"      options={{ href: null }} />
-            <Tabs.Screen name="search/results"     options={{ href: null }} />
+            {/* ── Screens with NO tab button ────────────────────────────── */}
+            <Tabs.Screen name="notifications"        options={{ href: null }} />
+            <Tabs.Screen name="search/results"       options={{ href: null }} />
 
             {/* Booking flow */}
             <Tabs.Screen name="booking/pickup"       options={{ href: null }} />
@@ -77,12 +77,12 @@ export default function TabsLayout() {
             <Tabs.Screen name="booking/waiting"      options={{ href: null }} />
             <Tabs.Screen name="booking/confirmation" options={{ href: null }} />
 
-            {/* Trip detail — accessed via router.push, not a tab button */}
+            {/* Trip detail screens — no tab buttons */}
             <Tabs.Screen name="trip/[id]/index"      options={{ href: null }} />
-
-            {/* trips/[id]/index is intentionally NOT registered here.
-                That duplicate route (app/(tabs)/trips/[id]/index.tsx) should be
-                deleted from the project — trip detail lives at trip/[id]/index. */}
+            {/* IMPORTANT: trips/[id]/index must be listed here with href:null.
+                The file exists (as a redirect shim) so Expo Router sees it.
+                Without this entry it becomes an unregistered tab (phantom 5th tab). */}
+            <Tabs.Screen name="trips/[id]/index"     options={{ href: null }} />
         </Tabs>
     );
 }

@@ -11,7 +11,7 @@
 //
 // "Sign in with a different account" clears device data and returns to splash.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { router } from 'expo-router';
 import {
     ActivityIndicator,
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     iconWrap: {
-        width: 80, height: 80, borderRadius: 40, backgroundColor: '#F1FAF4',
+        width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.brand.primaryTint,
         alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md,
     },
     iconEmoji: { fontSize: 36 },

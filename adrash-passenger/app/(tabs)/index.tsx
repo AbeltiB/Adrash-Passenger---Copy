@@ -325,7 +325,8 @@ const styles = StyleSheet.create({
     headerRight:  { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
     iconBtn: {
         width: 40, height: 40, borderRadius: 20,
-        backgroundColor: Colors.background.primary,
+        backgroundColor: Colors.brand.primaryTint,
+        borderWidth: 1, borderColor: Colors.border.light,
         alignItems: 'center', justifyContent: 'center',
     },
     avatar: {

@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     skipText: { color: Colors.brand.primary, fontSize: 15, fontWeight: '600' },
     content: { flex: 1, alignItems: 'center', paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg },
     iconWrap: {
-        width: 80, height: 80, borderRadius: 40, backgroundColor: '#F1FAF4',
+        width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.brand.primaryTint,
         alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md,
     },
     iconEmoji: { fontSize: 36 },

@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
         borderRadius: BorderRadius.lg, paddingVertical: 14,
         paddingHorizontal: Spacing.base, backgroundColor: Colors.background.primary,
     },
-    langBtnActive: { borderColor: Colors.brand.primary, backgroundColor: '#F1FAF4' },
+    langBtnActive: { borderColor: Colors.brand.primary, backgroundColor: Colors.brand.primaryTint },
     langText:      { fontSize: 16, color: Colors.text.primary, fontWeight: '500' },
     langTextActive: { color: Colors.brand.primary, fontWeight: '700' },
     check: { color: Colors.brand.primary, fontSize: 18, fontWeight: '700' },

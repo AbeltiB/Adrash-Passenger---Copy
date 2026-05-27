@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', gap: Spacing.md, backgroundColor: Colors.background.primary,
     borderRadius: BorderRadius.lg, padding: Spacing.md, ...Shadow.sm,
   },
-  itemUnread: { backgroundColor: '#F1FAF4' },
+  itemUnread: { backgroundColor: Colors.brand.primaryTint },
   iconBox: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.background.secondary, alignItems: 'center', justifyContent: 'center' },
   icon: { fontSize: 22 },
   itemHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
