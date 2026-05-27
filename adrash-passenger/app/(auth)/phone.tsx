@@ -1,6 +1,7 @@
 // app/(auth)/phone.tsx
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -50,6 +51,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 export default function PhoneScreen() {
+  const { t } = useTranslation();
   const [raw, setRaw] = useState('');
   const sendOtp = useOtpSend();
   const valid = isValidPhone(raw);
@@ -91,10 +93,8 @@ export default function PhoneScreen() {
         <View style={styles.illust}>
           <Text style={styles.illustEmoji}>📱</Text>
         </View>
-        <Text style={styles.title}>Enter your phone number</Text>
-        <Text style={styles.subtitle}>
-          We&apos;ll send you a 6-digit verification code by SMS
-        </Text>
+        <Text style={styles.title}>{t('auth.phone.title')}</Text>
+        <Text style={styles.subtitle}>{t('auth.phone.subtitle')}</Text>
 
         <View style={styles.inputRow}>
           <View style={styles.flagBox}>
@@ -121,9 +121,7 @@ export default function PhoneScreen() {
         )}
 
         {raw.length > 0 && !valid && (
-          <Text style={styles.error}>
-            Enter a valid number starting with 09, 9, 07, or 7
-          </Text>
+          <Text style={styles.error}>{t('auth.phone.invalid_phone')}</Text>
         )}
 
         {sendOtp.error ? <Text style={styles.error}>{getErrorMessage(sendOtp.error)}</Text> : null}
@@ -137,14 +135,10 @@ export default function PhoneScreen() {
           onPress={handleContinue}
           disabled={!valid || sendOtp.isPending}
         >
-          <Text style={styles.ctaText}>{sendOtp.isPending ? 'Sending…' : 'Send Code'}</Text>
+          <Text style={styles.ctaText}>{sendOtp.isPending ? t('auth.phone.sending') : t('auth.phone.send_otp')}</Text>
         </Pressable>
 
-        <Text style={styles.terms}>
-          By continuing you agree to our{' '}
-          <Text style={styles.link}>Terms</Text> &{' '}
-          <Text style={styles.link}>Privacy Policy</Text>
-        </Text>
+        <Text style={styles.terms}>{t('auth.phone.terms')}</Text>
       </View>
     </SafeAreaView>
   );

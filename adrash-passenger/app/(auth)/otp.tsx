@@ -11,6 +11,7 @@
 // We offer pin-setup so they can register this new device with a PIN.
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
     Animated,
@@ -46,6 +47,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 export default function OtpScreen() {
+    const { t } = useTranslation();
     const { phone } = useLocalSearchParams<{ phone: string }>();
     const verifyOtp = useOtpVerify();
     const resendOtp = useOtpSend();
@@ -101,8 +103,11 @@ export default function OtpScreen() {
                             // Brand new account → profile setup
                             router.replace('/(auth)/setup');
                         } else if (result.agreementRequired) {
-                            // Terms changed
-                            router.replace('/(auth)/agreement');
+                            // Terms changed after OTP — re-accept, then offer PIN setup
+                            router.replace({
+                                pathname: '/(auth)/agreement',
+                                params: { reaccept: '1', next: 'pin-setup' },
+                            });
                         } else {
                             // Returning user (on a new device, or OTP was explicitly chosen):
                             // offer PIN setup for this device, they can skip
@@ -188,14 +193,13 @@ export default function OtpScreen() {
             </Pressable>
 
             <View style={styles.content}>
-                <Text style={styles.title}>Enter verification code</Text>
+                <Text style={styles.title}>{t('auth.otp.title')}</Text>
 
                 <Pressable onPress={() => router.back()} disabled={verifying}>
                     <Text style={styles.subtitle}>
-                        We sent a 6-digit code to{' '}
-                        <Text style={styles.phoneHighlight}>{maskedPhone}</Text>
+                        {t('auth.otp.subtitle', { phone: maskedPhone })}
                         {'\n'}
-                        <Text style={styles.tapChange}>(tap to change number)</Text>
+                        <Text style={styles.tapChange}>{t('auth.otp.tap_change')}</Text>
                     </Text>
                 </Pressable>
 
@@ -219,7 +223,7 @@ export default function OtpScreen() {
                 </Animated.View>
 
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
-                {verified ? <Text style={styles.successText}>✓ Verified! Redirecting…</Text> : null}
+                {verified ? <Text style={styles.successText}>{t('auth.otp.verified')}</Text> : null}
 
                 <Pressable
                     style={[styles.cta, (!allFilled || verifying || verified) && styles.ctaDisabled]}
@@ -227,16 +231,16 @@ export default function OtpScreen() {
                     disabled={!allFilled || verifying || verified}
                 >
                     <Text style={styles.ctaText}>
-                        {verifying ? 'Verifying…' : verified ? '✓ Verified' : 'Verify'}
+                        {verifying ? t('auth.otp.verifying') : verified ? t('auth.otp.verify') : t('auth.otp.verify')}
                     </Text>
                 </Pressable>
 
                 <View style={styles.resendRow}>
                     {seconds > 0 ? (
-                        <Text style={styles.timer}>Resend code in 0:{String(seconds).padStart(2, '0')}</Text>
+                        <Text style={styles.timer}>{t('auth.otp.resend_in', { seconds: String(seconds).padStart(2, '0') })}</Text>
                     ) : (
                         <Pressable onPress={handleResend} disabled={resendOtp.isPending}>
-                            <Text style={styles.resend}>{resendOtp.isPending ? 'Sending…' : 'Resend code'}</Text>
+                            <Text style={styles.resend}>{resendOtp.isPending ? t('common.sending') : t('auth.otp.resend')}</Text>
                         </Pressable>
                     )}
                 </View>

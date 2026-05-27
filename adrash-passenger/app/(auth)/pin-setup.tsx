@@ -4,6 +4,7 @@
 // User may skip this step — they can set it later from Profile settings.
 
 import { useCallback, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import {
     ActivityIndicator,
@@ -99,6 +100,7 @@ const padStyles = StyleSheet.create({
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function PinSetupScreen() {
+    const { t } = useTranslation();
     const [step, setStep] = useState<Step>('enter');
     const [pin, setPin] = useState('');
     const [confirmPin, setConfirmPin] = useState('');
@@ -181,7 +183,7 @@ export default function PinSetupScreen() {
                     <Text style={styles.backText}>← Back</Text>
                 </Pressable>
                 <Pressable style={styles.skipBtn} onPress={handleSkip} disabled={isPending}>
-                    <Text style={styles.skipText}>Skip</Text>
+                    <Text style={styles.skipText}>{t('auth.pin_setup.skip')}</Text>
                 </Pressable>
             </View>
 
@@ -193,12 +195,10 @@ export default function PinSetupScreen() {
 
                 {/* Title */}
                 <Text style={styles.title}>
-                    {step === 'enter' ? 'Create your PIN' : 'Confirm your PIN'}
+                    {step === 'enter' ? t('auth.pin_setup.title') : t('auth.pin_setup.confirm_title')}
                 </Text>
                 <Text style={styles.subtitle}>
-                    {step === 'enter'
-                        ? 'Choose a 6-digit PIN for faster sign-in'
-                        : 'Enter the same PIN again to confirm'}
+                    {step === 'enter' ? t('auth.pin_setup.subtitle') : t('auth.pin_setup.confirm_subtitle')}
                 </Text>
 
                 {/* Dots */}
@@ -208,7 +208,7 @@ export default function PinSetupScreen() {
 
                 {/* Error messages */}
                 {mismatch && (
-                    <Text style={styles.errorText}>PINs don't match. Try again.</Text>
+                    <Text style={styles.errorText}>{t('auth.pin_setup.mismatch')}</Text>
                 )}
                 {Boolean(apiError) && !mismatch && (
                     <Text style={styles.errorText}>{getErrorMessage(apiError)}</Text>
@@ -224,15 +224,13 @@ export default function PinSetupScreen() {
                 {isPending ? (
                     <View style={styles.loadingWrap}>
                         <ActivityIndicator size="large" color={Colors.brand.primary} />
-                        <Text style={styles.loadingText}>Saving your PIN…</Text>
+                        <Text style={styles.loadingText}>{t('auth.pin_setup.saving')}</Text>
                     </View>
                 ) : (
                     <NumPad onPress={handlePress} onDelete={handleDelete} />
                 )}
 
-                <Text style={styles.hint}>
-                    You can change or remove your PIN anytime from your profile settings.
-                </Text>
+                <Text style={styles.hint}>{t('auth.pin_setup.hint')}</Text>
             </View>
         </SafeAreaView>
     );

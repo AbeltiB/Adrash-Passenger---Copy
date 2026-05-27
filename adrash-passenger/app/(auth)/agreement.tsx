@@ -8,6 +8,7 @@
 //      → same as above; phone-login already authenticated the user
 
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
     ActivityIndicator,
@@ -49,12 +50,14 @@ function decodeAgreementContent(content: string): string {
 }
 
 export default function AgreementScreen() {
-    const { reaccept } = useLocalSearchParams<{ reaccept?: string }>();
-    const isReaccept   = reaccept === '1';
+    const { t } = useTranslation();
+    const { reaccept, next } = useLocalSearchParams<{ reaccept?: string; next?: string }>();
+    const isReaccept = reaccept === '1';
 
     const { data: agreement, isLoading, isError, refetch } = useCurrentAgreement();
     const { mutate: accept, isPending: accepting, error: acceptError } = useAcceptAgreement();
-    const authAccept = useAuthStore((s) => s.acceptAgreement);
+    const authAccept       = useAuthStore((s) => s.acceptAgreement);
+    const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
 
     const agreementBody = useMemo(
         () => (agreement ? decodeAgreementContent(agreement.content) : ''),
@@ -70,9 +73,14 @@ export default function AgreementScreen() {
                 onSuccess: () => {
                     authAccept(agreement.version);
 
-                    if (isReaccept) {
-                        // Mid-session re-accept → return to the screen that triggered it
-                        router.back();
+                    if (next === 'tabs' || (isReaccept && next !== 'pin-setup')) {
+                        // Splash-triggered re-accept: ensure the tabs guard passes.
+                        setAuthenticated(true);
+                        router.replace('/(tabs)');
+                    } else if (next === 'pin-setup') {
+                        // Post-OTP / post-setup path: setAuthenticated already called
+                        // by useOtpVerify/usePinVerify/setup.tsx before this screen.
+                        router.replace('/(auth)/pin-setup');
                     } else {
                         // First-time onboarding → phone number + OTP
                         router.replace('/(auth)/phone');
@@ -80,16 +88,12 @@ export default function AgreementScreen() {
                 },
             },
         );
-    }, [agreement, accepting, accept, authAccept, isReaccept]);
+    }, [agreement, accepting, accept, authAccept, setAuthenticated, isReaccept, next]);
 
     const handleDecline = useCallback(() => {
-        if (isReaccept) {
-            // Return to phone-login rather than pin-login
-            router.replace('/(auth)/phone-login');
-        } else {
-            router.replace('/(auth)');
-        }
-    }, [isReaccept]);
+        // Declining terms always returns to splash — user cannot proceed without accepting
+        router.replace('/(auth)');
+    }, []);
 
     const canAgree = !accepting && !isLoading && !isError;
 
@@ -100,12 +104,12 @@ export default function AgreementScreen() {
                 {isReaccept && (
                     <View style={styles.updateBanner}>
                         <Text style={styles.updateBannerText}>
-                            📋 Our terms have been updated — please review and accept to continue
+                            📋 {t('auth.agreement.update_banner')}
                         </Text>
                     </View>
                 )}
                 <Text style={styles.title}>
-                    {isReaccept ? 'Updated Terms' : 'Passenger Agreement'}
+                    {isReaccept ? t('auth.agreement.updated_title') : t('auth.agreement.passenger_title')}
                 </Text>
                 {agreement && (
                     <Text style={styles.meta}>
@@ -118,15 +122,15 @@ export default function AgreementScreen() {
             {isLoading ? (
                 <View style={styles.centered}>
                     <ActivityIndicator size="large" color={Colors.brand.primary} />
-                    <Text style={styles.loadingText}>Loading agreement…</Text>
+                    <Text style={styles.loadingText}>{t('auth.agreement.loading')}</Text>
                 </View>
             ) : isError ? (
                 <View style={styles.centered}>
                     <Text style={styles.errorEmoji}>⚠️</Text>
-                    <Text style={styles.errorTitle}>Could not load agreement</Text>
-                    <Text style={styles.errorBody}>Check your connection and try again.</Text>
+                    <Text style={styles.errorTitle}>{t('auth.agreement.error_title')}</Text>
+                    <Text style={styles.errorBody}>{t('auth.agreement.error_body')}</Text>
                     <Pressable style={styles.retryBtn} onPress={() => refetch()}>
-                        <Text style={styles.retryText}>Retry</Text>
+                        <Text style={styles.retryText}>{t('common.retry')}</Text>
                     </Pressable>
                 </View>
             ) : (
@@ -148,9 +152,7 @@ export default function AgreementScreen() {
             {/* Footer */}
             <View style={styles.footer}>
                 {acceptError && (
-                    <Text style={styles.acceptError}>
-                        Could not record your acceptance. Please try again.
-                    </Text>
+                    <Text style={styles.acceptError}>{t('auth.agreement.accept_error')}</Text>
                 )}
 
                 <Pressable
@@ -158,13 +160,13 @@ export default function AgreementScreen() {
                     onPress={handleAgree}
                     disabled={!canAgree}
                     accessibilityRole="button"
-                    accessibilityLabel="I agree and continue"
+                    accessibilityLabel={t('auth.agreement.agree_continue')}
                     accessibilityState={{ disabled: !canAgree }}
                 >
                     {accepting ? (
                         <ActivityIndicator color={Colors.neutral.white} />
                     ) : (
-                        <Text style={styles.agreeBtnText}>I agree and continue</Text>
+                        <Text style={styles.agreeBtnText}>{t('auth.agreement.agree_continue')}</Text>
                     )}
                 </Pressable>
 
@@ -173,11 +175,9 @@ export default function AgreementScreen() {
                     onPress={handleDecline}
                     disabled={accepting}
                     accessibilityRole="button"
-                    accessibilityLabel={isReaccept ? 'Go back' : 'I do not agree'}
+                    accessibilityLabel={t('auth.agreement.i_do_not_agree')}
                 >
-                    <Text style={styles.declineBtnText}>
-                        {isReaccept ? 'Go back' : 'I do not agree'}
-                    </Text>
+                    <Text style={styles.declineBtnText}>{t('auth.agreement.i_do_not_agree')}</Text>
                 </Pressable>
             </View>
         </SafeAreaView>

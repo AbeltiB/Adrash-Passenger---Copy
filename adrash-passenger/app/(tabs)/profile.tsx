@@ -11,6 +11,7 @@
 //   DELETE /api/v1/users/me               → delete account
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
     Alert,
@@ -36,6 +37,10 @@ import {
     useUpdateNotificationPreferences,
 } from '../../src/features/profile/hooks/useNotificationPreferences';
 import type { ApiLanguage, NotificationPreferenceDto } from '../../src/api/types';
+import { changeLanguage } from '../../src/lib/i18n';
+import { MMKVKeys } from '../../src/constants/mmkvKeys';
+import { writeString } from '../../src/lib/storage';
+import { useAuthStore } from '../../src/features/auth/store/authStore';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -69,9 +74,15 @@ function Card({ children, style }: { children: React.ReactNode; style?: object }
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
+const LANG_CODE_MAP: Record<ApiLanguage, 'en' | 'am' | 'om'> = {
+    En: 'en', Am: 'am', Om: 'om',
+};
+
 export default function ProfileTab() {
+    const { t } = useTranslation();
     // ── Auth ──────────────────────────────────────────────────────────────
     const { mutate: logout, isPending: loggingOut } = useLogout();
+    const setAuthLanguage = useAuthStore((s) => s.setLanguage);
     const { mutate: deleteAccount, isPending: deleting } = useDeleteAccount();
 
     // ── API data ──────────────────────────────────────────────────────────
@@ -98,7 +109,15 @@ export default function ProfileTab() {
     function saveEdit() {
         updateProfile(
             { fullName: editName.trim() || null, preferredLanguage: editLang },
-            { onSuccess: () => setEditing(false) },
+            {
+                onSuccess: async () => {
+                    setEditing(false);
+                    const code = LANG_CODE_MAP[editLang];
+                    await changeLanguage(code);
+                    writeString(MMKVKeys.PREFERRED_LANGUAGE, code);
+                    setAuthLanguage(code);
+                },
+            },
         );
     }
 
@@ -122,12 +141,12 @@ export default function ProfileTab() {
     // ── Delete account ────────────────────────────────────────────────────
     function confirmDelete() {
         Alert.alert(
-            'Delete account',
-            'This will permanently delete your account and all trip history. This cannot be undone.',
+            t('profile.delete_confirm_title'),
+            t('profile.delete_confirm_body'),
             [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                    text: 'Delete',
+                    text: t('profile.delete'),
                     style: 'destructive',
                     onPress: () => deleteAccount(),
                 },
@@ -147,9 +166,9 @@ export default function ProfileTab() {
     if (profileError || !profile) {
         return (
             <SafeAreaView style={styles.centered} edges={['top']}>
-                <Text style={styles.errorText}>Could not load profile.</Text>
+                <Text style={styles.errorText}>{t('profile.could_not_load')}</Text>
                 <Pressable style={styles.retryBtn} onPress={() => refetch()}>
-                    <Text style={styles.retryText}>Retry</Text>
+                    <Text style={styles.retryText}>{t('common.retry')}</Text>
                 </Pressable>
             </SafeAreaView>
         );
@@ -165,7 +184,7 @@ export default function ProfileTab() {
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <ScrollView contentContainerStyle={styles.scroll}>
-                <Text style={styles.pageTitle}>Profile</Text>
+                <Text style={styles.pageTitle}>{t('profile.title')}</Text>
 
                 {/* ── Avatar + name ── */}
                 <Card style={styles.profileCard}>
@@ -176,22 +195,22 @@ export default function ProfileTab() {
                         <Text style={styles.name}>{displayName}</Text>
                         <Text style={styles.phone}>{profile.phone ?? '—'}</Text>
                         {profile.isVerified && (
-                            <Text style={styles.verified}>✓ Verified</Text>
+                            <Text style={styles.verified}>{t('profile.verified')}</Text>
                         )}
                     </View>
                     <Pressable style={styles.editBtn} onPress={openEdit}>
-                        <Text style={styles.editBtnText}>Edit</Text>
+                        <Text style={styles.editBtnText}>{t('profile.edit_btn')}</Text>
                     </Pressable>
                 </Card>
 
                 {/* ── Rewards balance ── */}
-                <SectionTitle label="Rewards" />
+                <SectionTitle label={t('profile.rewards_section')} />
                 <Card style={styles.balanceCard}>
                     {balanceLoading ? (
                         <ActivityIndicator color={Colors.neutral.white} />
                     ) : (
                         <>
-                            <Text style={styles.balanceLabel}>Your Balance</Text>
+                            <Text style={styles.balanceLabel}>{t('profile.balance_label')}</Text>
                             <View style={styles.balanceRow}>
                                 <Text style={styles.balanceValue}>
                                     {balance?.pointsBalance.toLocaleString() ?? '0'}
@@ -207,7 +226,7 @@ export default function ProfileTab() {
 
                 {/* ── Referral ── */}
                 <Card>
-                    <Text style={styles.refTitle}>🎁 Refer a friend</Text>
+                    <Text style={styles.refTitle}>🎁 {t('profile.refer')}</Text>
                     {referralLoading ? (
                         <ActivityIndicator color={Colors.brand.primary} style={{ marginTop: 8 }} />
                     ) : (
@@ -227,7 +246,7 @@ export default function ProfileTab() {
                                     onPress={shareReferral}
                                     disabled={!referral?.shareLink}
                                 >
-                                    <Text style={styles.refShareText}>Share</Text>
+                                    <Text style={styles.refShareText}>{t('profile.share')}</Text>
                                 </Pressable>
                             </View>
                         </>
@@ -235,7 +254,7 @@ export default function ProfileTab() {
                 </Card>
 
                 {/* ── Notification preferences ── */}
-                <SectionTitle label="Notifications" />
+                <SectionTitle label={t('profile.notifications_section')} />
                 <Card>
                     {prefsLoading ? (
                         <ActivityIndicator color={Colors.brand.primary} />
@@ -250,7 +269,7 @@ export default function ProfileTab() {
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.prefLabel}>
                                         {pref.channel === 'InApp' ? '📱' : '💬'}{' '}
-                                        {pref.eventType ?? 'All notifications'}{' '}
+                                        {pref.eventType ?? t('profile.all_notifications')}{' '}
                                         <Text style={styles.prefChannel}>({pref.channel})</Text>
                                     </Text>
                                 </View>
@@ -268,12 +287,12 @@ export default function ProfileTab() {
                 </Card>
 
                 {/* ── Language (read-only display; editable via Edit modal) ── */}
-                <SectionTitle label="Account" />
+                <SectionTitle label={t('profile.account_section')} />
                 <Card>
                     <View style={styles.rowItem}>
                         <Text style={styles.rowIcon}>🌐</Text>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.rowLabel}>Language</Text>
+                            <Text style={styles.rowLabel}>{t('profile.language')}</Text>
                             <Text style={styles.rowSub}>{currentLangLabel}</Text>
                         </View>
                         <Pressable onPress={openEdit}>
@@ -283,27 +302,27 @@ export default function ProfileTab() {
                     <View style={[styles.rowItem, styles.rowDivider]}>
                         <Text style={styles.rowIcon}>🔒</Text>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.rowLabel}>Account status</Text>
+                            <Text style={styles.rowLabel}>{t('profile.account_status')}</Text>
                             <Text style={styles.rowSub}>
-                                {profile.isVerified ? 'Verified ✓' : 'Unverified'}
+                                {profile.isVerified ? t('profile.verified') : t('profile.unverified')}
                             </Text>
                         </View>
                     </View>
                     <View style={[styles.rowItem, styles.rowDivider]}>
                         <Text style={styles.rowIcon}>👤</Text>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.rowLabel}>Role</Text>
+                            <Text style={styles.rowLabel}>{t('profile.role')}</Text>
                             <Text style={styles.rowSub}>{profile.role}</Text>
                         </View>
                     </View>
                 </Card>
 
                 {/* ── Danger zone ── */}
-                <SectionTitle label="Danger zone" />
+                <SectionTitle label={t('profile.danger_zone')} />
                 <Card>
                     <Pressable style={styles.deleteRow} onPress={confirmDelete} disabled={deleting}>
                         <Text style={styles.deleteText}>
-                            {deleting ? 'Deleting…' : '🗑  Delete my account'}
+                            {deleting ? t('profile.deleting') : `🗑  ${t('profile.delete_account')}`}
                         </Text>
                     </Pressable>
                 </Card>
@@ -315,7 +334,7 @@ export default function ProfileTab() {
                     disabled={loggingOut}
                 >
                     <Text style={styles.logoutText}>
-                        {loggingOut ? 'Logging out…' : 'Logout'}
+                        {loggingOut ? t('profile.logging_out') : t('profile.logout')}
                     </Text>
                 </Pressable>
 
@@ -326,18 +345,18 @@ export default function ProfileTab() {
             {editing && (
                 <View style={styles.modalOverlay}>
                     <View style={styles.modal}>
-                        <Text style={styles.modalTitle}>Edit profile</Text>
+                        <Text style={styles.modalTitle}>{t('profile.edit_title')}</Text>
 
-                        <Text style={styles.inputLabel}>Full name</Text>
+                        <Text style={styles.inputLabel}>{t('profile.full_name')}</Text>
                         <TextInput
                             style={styles.input}
                             value={editName}
                             onChangeText={setEditName}
-                            placeholder="Your full name"
+                            placeholder={t('profile.full_name')}
                             placeholderTextColor={Colors.text.disabled}
                         />
 
-                        <Text style={styles.inputLabel}>Language</Text>
+                        <Text style={styles.inputLabel}>{t('profile.language')}</Text>
                         <View style={styles.langPicker}>
                             {LANG_OPTIONS.map((l) => (
                                 <Pressable
@@ -366,7 +385,7 @@ export default function ProfileTab() {
                                 onPress={() => setEditing(false)}
                                 disabled={saving}
                             >
-                                <Text style={styles.modalCancelText}>Cancel</Text>
+                                <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
                             </Pressable>
                             <Pressable
                                 style={styles.modalSave}
@@ -376,7 +395,7 @@ export default function ProfileTab() {
                                 {saving ? (
                                     <ActivityIndicator color={Colors.neutral.white} />
                                 ) : (
-                                    <Text style={styles.modalSaveText}>Save</Text>
+                                    <Text style={styles.modalSaveText}>{t('common.save')}</Text>
                                 )}
                             </Pressable>
                         </View>

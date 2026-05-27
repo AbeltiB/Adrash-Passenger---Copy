@@ -15,11 +15,17 @@
         "search": "Barbaadi",
         "currency": "ETB",
         "network_error": "Interneetii hin jiru.",
-        "session_expired": "Yeroon bahe. Maaloo irra deebi'ii seeni."
+        "session_expired": "Yeroon bahe. Maaloo irra deebi'ii seeni.",
+        "sending": "Ergamaa jira…",
+        "verifying": "Mirkanaa'amaa jira…",
+        "skip": "Darbuu",
+        "continue": "Itti fufuu",
+        "edit": "Gulaali",
+        "share": "Qooduu"
     },
     "auth": {
         "splash": {
-            "tagline": "Adeemsi kee asuma jalqaba"
+            "tagline": "Adeemsi kee nagaan gahuu."
         },
         "language": {
             "title": "Afaan kee filadhu",
@@ -29,45 +35,96 @@
             "oromo": "Afaan Oromoo"
         },
         "agreement": {
-            "title": "Seeraa fi Icciitii",
+            "title": "Seeraa fi Iccitii",
+            "passenger_title": "Waliigaltee Konkolaataa",
+            "updated_title": "Seerota Haaromfaman",
             "subtitle": "Itti fufuun dura seeroota keenya dubbiifi fudhaa",
             "terms_label": "Seera Tajaajilaaf",
             "privacy_label": "Iccitii Dhuunfaa",
             "accept_button": "Fudhachuu",
-            "decline_button": "Didan"
+            "decline_button": "Didan",
+            "agree_continue": "Fudhachuu fi itti fufuu",
+            "i_do_not_agree": "Hin fudhatu",
+            "loading": "Waliigaltee fe'amaa jira…",
+            "error_title": "Waliigaltee fe'uun hin danda'amne",
+            "error_body": "Walqunnamtii kee mirkaneessii irra deebi'i yaali.",
+            "update_banner": "Seeroonni keenya haaromfameera — itti fufuuf dubbiifi fudhaa",
+            "accept_error": "Fudhannaan kee galmaa'uu hin dandeenye. Irra deebi'i yaali."
         },
         "phone": {
             "title": "Lakkoofsa bilbilaa kee galchi",
-            "subtitle": "Koodii mirkaneessaa ni ergina",
+            "subtitle": "Koodii mirkaneessaa 6-lakkoofsa SMS irraan ni ergina",
             "placeholder": "09XXXXXXXX",
             "send_otp": "Koodii Ergi",
-            "invalid_phone": "Lakkoofsa bilbilaa Itoophiyaa sirrii galchi"
+            "sending": "Ergamaa jira…",
+            "invalid_phone": "Lakkoofsa bilbilaa Itoophiyaa sirrii galchi",
+            "terms": "Itti fuufuun seeraafi iccitii keenya walii galtee"
         },
         "otp": {
             "title": "Koodii mirkaneessaa galchi",
             "subtitle": "Koodii lakkoofsota 6 gara {{phone}} erginee jirra",
+            "tap_change": "(lakkoofsa jijjiruuf tuqi)",
             "resend": "Koodii irra deebi'ii ergi",
-            "resend_in": "{{seconds}}s keessatti irra deebi'ii ergi",
+            "resend_in": "Koodii irra deebi'ii ergi 0:{{seconds}} keessatti",
             "verify": "Mirkaneessi",
+            "verifying": "Mirkanaa'amaa jira…",
+            "verified": "✓ Mirkanaa'e! Darbamaa jira…",
             "invalid_otp": "Koodiin sirrii miti. Irra deebi'i yaali.",
             "expired_otp": "Koodiin dhumate. Haaraa gaafadhu."
         },
         "setup": {
-            "title": "Profaayilii kee guuti",
-            "subtitle": "Jalqabuuf maqaa kee nuuf himi",
-            "first_name_placeholder": "Maqaa duraa",
-            "last_name_placeholder": "Maqaa abaa",
+            "title": "Maqaa kee maaliif bilbiloofna?",
+            "subtitle": "Diraawwaroonni fi bulchitoonni akka si beekaniif gargaara",
+            "first_name_placeholder": "fkn Girmaa",
+            "last_name_placeholder": "fkn Tadesse",
+            "first_name_label": "Maqaa duraa",
+            "last_name_label": "Maqaa abaa",
             "create_account": "Herrega Uumi",
+            "continue": "Itti fufuu",
             "first_name_required": "Maqaan duraa barbaachisaadha",
             "last_name_required": "Maqaan abaa barbaachisaadha"
+        },
+        "pin_setup": {
+            "title": "PIN Kee Uumi",
+            "confirm_title": "PIN Kee Mirkaneessi",
+            "subtitle": "Seensaa saffisaaf PIN lakkoofsota 6 filadhu",
+            "confirm_subtitle": "Mirkaneesuuf PIN walfakkaatu irra deebi'ii galchi",
+            "skip": "Darbuu",
+            "saving": "PIN olkaa'amaa jira…",
+            "mismatch": "PIN wal hin waamu. Irra deebi'i yaali.",
+            "hint": "PIN kee yeroo kamittuu profaayilii qindaa'inoota keessaa jijjiiruu ykn haaquun ni danda'ama."
+        },
+        "phone_login": {
+            "title": "Baga nagaan deebitee",
+            "phone_subtitle": "Itti fufuuf lakkoofsa bilbilaa kee galchi",
+            "pin_hint": "Itti fufuuf PIN kee galchi",
+            "use_otp": "Bakka kanatti OTP fayyadami",
+            "sending": "Koodii ergamaa jira…",
+            "switch_account": "Herrega biraa fayyadami",
+            "switch_account_full": "Herrega biraan seeni"
         }
     },
     "home": {
+        "greeting": "Har'a eessa deemta?",
+        "greeting_sub": "Karaalee Adrash qorachuuf, bakka dhaabbii filadhuu, teessoo qabadhu.",
+        "search_city": "Magaala barbaadi",
+        "search_city_placeholder": "Finfinnee, Shaashamannee…",
+        "from": "IRRAA",
+        "to": "GARA",
+        "date": "GUYYAA",
+        "passengers": "KONKOLAATAA",
+        "search_trips": "Imala Barbaadi",
+        "origin_destination_same": "Ka'umsi fi galmeen adda ta'uu qabu.",
+        "matching_routes": "Karaalee walfakkaatan",
+        "recent_searches": "Barbaadichi dhiyoo",
         "search_placeholder": "Eessa deemta?",
-        "recent_searches": "Barbaadichi Dhiyoo",
         "popular_routes": "Karaalee Beekamoo",
-        "no_results": "Karaaleen hin argamne",
-        "search_results_title": "Karaalee Jiran"
+        "no_results": "Karaaleen hojjataa hin argamne",
+        "no_results_sub": "Magaala biraa yaali.",
+        "search_results_title": "Karaalee Jiran",
+        "loading_routes": "Karaaleen fe'amaa jira",
+        "could_not_load": "Karaalee fe'uun hin danda'amne",
+        "check_connection": "Walqunnamtii kee mirkaneessii irra deebi'i yaali."
     },
     "route": {
         "details_title": "Bal'ina Karaa",
@@ -139,14 +196,22 @@
     "trips": {
         "title": "Imaltoonni Koo",
         "upcoming": "Dhufaatii",
+        "active": "Hojjataa",
         "completed": "Xumurame",
+        "past": "Dabree",
         "cancelled": "Haaqame",
         "no_trips": "Imaltoonni hin argamne",
+        "no_upcoming": "Imala dhufaatii hin jiru. Imala itti aanuuf qophii?",
+        "no_active": "Amma imala hojjataa hin jiru.",
+        "no_past": "Imaltoonni xumuramanii asitti mul'atu.",
+        "book_trip": "Imala Eeyyami",
         "trip_detail_title": "Bal'ina Imalaa",
         "ticket_title": "Tikeettii Kee",
-        "track_bus": "Basii Hordofaa",
+        "track_bus": "Imala Hordofaa  📍",
         "cancel_trip": "Eeyyama Haqi",
-        "write_review": "Yaada Barreessi",
+        "write_review": "Imala Madaali  ★",
+        "reviewed": "✓ Madaalamee",
+        "view_ticket": "Tikeettii Ilaali",
         "cancel_confirm": "Eeyyama kana haqi?",
         "cancel_success": "Eeyyamni haaqame",
         "review_title": "Muuxannoo Kee Madaali",
@@ -154,7 +219,10 @@
         "submit_review": "Yaada Galchi",
         "tracking_title": "Hordoffii Kallattii",
         "eta": "ETA: {{time}}",
-        "bus_location": "Iddoo Basii"
+        "bus_location": "Iddoo Basii",
+        "load_more": "Dabalataa Baasuu",
+        "loading": "Imaltoonni fe'amaa jira…",
+        "could_not_load": "Imaltoonni fe'uun hin danda'amne"
     },
     "rewards": {
         "title": "Badhaasota",
@@ -168,7 +236,25 @@
         "redeem_confirm": "Qabxii {{count}} fudhachuu?",
         "no_history": "Seenaa badhaasaa hanga ammaa hin jiru",
         "earned": "Argame",
-        "redeemed": "Fayyadame"
+        "redeemed": "Fayyadame",
+        "balance_error": "Hanga fe'uun hin danda'amne",
+        "lifetime_earned": "Hanga Yeroo Hunda Argame",
+        "total_redeemed": "Hanga Hunda Fayyadame",
+        "min_to_redeem": "Xiqqaa Fudhachuuf",
+        "how_title": "Badhaasoonni akkam hojjatu",
+        "how_earn": "ETB 1 baastetti qabxii 1 argadhu",
+        "how_redeem": "Qabxii 100 = ETB 10 gatii hir'isu imala itti aanuu",
+        "how_referral": "Yoo hiriyaan kee imala jalqabaa fudhate qabxii 50 argadhu",
+        "refer_title": "Hiriyaa Afeeraa",
+        "history_error": "Seenaa fe'uun hin danda'amne",
+        "start_earning": "Qabxii argachuuf imala jalqabaa kee xumurii!"
+    },
+    "notifications": {
+        "title": "Beeksisa",
+        "mark_all_read": "Hunda Dubbifame Godhuu",
+        "could_not_load": "Beeksisni fe'uun hin danda'amne",
+        "all_caught_up": "Hundi ni haaromfame",
+        "empty_sub": "Hanga ammaa beeksisi hin jiru. Imala nagayaa!"
     },
     "profile": {
         "title": "Profaayilii",
@@ -180,7 +266,28 @@
         "about": "Waa'ee",
         "logout": "Ba'uu",
         "logout_confirm": "Ba'uu barbaadda mirkaneessi?",
-        "version": "Versiyooni {{version}}"
+        "version": "Versiyooni {{version}}",
+        "edit_title": "Profaayilii Gulaali",
+        "full_name": "Maqaa Guutuu",
+        "account_status": "Haala Herregaa",
+        "verified": "Mirkanaa'e ✓",
+        "unverified": "Hin mirkanaa'ne",
+        "role": "Gahee",
+        "danger_zone": "Bakka Balaa",
+        "delete_account": "Herrega Koo Haquu",
+        "delete_confirm_title": "Herrega Haquu",
+        "delete_confirm_body": "Kun herrega kee fi seenaa imala hunda dhumatti ni haqa. Irra deebi'uun hin danda'amu.",
+        "delete": "Haquu",
+        "notifications_section": "Beeksisa",
+        "account_section": "Herrega",
+        "edit_btn": "Gulaali",
+        "share": "Qooduu",
+        "deleting": "Haaqamaa jira…",
+        "logging_out": "Ba'aaa jira…",
+        "refer": "Hiriyaa Afeeraa",
+        "rewards_section": "Badhaasota",
+        "could_not_load": "Profaayilii fe'uun hin danda'amne.",
+        "all_notifications": "Beeksisa Hundaa"
     },
     "errors": {
         "generic": "Wanti tokko dogoggore. Irra deebi'i yaali.",

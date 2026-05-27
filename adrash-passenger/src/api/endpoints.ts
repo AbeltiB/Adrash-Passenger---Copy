@@ -49,7 +49,10 @@ export const ENDPOINTS = {
         REFERRAL: '/rewards/referral',
     },
     NOTIFICATIONS: {
-        PREFERENCES: '/notifications/preferences',
+        LIST:         '/notifications',
+        MARK_READ:    (id: string) => `/notifications/${id}/read`,
+        MARK_ALL_READ: '/notifications/read-all',
+        PREFERENCES:  '/notifications/preferences',
     },
     AGREEMENTS: {
         CURRENT: '/auth/agreements/current',

@@ -94,7 +94,7 @@ apiClient.interceptors.response.use(
         ) {
             router.replace({
                 pathname: '/(auth)/agreement',
-                params:   { reaccept: '1' },
+                params:   { reaccept: '1', next: 'tabs' },
             });
             // Return a never-resolving promise so the calling hook stays in
             // its loading state until the user has re-accepted and navigated back.

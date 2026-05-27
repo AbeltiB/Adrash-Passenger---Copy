@@ -15,11 +15,17 @@
         "search": "ፈልግ",
         "currency": "ብር",
         "network_error": "የኢንተርኔት ግንኙነት የለም።",
-        "session_expired": "ክፍለ ጊዜ አልቋል። እንደገና ይግቡ።"
+        "session_expired": "ክፍለ ጊዜ አልቷ። እንደገና ይግቡ።",
+        "sending": "በመላክ ላይ…",
+        "verifying": "በማረጋገጥ ላይ…",
+        "skip": "ዝለል",
+        "continue": "ቀጥል",
+        "edit": "አርትዕ",
+        "share": "አጋራ"
     },
     "auth": {
         "splash": {
-            "tagline": "ጉዞዎ እዚህ ይጀምራል"
+            "tagline": "ጉዞዎ ደህና ተደርጎ ይደርሳል።"
         },
         "language": {
             "title": "ቋንቋዎን ይምረጡ",
@@ -29,45 +35,96 @@
             "oromo": "Afaan Oromoo"
         },
         "agreement": {
-            "title": "ውሎች እና ግላዊነት",
+            "title": "ውሎች እና ፖሊሲ",
+            "passenger_title": "የተሳፋሪ ስምምነት",
+            "updated_title": "የዘመነ ውሎች",
             "subtitle": "ከቀጠሉ በፊት ውሎቻችንን ያንብቡ እና ይቀበሉ",
             "terms_label": "የአገልግሎት ውሎች",
             "privacy_label": "የግላዊነት ፖሊሲ",
             "accept_button": "እቀበላለሁ",
-            "decline_button": "አልቀበልም"
+            "decline_button": "አልቀበልም",
+            "agree_continue": "እቀበላለሁ እና ቀጥላለሁ",
+            "i_do_not_agree": "አልቀበልም",
+            "loading": "ስምምነት በመጫን ላይ…",
+            "error_title": "ስምምነት ማስጫን አልተቻለም",
+            "error_body": "ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።",
+            "update_banner": "ውሎቻችን ተሻሽለዋል — ለመቀጠል ያንብቡ እና ይቀበሉ",
+            "accept_error": "ስምምነትዎ ሊመዘገብ አልቻለም። እንደገና ይሞክሩ።"
         },
         "phone": {
             "title": "ስልክ ቁጥርዎን ያስገቡ",
-            "subtitle": "የማረጋገጫ ኮድ እንልክልዎታለን",
+            "subtitle": "6-አሃዝ የማረጋገጫ ኮድ በኤስኤምኤስ እንልክልዎታለን",
             "placeholder": "09XXXXXXXX",
             "send_otp": "ኮድ ላክ",
-            "invalid_phone": "ትክክለኛ የኢትዮጵያ ስልክ ቁጥር ያስገቡ"
+            "sending": "በመላክ ላይ…",
+            "invalid_phone": "ትክክለኛ የኢትዮጵያ ስልክ ቁጥር ያስገቡ",
+            "terms": "በመቀጠልዎ ውሎቻችን እና የግላዊነት ፖሊሲያችን ይስማማሉ"
         },
         "otp": {
             "title": "የማረጋገጫ ኮድ ያስገቡ",
             "subtitle": "6 አሃዝ ኮድ ወደ {{phone}} ልከናል",
+            "tap_change": "(ቁጥር ለመቀየር ይጫኑ)",
             "resend": "ኮድ እንደገና ላክ",
-            "resend_in": "{{seconds}}ሰከንድ ውስጥ እንደገና ይላካል",
+            "resend_in": "ኮድ እንደገና ላክ ከ0:{{seconds}}",
             "verify": "አረጋግጥ",
+            "verifying": "በማረጋገጥ ላይ…",
+            "verified": "✓ ተረጋግጧል! እየተዛወርን ነው…",
             "invalid_otp": "ኮዱ ትክክል አይደለም። እንደገና ሞክር።",
             "expired_otp": "ኮዱ አልቋል። አዲስ ኮድ ይጠይቁ።"
         },
         "setup": {
-            "title": "መገለጫዎን ያጠናቅቁ",
-            "subtitle": "ለመጀመር ስምዎን ይንገሩን",
-            "first_name_placeholder": "የመጀመሪያ ስም",
-            "last_name_placeholder": "የአባት ስም",
+            "title": "ምን ብለን እንጥራዎ?",
+            "subtitle": "ሾፌሮችና አስተዳዳሪዎች እንዲለዩዎ ይረዳቸዋል",
+            "first_name_placeholder": "ለምሳሌ ሰላም",
+            "last_name_placeholder": "ለምሳሌ ታደሰ",
+            "first_name_label": "የመጀመሪያ ስም",
+            "last_name_label": "የአባት ስም",
             "create_account": "መለያ ፍጠር",
+            "continue": "ቀጥል",
             "first_name_required": "የመጀመሪያ ስም ያስፈልጋል",
             "last_name_required": "የአባት ስም ያስፈልጋል"
+        },
+        "pin_setup": {
+            "title": "ፒን ያዘጋጁ",
+            "confirm_title": "ፒንዎን ያረጋግጡ",
+            "subtitle": "ለፈጣን ግቤት 6-አሃዝ ፒን ይምረጡ",
+            "confirm_subtitle": "ለማረጋገጥ ተመሳሳይ ፒን እንደገና ያስገቡ",
+            "skip": "ዝለል",
+            "saving": "ፒን በማስቀመጥ ላይ…",
+            "mismatch": "ፒኖቹ አይዛመዱም። እንደገና ሞክር።",
+            "hint": "ፒንዎን በማንኛውም ጊዜ ከመገለጫ ቅንብሮች መቀየር ወይም ማስወገድ ይችላሉ።"
+        },
+        "phone_login": {
+            "title": "እንኳን ደህና ተመለሱ",
+            "phone_subtitle": "ለመቀጠል ስልክ ቁጥርዎን ያስገቡ",
+            "pin_hint": "ለመቀጠል ፒንዎን ያስገቡ",
+            "use_otp": "በምትኩ OTP ይጠቀሙ",
+            "sending": "ኮድ በመላክ ላይ…",
+            "switch_account": "ሌላ መለያ ይጠቀሙ",
+            "switch_account_full": "በሌላ መለያ ይግቡ"
         }
     },
     "home": {
-        "search_placeholder": "የት ይሄዳሉ?",
+        "greeting": "ዛሬ የት ይሄዳሉ?",
+        "greeting_sub": "ንቁ የAdrash መስመሮችን ፈልጉ፣ ማቆሚያ ይምረጡ፣ ወንበር ያስይዙ።",
+        "search_city": "ከተማ ፈልግ",
+        "search_city_placeholder": "አዲስ፣ ሃዋሳ…",
+        "from": "ከ",
+        "to": "ወደ",
+        "date": "ቀን",
+        "passengers": "ተሳፋሪዎች",
+        "search_trips": "ጉዞ ፈልግ",
+        "origin_destination_same": "መነሻ እና መድረሻ ሊለያዩ ይገባቸዋል።",
+        "matching_routes": "ተዛማጅ መስመሮች",
         "recent_searches": "የቅርብ ጊዜ ፍለጋዎች",
+        "search_placeholder": "የት ይሄዳሉ?",
         "popular_routes": "ታዋቂ መስመሮች",
-        "no_results": "መስመሮች አልተገኙም",
-        "search_results_title": "ያሉ መስመሮች"
+        "no_results": "ንቁ መስመሮች አልተገኙም",
+        "no_results_sub": "ሌላ ከተማ ጥንድ ይሞክሩ።",
+        "search_results_title": "ያሉ መስመሮች",
+        "loading_routes": "መስመሮች በመጫን ላይ",
+        "could_not_load": "መስመሮች ማስጫን አልተቻለም",
+        "check_connection": "ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።"
     },
     "route": {
         "details_title": "የመስመር ዝርዝሮች",
@@ -100,7 +157,7 @@
             "name_placeholder": "ሙሉ ስም",
             "age_placeholder": "ዕድሜ",
             "gender_label": "ጾታ",
-            "male": "남성",
+            "male": "ወንድ",
             "female": "ሴት",
             "continue": "ቀጥል"
         },
@@ -139,14 +196,22 @@
     "trips": {
         "title": "ጉዞዎቼ",
         "upcoming": "መጪ",
+        "active": "ንቁ",
         "completed": "የተጠናቀቀ",
+        "past": "ያለፈ",
         "cancelled": "የተሰረዘ",
         "no_trips": "ጉዞዎች አልተገኙም",
+        "no_upcoming": "መጪ ጉዞዎች የሉም። ለቀጣይ ጉዞ ዝግጁ ነዎት?",
+        "no_active": "አሁን የሚካሄድ ጉዞ የለም።",
+        "no_past": "የተጠናቀቁ ጉዞዎች እዚህ ይታያሉ።",
+        "book_trip": "ጉዞ ያስይዙ",
         "trip_detail_title": "የጉዞ ዝርዝሮች",
         "ticket_title": "ትኬትዎ",
-        "track_bus": "አውቶቡስ ክትትል",
+        "track_bus": "ጉዞ ክትትል  📍",
         "cancel_trip": "ማስያዝ ሰርዝ",
-        "write_review": "ግምገማ ይጻፉ",
+        "write_review": "ጉዞ ይገምግሙ  ★",
+        "reviewed": "✓ ተገምግሟል",
+        "view_ticket": "ትኬት ይመልከቱ",
         "cancel_confirm": "ይህን ማስያዝ ይሰርዙ?",
         "cancel_success": "ማስያዝ ተሰርዟል",
         "review_title": "ልምድዎን ይገምግሙ",
@@ -154,7 +219,10 @@
         "submit_review": "ግምገማ አስገባ",
         "tracking_title": "የቀጥታ ክትትል",
         "eta": "ETA: {{time}}",
-        "bus_location": "የአውቶቡስ ቦታ"
+        "bus_location": "የአውቶቡስ ቦታ",
+        "load_more": "ተጨማሪ ጫን",
+        "loading": "ጉዞዎች በመጫን ላይ…",
+        "could_not_load": "ጉዞዎች ማስጫን አልተቻለም"
     },
     "rewards": {
         "title": "ሽልማቶች",
@@ -168,7 +236,25 @@
         "redeem_confirm": "{{count}} ነጥቦች ያስፈቱ?",
         "no_history": "እስካሁን ምንም የሽልማት ታሪክ የለም",
         "earned": "የተገኘ",
-        "redeemed": "ጥቅም ላይ የዋለ"
+        "redeemed": "ጥቅም ላይ የዋለ",
+        "balance_error": "ሒሳብ ማስጫን አልተቻለም",
+        "lifetime_earned": "ሙሉ ጊዜ የተገኘ",
+        "total_redeemed": "ጠቅላላ ጥቅም ላይ የዋለ",
+        "min_to_redeem": "ለማስፈቻ ዝቅተኛ",
+        "how_title": "ሽልማቶች እንዴት ይሠራሉ",
+        "how_earn": "ለእያንዳንዱ 1 ብር 1 ነጥብ ያግኙ",
+        "how_redeem": "100 ነጥቦች = ለቀጣይ ቦታ ማስያዝ 10 ብር ቅናሽ",
+        "how_referral": "ጓደኛ የመጀመሪያ ጉዞ ሲወስዱ 50 ነጥብ ያግኙ",
+        "refer_title": "ጓደኛ ያሳትፉ",
+        "history_error": "ታሪክ ማስጫን አልተቻለም",
+        "start_earning": "ነጥቦች ለማግኘት የመጀመሪያ ጉዞዎን ይጠናቀቁ!"
+    },
+    "notifications": {
+        "title": "ማሳወቂያዎች",
+        "mark_all_read": "ሁሉንም ያንብቡ",
+        "could_not_load": "ማሳወቂያዎች ማስጫን አልተቻለም",
+        "all_caught_up": "ሁሉም ተዘምኗል",
+        "empty_sub": "እስካሁን ምንም ማሳወቂያ የለም። ደህና ጉዞ!"
     },
     "profile": {
         "title": "መገለጫ",
@@ -180,7 +266,28 @@
         "about": "ስለ",
         "logout": "ውጣ",
         "logout_confirm": "እርግጠኛ ነዎት መውጣት ይፈልጋሉ?",
-        "version": "ስሪት {{version}}"
+        "version": "ስሪት {{version}}",
+        "edit_title": "መገለጫ አርትዕ",
+        "full_name": "ሙሉ ስም",
+        "account_status": "የመለያ ሁኔታ",
+        "verified": "ተረጋግጧል ✓",
+        "unverified": "ያልተረጋገጠ",
+        "role": "ሚና",
+        "danger_zone": "አደገኛ ቦታ",
+        "delete_account": "መለያዬን ሰርዝ",
+        "delete_confirm_title": "መለያ ሰርዝ",
+        "delete_confirm_body": "ይህ መለያዎን እና ሁሉንም የጉዞ ታሪክ እስከመጨረሻ ይሰርዛል። ሊቀለበስ አይችልም።",
+        "delete": "ሰርዝ",
+        "notifications_section": "ማሳወቂያዎች",
+        "account_section": "መለያ",
+        "edit_btn": "አርትዕ",
+        "share": "አጋራ",
+        "deleting": "በመሰረዝ ላይ…",
+        "logging_out": "በመውጣት ላይ…",
+        "refer": "ጓደኛ ያሳትፉ",
+        "rewards_section": "ሽልማቶች",
+        "could_not_load": "መገለጫ ማስጫን አልተቻለም።",
+        "all_notifications": "ሁሉም ማሳወቂያዎች"
     },
     "errors": {
         "generic": "ችግር ተፈጥሯል። እንደገና ይሞክሩ።",

@@ -10,6 +10,7 @@
 //      d. No token / no device token       → show language selector → agreement → phone → OTP
 
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import {
     ActivityIndicator,
@@ -26,6 +27,8 @@ import { MMKVKeys } from '../../src/constants/mmkvKeys';
 import { changeLanguage } from '../../src/lib/i18n';
 import { writeString } from '../../src/lib/storage';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
+import { apiClient } from '../../src/api/client';
+import { ENDPOINTS } from '../../src/api/endpoints';
 import {
     getAccessToken,
     getDeviceToken,
@@ -41,11 +44,14 @@ const LANGUAGES: { code: Lang; native: string; label: string }[] = [
 ];
 
 export default function SplashScreen() {
+    const { t } = useTranslation();
     const [selected, setSelected] = useState<Lang>('en');
     const [checking, setChecking] = useState(true);
 
     const hasAcceptedAgreement = useAuthStore((s) => s.hasAcceptedAgreement);
-    const setLanguage           = useAuthStore((s) => s.setLanguage);
+    const agreementVersion     = useAuthStore((s) => s.agreementVersion);
+    const setAuthenticated     = useAuthStore((s) => s.setAuthenticated);
+    const setLanguage          = useAuthStore((s) => s.setLanguage);
 
     // ── On mount: decide where to send the user ───────────────────────────
     useEffect(() => {
@@ -60,10 +66,45 @@ export default function SplashScreen() {
                 const hasValidToken = token !== null && !expired;
 
                 if (hasValidToken) {
+                    // Token is valid → the user is authenticated. Set this immediately
+                    // so the (tabs)/_layout.tsx guard doesn't redirect them back here.
+                    setAuthenticated(true);
+
+                    // ── Agreement check ─────────────────────────────────────
+                    // First, check the local flag.
                     if (!hasAcceptedAgreement) {
-                        router.replace('/(auth)/agreement');
+                        router.replace({
+                            pathname: '/(auth)/agreement',
+                            params: { reaccept: '1', next: 'tabs' },
+                        });
                         return;
                     }
+
+                    // Then ask the server whether a new version was published.
+                    // If the network call fails we let the user in — we'd rather
+                    // show them the app than block them on a bad connection.
+                    try {
+                        const res = await apiClient.get<unknown>(
+                            ENDPOINTS.AGREEMENTS.CURRENT,
+                            { params: { type: 'Passenger', lang: 'En' } },
+                        );
+                        const raw  = res.data as Record<string, unknown>;
+                        const data = (raw?.data as Record<string, unknown>) ?? raw;
+                        const serverVersion = String(
+                            data?.version ?? data?.documentVersion ?? '',
+                        ).trim();
+
+                        if (serverVersion && serverVersion !== agreementVersion) {
+                            router.replace({
+                                pathname: '/(auth)/agreement',
+                                params: { reaccept: '1', next: 'tabs' },
+                            });
+                            return;
+                        }
+                    } catch {
+                        // Network / parse error — proceed to tabs without blocking
+                    }
+
                     router.replace('/(tabs)');
                     return;
                 }
@@ -113,11 +154,11 @@ export default function SplashScreen() {
                     resizeMode="contain"
                     accessibilityLabel="Adrash logo"
                 />
-                <Text style={styles.tagline}>Your journey, safely delivered.</Text>
+                <Text style={styles.tagline}>{t('auth.splash.tagline')}</Text>
             </View>
 
             <View style={styles.langSection}>
-                <Text style={styles.langHeading}>Choose your language</Text>
+                <Text style={styles.langHeading}>{t('auth.language.title')}</Text>
 
                 {LANGUAGES.map((l) => {
                     const active = selected === l.code;
@@ -144,7 +185,7 @@ export default function SplashScreen() {
                     accessibilityRole="button"
                     accessibilityLabel="Continue"
                 >
-                    <Text style={styles.ctaText}>Continue</Text>
+                    <Text style={styles.ctaText}>{t('common.continue')}</Text>
                 </Pressable>
             </View>
         </SafeAreaView>

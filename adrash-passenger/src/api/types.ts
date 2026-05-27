@@ -104,3 +104,36 @@ export interface NotificationPreferenceDto {
     eventType: string | null;
     isEnabled: boolean;
 }
+
+// ─── NotificationDto (GET /notifications) ───────────────────────────────────
+export type NotificationEventType =
+    | 'BookingConfirmed'
+    | 'DriverAssigned'
+    | 'BusEnRoute'
+    | 'ArrivedAtPickup'
+    | 'TripStarted'
+    | 'TripCompleted'
+    | 'RefundProcessed'
+    | 'PointsEarned'
+    | 'Promotional'
+    | 'System';
+
+export interface NotificationDto {
+    id: string;
+    title: string;
+    body: string;
+    eventType: NotificationEventType | null;
+    isRead: boolean;
+    createdAt: string;
+    deepLink: string | null;
+}
+
+// ─── CancellationInfoDto (GET /bookings/{id}/cancellation-info) ─────────────
+export interface CancellationInfoDto {
+    bookingId: string;
+    refundPercentage: number;
+    refundAmountEtb: number;
+    policy: string;
+    canCancel: boolean;
+    cutoffTime: string | null;
+}

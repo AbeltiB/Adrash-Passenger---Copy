@@ -3,6 +3,7 @@
 // On success → routes to PIN setup screen.
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import {
     ActivityIndicator,
@@ -21,6 +22,7 @@ import { storeTokens } from '../../src/features/auth/utils/token';
 import type { ApiResponse, SetupProfileResponse, SetupProfileCommand } from '../../src/api/types';
 
 export default function SetupScreen() {
+    const { t } = useTranslation();
     const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
     const setUser = useAuthStore((s) => s.setUser);
 
@@ -52,7 +54,7 @@ export default function SetupScreen() {
                 throw new Error(res.data.errors?.[0] ?? 'Setup failed');
             }
 
-            const { user, tokens } = res.data.data;
+            const { user, tokens, agreementRequired } = res.data.data;
 
             if (tokens) {
                 await storeTokens({
@@ -71,8 +73,14 @@ export default function SetupScreen() {
             });
             setAuthenticated(true);
 
-            // After profile setup → go to PIN setup
-            router.replace('/(auth)/pin-setup');
+            if (agreementRequired) {
+                router.replace({
+                    pathname: '/(auth)/agreement',
+                    params: { reaccept: '1', next: 'pin-setup' },
+                });
+            } else {
+                router.replace('/(auth)/pin-setup');
+            }
         } catch (e: unknown) {
             setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
         } finally {
@@ -86,15 +94,13 @@ export default function SetupScreen() {
                 <View style={styles.illust}>
                     <Text style={styles.illustEmoji}>👋</Text>
                 </View>
-                <Text style={styles.title}>What should we call you?</Text>
-                <Text style={styles.subtitle}>
-                    This helps drivers and dispatchers identify you
-                </Text>
+                <Text style={styles.title}>{t('auth.setup.title')}</Text>
+                <Text style={styles.subtitle}>{t('auth.setup.subtitle')}</Text>
 
-                <Text style={styles.label}>First name</Text>
+                <Text style={styles.label}>{t('auth.setup.first_name_label')}</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="e.g. Selam"
+                    placeholder={t('auth.setup.first_name_placeholder')}
                     placeholderTextColor={Colors.text.disabled}
                     value={first}
                     onChangeText={setFirst}
@@ -103,10 +109,10 @@ export default function SetupScreen() {
                     editable={!loading}
                 />
 
-                <Text style={styles.label}>Last name</Text>
+                <Text style={styles.label}>{t('auth.setup.last_name_label')}</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="e.g. Tadesse"
+                    placeholder={t('auth.setup.last_name_placeholder')}
                     placeholderTextColor={Colors.text.disabled}
                     value={last}
                     onChangeText={setLast}
@@ -126,7 +132,7 @@ export default function SetupScreen() {
                     {loading ? (
                         <ActivityIndicator color={Colors.neutral.white} />
                     ) : (
-                        <Text style={styles.ctaText}>Continue</Text>
+                        <Text style={styles.ctaText}>{t('auth.setup.continue')}</Text>
                     )}
                 </Pressable>
             </View>

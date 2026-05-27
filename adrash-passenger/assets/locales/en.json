@@ -15,11 +15,17 @@
         "search": "Search",
         "currency": "ETB",
         "network_error": "No internet connection.",
-        "session_expired": "Session expired. Please sign in again."
+        "session_expired": "Session expired. Please sign in again.",
+        "sending": "Sending…",
+        "verifying": "Verifying…",
+        "skip": "Skip",
+        "continue": "Continue",
+        "edit": "Edit",
+        "share": "Share"
     },
     "auth": {
         "splash": {
-            "tagline": "Your journey starts here"
+            "tagline": "Your journey, safely delivered."
         },
         "language": {
             "title": "Choose your language",
@@ -30,44 +36,95 @@
         },
         "agreement": {
             "title": "Terms & Privacy",
+            "passenger_title": "Passenger Agreement",
+            "updated_title": "Updated Terms",
             "subtitle": "Please read and accept our terms before continuing",
             "terms_label": "Terms of Service",
             "privacy_label": "Privacy Policy",
             "accept_button": "I Accept",
-            "decline_button": "Decline"
+            "decline_button": "Decline",
+            "agree_continue": "I agree and continue",
+            "i_do_not_agree": "I do not agree",
+            "loading": "Loading agreement…",
+            "error_title": "Could not load agreement",
+            "error_body": "Check your connection and try again.",
+            "update_banner": "Our terms have been updated — please review and accept to continue",
+            "accept_error": "Could not record your acceptance. Please try again."
         },
         "phone": {
             "title": "Enter your phone number",
-            "subtitle": "We'll send you a verification code",
+            "subtitle": "We'll send you a 6-digit verification code by SMS",
             "placeholder": "09XXXXXXXX",
             "send_otp": "Send Code",
-            "invalid_phone": "Enter a valid Ethiopian phone number"
+            "sending": "Sending…",
+            "invalid_phone": "Enter a valid Ethiopian phone number",
+            "terms": "By continuing you agree to our Terms & Privacy Policy"
         },
         "otp": {
             "title": "Enter verification code",
             "subtitle": "We sent a 6-digit code to {{phone}}",
+            "tap_change": "(tap to change number)",
             "resend": "Resend code",
-            "resend_in": "Resend in {{seconds}}s",
+            "resend_in": "Resend code in 0:{{seconds}}",
             "verify": "Verify",
+            "verifying": "Verifying…",
+            "verified": "✓ Verified! Redirecting…",
             "invalid_otp": "Incorrect code. Please try again.",
             "expired_otp": "Code expired. Request a new one."
         },
         "setup": {
-            "title": "Complete your profile",
-            "subtitle": "Tell us your name to get started",
-            "first_name_placeholder": "First name",
-            "last_name_placeholder": "Last name",
+            "title": "What should we call you?",
+            "subtitle": "This helps drivers and dispatchers identify you",
+            "first_name_placeholder": "e.g. Selam",
+            "last_name_placeholder": "e.g. Tadesse",
+            "first_name_label": "First name",
+            "last_name_label": "Last name",
             "create_account": "Create Account",
+            "continue": "Continue",
             "first_name_required": "First name is required",
             "last_name_required": "Last name is required"
+        },
+        "pin_setup": {
+            "title": "Create your PIN",
+            "confirm_title": "Confirm your PIN",
+            "subtitle": "Choose a 6-digit PIN for faster sign-in",
+            "confirm_subtitle": "Enter the same PIN again to confirm",
+            "skip": "Skip",
+            "saving": "Saving your PIN…",
+            "mismatch": "PINs don't match. Try again.",
+            "hint": "You can change or remove your PIN anytime from your profile settings."
+        },
+        "phone_login": {
+            "title": "Welcome back",
+            "phone_subtitle": "Enter your phone number to continue",
+            "pin_hint": "Enter your PIN to continue",
+            "use_otp": "Use OTP instead",
+            "sending": "Sending code…",
+            "switch_account": "Use a different account",
+            "switch_account_full": "Sign in with a different account"
         }
     },
     "home": {
+        "greeting": "Where are you going today?",
+        "greeting_sub": "Search active Adrash routes, pick stops, and reserve seats.",
+        "search_city": "Search city",
+        "search_city_placeholder": "Type Addis, Hawassa…",
+        "from": "FROM",
+        "to": "TO",
+        "date": "DATE",
+        "passengers": "PASSENGERS",
+        "search_trips": "Search Trips",
+        "origin_destination_same": "Origin and destination must be different.",
+        "matching_routes": "Matching routes",
+        "recent_searches": "Recent searches",
         "search_placeholder": "Where are you going?",
-        "recent_searches": "Recent Searches",
         "popular_routes": "Popular Routes",
-        "no_results": "No routes found",
-        "search_results_title": "Available Routes"
+        "no_results": "No active routes found",
+        "no_results_sub": "Try a different city pair.",
+        "search_results_title": "Available Routes",
+        "loading_routes": "Loading routes",
+        "could_not_load": "Could not load routes",
+        "check_connection": "Check your connection and retry."
     },
     "route": {
         "details_title": "Route Details",
@@ -139,14 +196,22 @@
     "trips": {
         "title": "My Trips",
         "upcoming": "Upcoming",
+        "active": "Active",
         "completed": "Completed",
+        "past": "Past",
         "cancelled": "Cancelled",
         "no_trips": "No trips found",
+        "no_upcoming": "No upcoming trips. Ready for your next journey?",
+        "no_active": "No trips in progress right now.",
+        "no_past": "Your completed trips will appear here.",
+        "book_trip": "Book a trip",
         "trip_detail_title": "Trip Details",
         "ticket_title": "Your Ticket",
-        "track_bus": "Track Bus",
-        "cancel_trip": "Cancel Booking",
-        "write_review": "Write Review",
+        "track_bus": "Track trip  📍",
+        "cancel_trip": "Cancel booking",
+        "write_review": "Rate this trip  ★",
+        "reviewed": "✓ Reviewed",
+        "view_ticket": "View ticket",
         "cancel_confirm": "Cancel this booking?",
         "cancel_success": "Booking cancelled",
         "review_title": "Rate your experience",
@@ -154,7 +219,10 @@
         "submit_review": "Submit Review",
         "tracking_title": "Live Tracking",
         "eta": "ETA: {{time}}",
-        "bus_location": "Bus Location"
+        "bus_location": "Bus Location",
+        "load_more": "Load more",
+        "loading": "Loading trips…",
+        "could_not_load": "Could not load trips"
     },
     "rewards": {
         "title": "Rewards",
@@ -168,7 +236,25 @@
         "redeem_confirm": "Redeem {{count}} points?",
         "no_history": "No reward history yet",
         "earned": "Earned",
-        "redeemed": "Redeemed"
+        "redeemed": "Redeemed",
+        "balance_error": "Could not load balance",
+        "lifetime_earned": "Lifetime earned",
+        "total_redeemed": "Total redeemed",
+        "min_to_redeem": "Min to redeem",
+        "how_title": "How rewards work",
+        "how_earn": "Earn 1 point for every ETB 1 you spend",
+        "how_redeem": "100 points = ETB 10 off your next booking",
+        "how_referral": "Earn 50 points when a friend completes their first trip",
+        "refer_title": "Refer a friend",
+        "history_error": "Could not load history",
+        "start_earning": "Complete your first trip to start earning points!"
+    },
+    "notifications": {
+        "title": "Notifications",
+        "mark_all_read": "Mark all read",
+        "could_not_load": "Could not load notifications",
+        "all_caught_up": "You're all caught up",
+        "empty_sub": "No notifications yet. Safe travels!"
     },
     "profile": {
         "title": "Profile",
@@ -180,7 +266,28 @@
         "about": "About",
         "logout": "Logout",
         "logout_confirm": "Are you sure you want to logout?",
-        "version": "Version {{version}}"
+        "version": "Version {{version}}",
+        "edit_title": "Edit profile",
+        "full_name": "Full name",
+        "account_status": "Account status",
+        "verified": "Verified ✓",
+        "unverified": "Unverified",
+        "role": "Role",
+        "danger_zone": "Danger zone",
+        "delete_account": "Delete my account",
+        "delete_confirm_title": "Delete account",
+        "delete_confirm_body": "This will permanently delete your account and all trip history. This cannot be undone.",
+        "delete": "Delete",
+        "notifications_section": "Notifications",
+        "account_section": "Account",
+        "edit_btn": "Edit",
+        "share": "Share",
+        "deleting": "Deleting…",
+        "logging_out": "Logging out…",
+        "refer": "Refer a friend",
+        "rewards_section": "Rewards",
+        "could_not_load": "Could not load profile.",
+        "all_notifications": "All notifications"
     },
     "errors": {
         "generic": "Something went wrong. Please try again.",

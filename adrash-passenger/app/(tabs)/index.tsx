@@ -3,7 +3,8 @@
 // Avatar in the top-right corner opens a small popover with
 // "View Profile" and "Logout" actions.
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import {
     Image,
@@ -120,6 +121,7 @@ function AvatarMenu() {
 // ─── Home tab ─────────────────────────────────────────────────────────────────
 
 export default function HomeTab() {
+    const { t } = useTranslation();
     const {
         origin, destination, date, passengersCount,
         recentSearches, setSearch, swap, rememberSearch, selectRoute,
@@ -166,18 +168,16 @@ export default function HomeTab() {
                     </View>
                 </View>
 
-                <Text style={styles.greeting}>Where are you going today?</Text>
-                <Text style={styles.greetingSub}>
-                    Search active Adrash routes, pick stops, and reserve seats.
-                </Text>
+                <Text style={styles.greeting}>{t('home.greeting')}</Text>
+                <Text style={styles.greetingSub}>{t('home.greeting_sub')}</Text>
 
                 {/* ── Search card ── */}
                 <View style={styles.searchCard}>
                     <Field
-                        label="Search city"
+                        label={t('home.search_city')}
                         value={query}
                         onChangeText={setQuery}
-                        placeholder="Type Addis, Hawassa…"
+                        placeholder={t('home.search_city_placeholder')}
                     />
                     <View style={styles.chips}>
                         {cities.map((city) => (
@@ -194,32 +194,32 @@ export default function HomeTab() {
                     </View>
 
                     <Field
-                        label="FROM"
+                        label={t('home.from')}
                         value={origin}
                         onChangeText={(v) => setSearch({ origin: v })}
-                        placeholder="Departure city"
+                        placeholder={t('home.from')}
                     />
                     <Pressable style={styles.swap} onPress={swap}>
                         <Text style={styles.swapIcon}>⇅</Text>
                     </Pressable>
                     <Field
-                        label="TO"
+                        label={t('home.to')}
                         value={destination}
                         onChangeText={(v) => setSearch({ destination: v })}
-                        placeholder="Destination city"
+                        placeholder={t('home.to')}
                     />
 
                     <View style={styles.row}>
                         <View style={{ flex: 1 }}>
                             <Field
-                                label="DATE"
+                                label={t('home.date')}
                                 value={date}
                                 onChangeText={(v) => setSearch({ date: v })}
                             />
                         </View>
                         <View style={{ flex: 1 }}>
                             <Field
-                                label="PASSENGERS"
+                                label={t('home.passengers')}
                                 value={String(passengersCount)}
                                 onChangeText={(v) =>
                                     setSearch({ passengersCount: Math.max(1, Number(v) || 1) })
@@ -237,29 +237,27 @@ export default function HomeTab() {
                         disabled={!origin || !destination || origin === destination}
                         onPress={search}
                     >
-                        <Text style={styles.searchBtnText}>Search Trips</Text>
+                        <Text style={styles.searchBtnText}>{t('home.search_trips')}</Text>
                     </Pressable>
 
                     {origin === destination && origin ? (
-                        <Text style={styles.error}>
-                            Origin and destination must be different.
-                        </Text>
+                        <Text style={styles.error}>{t('home.origin_destination_same')}</Text>
                     ) : null}
                 </View>
 
                 {/* ── Matching routes ── */}
-                <Text style={styles.sectionTitle}>Matching routes</Text>
+                <Text style={styles.sectionTitle}>{t('home.matching_routes')}</Text>
                 {routesQuery.isLoading ? (
-                    <StateView title="Loading routes" loading />
+                    <StateView title={t('home.loading_routes')} loading />
                 ) : routesQuery.isError ? (
                     <StateView
-                        title="Could not load routes"
-                        subtitle="Check your connection and retry."
-                        actionLabel="Retry"
+                        title={t('home.could_not_load')}
+                        subtitle={t('home.check_connection')}
+                        actionLabel={t('common.retry')}
                         onAction={() => void routesQuery.refetch()}
                     />
                 ) : filteredRoutes.length === 0 ? (
-                    <StateView title="No active routes found" subtitle="Try a different city pair." />
+                    <StateView title={t('home.no_results')} subtitle={t('home.no_results_sub')} />
                 ) : (
                     filteredRoutes.map((r) => (
                         <Pressable
@@ -286,7 +284,7 @@ export default function HomeTab() {
                 )}
 
                 {/* ── Recent searches ── */}
-                <Text style={styles.sectionTitle}>Recent searches</Text>
+                <Text style={styles.sectionTitle}>{t('home.recent_searches')}</Text>
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}

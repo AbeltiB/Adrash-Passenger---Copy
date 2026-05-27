@@ -12,6 +12,7 @@
 // "Sign in with a different account" clears device data and returns to splash.
 
 import { useCallback, useEffect, useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import {
     ActivityIndicator,
@@ -137,6 +138,7 @@ const padStyles = StyleSheet.create({
 type Step = 'phone' | 'pin';
 
 export default function PhoneLoginScreen() {
+    const { t } = useTranslation();
     const [step, setStep]         = useState<Step>('phone');
     const [rawPhone, setRawPhone] = useState('');   // digits only, no +251
     const [pin, setPin]           = useState('');
@@ -220,7 +222,7 @@ export default function PhoneLoginScreen() {
                         if (result.agreementRequired) {
                             router.replace({
                                 pathname: '/(auth)/agreement',
-                                params: { reaccept: '1' },
+                                params: { reaccept: '1', next: 'tabs' },
                             });
                         } else {
                             router.replace('/(tabs)');
@@ -297,10 +299,8 @@ export default function PhoneLoginScreen() {
                         <Text style={styles.iconEmoji}>📱</Text>
                     </View>
 
-                    <Text style={styles.title}>Welcome back</Text>
-                    <Text style={styles.subtitle}>
-                        Enter your phone number to continue
-                    </Text>
+                    <Text style={styles.title}>{t('auth.phone_login.title')}</Text>
+                    <Text style={styles.subtitle}>{t('auth.phone_login.phone_subtitle')}</Text>
 
                     {/* Phone input */}
                     <View style={styles.inputRow}>
@@ -337,13 +337,13 @@ export default function PhoneLoginScreen() {
                         {isPending ? (
                             <ActivityIndicator color={Colors.neutral.white} />
                         ) : (
-                            <Text style={styles.ctaText}>Continue</Text>
+                            <Text style={styles.ctaText}>{t('common.continue')}</Text>
                         )}
                     </Pressable>
                 </View>
 
                 <Pressable style={styles.switchBtn} onPress={handleSwitchAccount}>
-                    <Text style={styles.switchText}>Use a different account</Text>
+                    <Text style={styles.switchText}>{t('auth.phone_login.switch_account')}</Text>
                 </Pressable>
             </SafeAreaView>
         );
@@ -369,10 +369,10 @@ export default function PhoneLoginScreen() {
                 </View>
 
                 <Text style={styles.title}>
-                    {displayName ? `Welcome back, ${displayName}` : 'Welcome back'}
+                    {displayName ? `${t('auth.phone_login.title')}, ${displayName}` : t('auth.phone_login.title')}
                 </Text>
                 <Text style={styles.subtitle}>{normalisedPhone}</Text>
-                <Text style={styles.pinHint}>Enter your PIN to continue</Text>
+                <Text style={styles.pinHint}>{t('auth.phone_login.pin_hint')}</Text>
 
                 {/* PIN dots */}
                 <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
@@ -407,13 +407,13 @@ export default function PhoneLoginScreen() {
                     disabled={otpPending}
                 >
                     <Text style={styles.otpLinkText}>
-                        {otpPending ? 'Sending code…' : 'Use OTP instead'}
+                        {otpPending ? t('auth.phone_login.sending') : t('auth.phone_login.use_otp')}
                     </Text>
                 </Pressable>
             </View>
 
             <Pressable style={styles.switchBtn} onPress={handleSwitchAccount}>
-                <Text style={styles.switchText}>Sign in with a different account</Text>
+                <Text style={styles.switchText}>{t('auth.phone_login.switch_account_full')}</Text>
             </Pressable>
         </SafeAreaView>
     );
