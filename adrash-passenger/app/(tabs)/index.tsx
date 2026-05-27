@@ -25,19 +25,27 @@ import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingF
 import { routeService } from '@/features/passenger-booking/services/routeService';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useLogout } from '@/features/auth/hooks/useLogout';
+import { useProfile } from '@/features/profile/hooks/useProfile';
 
 // ─── Avatar menu ──────────────────────────────────────────────────────────────
+
+function getInitials(name: string | null | undefined): string {
+    if (!name) return '';
+    return name.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase();
+}
 
 function AvatarMenu() {
     const [visible, setVisible] = useState(false);
     const user = useAuthStore((s) => s.user);
+    const { data: profile } = useProfile();
     const { mutate: logout, isPending } = useLogout();
 
-    const initials = user?.firstName
-        ? (user.firstName[0] + (user.lastName?.[0] ?? '')).toUpperCase()
-        : '👤';
-
-    const hasInitials = Boolean(user?.firstName);
+    const fullName = profile?.fullName
+        ?? (user?.firstName ? `${user.firstName} ${user.lastName ?? ''}`.trim() : null);
+    const initials = getInitials(fullName);
+    const hasInitials = initials.length > 0;
+    const displayName = fullName ?? 'My Account';
+    const displayPhone = profile?.phone ?? user?.phoneNumber ?? null;
 
     return (
         <>
@@ -47,11 +55,7 @@ function AvatarMenu() {
                 accessibilityRole="button"
                 accessibilityLabel="Account menu"
             >
-                {hasInitials ? (
-                    <Text style={styles.avatarText}>{initials}</Text>
-                ) : (
-                    <Text style={{ fontSize: 20 }}>👤</Text>
-                )}
+                <Text style={styles.avatarText}>{hasInitials ? initials : '?'}</Text>
             </Pressable>
 
             {/* Popover modal — renders over everything, closes on backdrop tap */}
@@ -70,13 +74,9 @@ function AvatarMenu() {
                                 <Text style={styles.menuAvatarText}>{initials}</Text>
                             </View>
                             <View>
-                                <Text style={styles.menuName}>
-                                    {user?.firstName
-                                        ? `${user.firstName} ${user.lastName ?? ''}`.trim()
-                                        : 'My Account'}
-                                </Text>
-                                {user?.phoneNumber ? (
-                                    <Text style={styles.menuPhone}>{user.phoneNumber}</Text>
+                                <Text style={styles.menuName}>{displayName}</Text>
+                                {displayPhone ? (
+                                    <Text style={styles.menuPhone}>{displayPhone}</Text>
                                 ) : null}
                             </View>
                         </View>

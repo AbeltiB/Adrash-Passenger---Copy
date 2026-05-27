@@ -287,7 +287,10 @@
         "refer": "ጓደኛ ያሳትፉ",
         "rewards_section": "ሽልማቶች",
         "could_not_load": "መገለጫ ማስጫን አልተቻለም።",
-        "all_notifications": "ሁሉም ማሳወቂያዎች"
+        "all_notifications": "ሁሉም ማሳወቂያዎች",
+        "balance_label": "የነጥብ ቀሪ ሒሳብ",
+        "first_name": "የመጀመሪያ ስም",
+        "last_name": "የአባት ስም"
     },
     "errors": {
         "generic": "ችግር ተፈጥሯል። እንደገና ይሞክሩ።",

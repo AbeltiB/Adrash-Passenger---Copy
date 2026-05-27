@@ -287,7 +287,10 @@
         "refer": "Refer a friend",
         "rewards_section": "Rewards",
         "could_not_load": "Could not load profile.",
-        "all_notifications": "All notifications"
+        "all_notifications": "All notifications",
+        "balance_label": "Points Balance",
+        "first_name": "First name",
+        "last_name": "Last name"
     },
     "errors": {
         "generic": "Something went wrong. Please try again.",

@@ -287,7 +287,10 @@
         "refer": "Hiriyaa Afeeraa",
         "rewards_section": "Badhaasota",
         "could_not_load": "Profaayilii fe'uun hin danda'amne.",
-        "all_notifications": "Beeksisa Hundaa"
+        "all_notifications": "Beeksisa Hundaa",
+        "balance_label": "Hanga Qabxii",
+        "first_name": "Maqaa duraa",
+        "last_name": "Maqaa abaa"
     },
     "errors": {
         "generic": "Wanti tokko dogoggore. Irra deebi'i yaali.",

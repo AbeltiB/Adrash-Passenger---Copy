@@ -97,28 +97,33 @@ export default function ProfileTab() {
 
     // ── Local edit state ──────────────────────────────────────────────────
     const [editing, setEditing] = useState(false);
-    const [editName, setEditName] = useState('');
-    const [editLang, setEditLang] = useState<ApiLanguage>('En');
+    const [editFirstName, setEditFirstName] = useState('');
+    const [editLastName, setEditLastName] = useState('');
+    const [langPickerOpen, setLangPickerOpen] = useState(false);
 
     function openEdit() {
-        setEditName(profile?.fullName ?? '');
-        setEditLang(profile?.preferredLanguage ?? 'En');
+        const parts = (profile?.fullName ?? '').trim().split(/\s+/);
+        setEditFirstName(parts[0] ?? '');
+        setEditLastName(parts.slice(1).join(' '));
         setEditing(true);
     }
 
     function saveEdit() {
+        const fullName = [editFirstName.trim(), editLastName.trim()].filter(Boolean).join(' ') || null;
         updateProfile(
-            { fullName: editName.trim() || null, preferredLanguage: editLang },
-            {
-                onSuccess: async () => {
-                    setEditing(false);
-                    const code = LANG_CODE_MAP[editLang];
-                    await changeLanguage(code);
-                    writeString(MMKVKeys.PREFERRED_LANGUAGE, code);
-                    setAuthLanguage(code);
-                },
-            },
+            { fullName },
+            { onSuccess: () => setEditing(false) },
         );
+    }
+
+    function applyLanguage(lang: ApiLanguage) {
+        if (lang === profile?.preferredLanguage) { setLangPickerOpen(false); return; }
+        const code = LANG_CODE_MAP[lang];
+        void changeLanguage(code);
+        writeString(MMKVKeys.PREFERRED_LANGUAGE, code);
+        setAuthLanguage(code);
+        setLangPickerOpen(false);
+        updateProfile({ preferredLanguage: lang });
     }
 
     // ── Notification toggle ───────────────────────────────────────────────
@@ -286,19 +291,32 @@ export default function ProfileTab() {
                     )}
                 </Card>
 
-                {/* ── Language (read-only display; editable via Edit modal) ── */}
+                {/* ── Account (language inline picker + status + role) ── */}
                 <SectionTitle label={t('profile.account_section')} />
                 <Card>
-                    <View style={styles.rowItem}>
+                    <Pressable style={styles.rowItem} onPress={() => setLangPickerOpen((v) => !v)}>
                         <Text style={styles.rowIcon}>🌐</Text>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.rowLabel}>{t('profile.language')}</Text>
                             <Text style={styles.rowSub}>{currentLangLabel}</Text>
                         </View>
-                        <Pressable onPress={openEdit}>
-                            <Text style={styles.rowChev}>›</Text>
-                        </Pressable>
-                    </View>
+                        <Text style={styles.rowChev}>{langPickerOpen ? '∨' : '›'}</Text>
+                    </Pressable>
+                    {langPickerOpen && (
+                        <View style={styles.inlineLangPicker}>
+                            {LANG_OPTIONS.map((l) => (
+                                <Pressable
+                                    key={l.code}
+                                    style={[styles.inlineLangOpt, profile?.preferredLanguage === l.code && styles.inlineLangOptActive]}
+                                    onPress={() => applyLanguage(l.code)}
+                                >
+                                    <Text style={[styles.inlineLangOptText, profile?.preferredLanguage === l.code && styles.inlineLangOptTextActive]}>
+                                        {l.label}
+                                    </Text>
+                                </Pressable>
+                            ))}
+                        </View>
+                    )}
                     <View style={[styles.rowItem, styles.rowDivider]}>
                         <Text style={styles.rowIcon}>🔒</Text>
                         <View style={{ flex: 1 }}>
@@ -345,40 +363,57 @@ export default function ProfileTab() {
             {editing && (
                 <View style={styles.modalOverlay}>
                     <View style={styles.modal}>
-                        <Text style={styles.modalTitle}>{t('profile.edit_title')}</Text>
-
-                        <Text style={styles.inputLabel}>{t('profile.full_name')}</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={editName}
-                            onChangeText={setEditName}
-                            placeholder={t('profile.full_name')}
-                            placeholderTextColor={Colors.text.disabled}
-                        />
-
-                        <Text style={styles.inputLabel}>{t('profile.language')}</Text>
-                        <View style={styles.langPicker}>
-                            {LANG_OPTIONS.map((l) => (
-                                <Pressable
-                                    key={l.code}
-                                    style={[
-                                        styles.langOpt,
-                                        editLang === l.code && styles.langOptActive,
-                                    ]}
-                                    onPress={() => setEditLang(l.code)}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.langOptText,
-                                            editLang === l.code && styles.langOptTextActive,
-                                        ]}
-                                    >
-                                        {l.label}
-                                    </Text>
-                                </Pressable>
-                            ))}
+                        {/* Header */}
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>{t('profile.edit_title')}</Text>
+                            <Pressable
+                                onPress={() => setEditing(false)}
+                                style={styles.modalClose}
+                                disabled={saving}
+                            >
+                                <Text style={styles.modalCloseText}>✕</Text>
+                            </Pressable>
                         </View>
 
+                        {/* Avatar preview */}
+                        <View style={styles.modalAvatarRow}>
+                            <View style={styles.modalAvatar}>
+                                <Text style={styles.modalAvatarText}>
+                                    {[editFirstName[0], editLastName[0]]
+                                        .filter(Boolean).join('').toUpperCase() || avatarLetters}
+                                </Text>
+                            </View>
+                        </View>
+
+                        {/* First name */}
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>{t('profile.first_name')}</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={editFirstName}
+                                onChangeText={setEditFirstName}
+                                placeholder={t('profile.first_name')}
+                                placeholderTextColor={Colors.text.disabled}
+                                autoCorrect={false}
+                                autoCapitalize="words"
+                            />
+                        </View>
+
+                        {/* Last name */}
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>{t('profile.last_name')}</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={editLastName}
+                                onChangeText={setEditLastName}
+                                placeholder={t('profile.last_name')}
+                                placeholderTextColor={Colors.text.disabled}
+                                autoCorrect={false}
+                                autoCapitalize="words"
+                            />
+                        </View>
+
+                        {/* Buttons */}
                         <View style={styles.modalBtns}>
                             <Pressable
                                 style={styles.modalCancel}
@@ -388,7 +423,7 @@ export default function ProfileTab() {
                                 <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
                             </Pressable>
                             <Pressable
-                                style={styles.modalSave}
+                                style={[styles.modalSave, saving && styles.modalSaveDisabled]}
                                 onPress={saveEdit}
                                 disabled={saving}
                             >
@@ -506,44 +541,65 @@ const styles = StyleSheet.create({
     },
     retryText: { color: Colors.neutral.white, fontWeight: '700' },
 
+    // Inline language picker
+    inlineLangPicker: {
+        flexDirection: 'row', gap: Spacing.sm,
+        paddingTop: Spacing.sm, paddingBottom: Spacing.xs,
+    },
+    inlineLangOpt: {
+        flex: 1, paddingVertical: 10, borderRadius: BorderRadius.md,
+        borderWidth: 1.5, borderColor: Colors.border.light,
+        alignItems: 'center',
+    },
+    inlineLangOptActive: { borderColor: Colors.brand.primary, backgroundColor: Colors.brand.primaryTint },
+    inlineLangOptText: { color: Colors.text.secondary, fontWeight: '600', fontSize: 12 },
+    inlineLangOptTextActive: { color: Colors.brand.primary, fontWeight: '700' },
+
     // Edit modal
     modalOverlay: {
         position: 'absolute', inset: 0,
-        backgroundColor: 'rgba(0,0,0,0.45)',
+        backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center', padding: Spacing.lg,
     },
     modal: {
         backgroundColor: Colors.background.primary,
         borderRadius: BorderRadius.xl,
-        padding: Spacing.xl, gap: Spacing.md,
+        padding: Spacing.xl, gap: Spacing.lg,
+        ...Shadow.lg,
     },
-    modalTitle: { fontSize: 20, fontWeight: '800', color: Colors.text.primary },
+    modalHeader: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    },
+    modalTitle: { fontSize: 20, fontWeight: '900', color: Colors.text.primary },
+    modalClose: { padding: 6 },
+    modalCloseText: { fontSize: 18, color: Colors.text.tertiary, fontWeight: '700' },
+    modalAvatarRow: { alignItems: 'center', paddingVertical: Spacing.xs },
+    modalAvatar: {
+        width: 72, height: 72, borderRadius: 36,
+        backgroundColor: Colors.brand.primary,
+        alignItems: 'center', justifyContent: 'center',
+        ...Shadow.sm,
+    },
+    modalAvatarText: { color: Colors.neutral.white, fontSize: 26, fontWeight: '900' },
+    inputGroup: { gap: 6 },
     inputLabel: { fontSize: 13, fontWeight: '600', color: Colors.text.secondary },
     input: {
-        borderWidth: 1, borderColor: Colors.border.medium,
+        borderWidth: 1.5, borderColor: Colors.border.medium,
         borderRadius: BorderRadius.lg,
-        paddingHorizontal: Spacing.md, paddingVertical: 12,
+        paddingHorizontal: Spacing.md, paddingVertical: 13,
         fontSize: 16, color: Colors.text.primary,
-        backgroundColor: Colors.background.primary,
+        backgroundColor: Colors.background.secondary,
     },
-    langPicker: { flexDirection: 'row', gap: Spacing.sm },
-    langOpt: {
-        flex: 1, paddingVertical: 10, borderRadius: BorderRadius.md,
-        borderWidth: 1.5, borderColor: Colors.border.light,
-        alignItems: 'center',
-    },
-    langOptActive: { borderColor: Colors.brand.primary, backgroundColor: Colors.brand.primaryTint },
-    langOptText: { color: Colors.text.secondary, fontWeight: '600', fontSize: 13 },
-    langOptTextActive: { color: Colors.brand.primary },
-    modalBtns: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm },
+    modalBtns: { flexDirection: 'row', gap: Spacing.md },
     modalCancel: {
         flex: 1, paddingVertical: 14, borderRadius: BorderRadius.lg,
-        borderWidth: 1, borderColor: Colors.border.medium, alignItems: 'center',
+        borderWidth: 1.5, borderColor: Colors.border.medium, alignItems: 'center',
     },
     modalCancelText: { color: Colors.text.primary, fontWeight: '700' },
     modalSave: {
         flex: 1, paddingVertical: 14, borderRadius: BorderRadius.lg,
         backgroundColor: Colors.brand.primary, alignItems: 'center',
     },
+    modalSaveDisabled: { opacity: 0.5 },
     modalSaveText: { color: Colors.neutral.white, fontWeight: '700' },
 });
