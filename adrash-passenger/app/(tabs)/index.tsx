@@ -125,25 +125,26 @@ export default function HomeTab() {
     const { t } = useTranslation();
     const {
         origin, destination, date, time, passengersCount,
-        recentSearches, setSearch, swap, rememberSearch, selectRoute,
+        recentSearches, setSearch, swap, rememberSearch, selectRoute, selectPickup,
     } = useBookingFlowStore();
 
-    const [query, setQuery] = useState('');
+    const [passengerErr, setPassengerErr] = useState<string | null>(null);
     const routesQuery = useRoutes();
     const routes = useMemo(
         () => routesQuery.data?.pages.flatMap((p) => p.items) ?? [],
         [routesQuery.data],
     );
     const filteredRoutes = useMemo(
-        () => routeService.filter(routes, origin || query, destination).slice(0, 8),
-        [routes, origin, destination, query],
+        () => routeService.filter(routes, origin, destination).slice(0, 8),
+        [routes, origin, destination],
     );
     const cities = useMemo(
-        () =>
-            Array.from(new Set(routes.flatMap((r) => [r.originCity, r.destinationCity])))
-                .filter((c) => c.toLowerCase().includes(query.toLowerCase()))
-                .slice(0, 8),
-        [routes, query],
+        () => origin
+            ? Array.from(new Set(routes.flatMap((r) => [r.originCity, r.destinationCity])))
+                .filter((c) => c.toLowerCase().includes(origin.toLowerCase()))
+                .slice(0, 8)
+            : [],
+        [routes, origin],
     );
 
     const search = () => { rememberSearch(); router.push('/(tabs)/search/results'); };
@@ -175,32 +176,24 @@ export default function HomeTab() {
                 {/* ── Search card ── */}
                 <View style={styles.searchCard}>
                     <Field
-                        label={t('home.search_city')}
-                        value={query}
-                        onChangeText={setQuery}
-                        placeholder={t('home.search_city_placeholder')}
+                        label={t('home.from')}
+                        value={origin}
+                        onChangeText={(v) => { setSearch({ origin: v }); selectPickup(null); }}
+                        placeholder={t('home.from_placeholder')}
                     />
                     <View style={styles.chips}>
                         {cities.map((city) => (
                             <Pressable
                                 key={city}
                                 style={styles.chip}
-                                onPress={() =>
-                                    setSearch(origin ? { destination: city } : { origin: city })
-                                }
+                                onPress={() => { setSearch({ origin: city }); selectPickup(null); }}
                             >
                                 <Text style={styles.chipText}>{city}</Text>
                             </Pressable>
                         ))}
                     </View>
 
-                    <Field
-                        label={t('home.from')}
-                        value={origin}
-                        onChangeText={(v) => setSearch({ origin: v })}
-                        placeholder={t('home.from')}
-                    />
-                    <Pressable style={styles.swap} onPress={swap}>
+                    <Pressable style={styles.swap} onPress={() => { swap(); selectPickup(null); }}>
                         <Text style={styles.swapIcon}>⇅</Text>
                     </Pressable>
                     <Field
@@ -215,14 +208,39 @@ export default function HomeTab() {
                         time={time}
                         onChange={(d, tm) => setSearch({ date: d, time: tm })}
                     />
-                    <Field
-                        label={t('home.passengers')}
-                        value={String(passengersCount)}
-                        onChangeText={(v) =>
-                            setSearch({ passengersCount: Math.max(1, Number(v) || 1) })
-                        }
-                        keyboardType="numeric"
-                    />
+                    <View>
+                        <Text style={styles.counterLabel}>{t('home.passengers')}</Text>
+                        <View style={styles.counterRow}>
+                            <Pressable
+                                style={styles.counterBtn}
+                                onPress={() => {
+                                    if (passengersCount <= 1) {
+                                        setPassengerErr(t('home.passengers_min_error'));
+                                    } else {
+                                        setSearch({ passengersCount: passengersCount - 1 });
+                                        setPassengerErr(null);
+                                    }
+                                }}
+                            >
+                                <Text style={styles.counterBtnText}>−</Text>
+                            </Pressable>
+                            <Text style={styles.counterValue}>{passengersCount}</Text>
+                            <Pressable
+                                style={styles.counterBtn}
+                                onPress={() => {
+                                    if (passengersCount >= 60) {
+                                        setPassengerErr(t('home.passengers_max_error'));
+                                    } else {
+                                        setSearch({ passengersCount: passengersCount + 1 });
+                                        setPassengerErr(null);
+                                    }
+                                }}
+                            >
+                                <Text style={styles.counterBtnText}>+</Text>
+                            </Pressable>
+                        </View>
+                        {passengerErr ? <Text style={styles.passengerErr}>{passengerErr}</Text> : null}
+                    </View>
 
                     <Pressable
                         style={[
@@ -394,6 +412,16 @@ const styles = StyleSheet.create({
     searchBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
     disabled:      { opacity: 0.4 },
     error:         { color: Colors.semantic.error, fontWeight: '700' },
+    counterLabel:  { fontSize: 11, fontWeight: '700', color: Colors.text.tertiary, letterSpacing: 0.4, marginBottom: 8 },
+    counterRow:    { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    counterBtn: {
+        width: 40, height: 40, borderRadius: 20,
+        backgroundColor: Colors.brand.primary,
+        alignItems: 'center', justifyContent: 'center',
+    },
+    counterBtnText: { color: '#fff', fontSize: 22, fontWeight: '700', lineHeight: 22 },
+    counterValue:  { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '800', color: Colors.text.primary },
+    passengerErr:  { color: Colors.semantic.error, fontSize: 11, fontWeight: '600', marginTop: 4 },
     sectionTitle:  { fontSize: 16, fontWeight: '800', color: Colors.text.primary, marginTop: Spacing.md },
     chips:         { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
     chip: {

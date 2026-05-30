@@ -1,20 +1,10 @@
 // app/(tabs)/profile.tsx
-// Real profile screen — all data comes from the API, zero mocks.
-//
-// APIs used:
-//   GET  /api/v1/users/me                  → name, phone, language, verified
-//   PATCH /api/v1/users/me                 → edit name / language
-//   GET  /api/v1/rewards/balance           → points balance + ETB equivalent
-//   GET  /api/v1/rewards/referral          → referral code + share link
-//   GET  /api/v1/notifications/preferences → InApp / SMS toggles
-//   PATCH /api/v1/notifications/preferences
-//   DELETE /api/v1/users/me               → delete account
-
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
     Alert,
+    Modal,
     Pressable,
     ScrollView,
     Share,
@@ -27,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../src/constants';
 import { useLogout } from '../../src/features/auth/hooks/useLogout';
+import { useOtpSend } from '../../src/features/auth/hooks/useOtpSend';
 import { useProfile } from '../../src/features/profile/hooks/useProfile';
 import { useUpdateProfile } from '../../src/features/profile/hooks/useUpdateProfile';
 import { useDeleteAccount } from '../../src/features/profile/hooks/useDeleteAccount';
@@ -36,6 +27,9 @@ import {
     useNotificationPreferences,
     useUpdateNotificationPreferences,
 } from '../../src/features/profile/hooks/useNotificationPreferences';
+import { useCurrentAgreement } from '../../src/features/agreements/hooks/useAgreements';
+import { apiClient } from '../../src/api/client';
+import { ENDPOINTS } from '../../src/api/endpoints';
 import type { ApiLanguage, NotificationPreferenceDto } from '../../src/api/types';
 import { changeLanguage } from '../../src/lib/i18n';
 import { MMKVKeys } from '../../src/constants/mmkvKeys';
@@ -44,23 +38,20 @@ import { useAuthStore } from '../../src/features/auth/store/authStore';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-/** "Selam Tadesse" → "ST" */
 function initials(name: string | null): string {
     if (!name) return '?';
-    return name
-        .split(' ')
-        .map((w) => w[0] ?? '')
-        .slice(0, 2)
-        .join('')
-        .toUpperCase();
+    return name.split(' ').map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase();
 }
 
-/** API language codes ("En") ↔ display labels */
 const LANG_OPTIONS: { code: ApiLanguage; label: string }[] = [
     { code: 'En', label: 'English' },
     { code: 'Am', label: 'አማርኛ' },
     { code: 'Om', label: 'Afaan Oromoo' },
 ];
+
+const LANG_CODE_MAP: Record<ApiLanguage, 'en' | 'am' | 'om'> = {
+    En: 'en', Am: 'am', Om: 'om',
+};
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -72,48 +63,99 @@ function Card({ children, style }: { children: React.ReactNode; style?: object }
     return <View style={[styles.card, style]}>{children}</View>;
 }
 
-// ─── Main screen ─────────────────────────────────────────────────────────────
-
-const LANG_CODE_MAP: Record<ApiLanguage, 'en' | 'am' | 'om'> = {
-    En: 'en', Am: 'am', Om: 'om',
-};
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ProfileTab() {
     const { t } = useTranslation();
-    // ── Auth ──────────────────────────────────────────────────────────────
+
     const { mutate: logout, isPending: loggingOut } = useLogout();
     const setAuthLanguage = useAuthStore((s) => s.setLanguage);
     const { mutate: deleteAccount, isPending: deleting } = useDeleteAccount();
 
-    // ── API data ──────────────────────────────────────────────────────────
     const { data: profile, isLoading: profileLoading, error: profileError, refetch } = useProfile();
     const { data: balance, isLoading: balanceLoading } = useRewardsBalance();
     const { data: referral, isLoading: referralLoading } = useReferral();
     const { data: notifPrefs, isLoading: prefsLoading } = useNotificationPreferences();
+    const { data: agreement, isLoading: agreementLoading } = useCurrentAgreement();
 
-    // ── Mutations ─────────────────────────────────────────────────────────
     const { mutate: updateProfile, isPending: saving } = useUpdateProfile();
     const { mutate: updatePrefs } = useUpdateNotificationPreferences();
+    const { mutate: sendOtp } = useOtpSend();
 
-    // ── Local edit state ──────────────────────────────────────────────────
-    const [editing, setEditing] = useState(false);
+    // ── Edit modal state ──────────────────────────────────────────────────
+    const [editing,       setEditing]       = useState(false);
     const [editFirstName, setEditFirstName] = useState('');
-    const [editLastName, setEditLastName] = useState('');
+    const [editLastName,  setEditLastName]  = useState('');
+    const [editPhone,     setEditPhone]     = useState('');
+    const [editPhase,     setEditPhase]     = useState<'form' | 'otp'>('form');
+    const [phoneOtp,      setPhoneOtp]      = useState('');
+    const [phoneVerified, setPhoneVerified] = useState(false);
+    const [sendingOtp,    setSendingOtp]    = useState(false);
+    const [verifyingOtp,  setVerifyingOtp]  = useState(false);
+    const [phoneOtpError, setPhoneOtpError] = useState<string | null>(null);
+
+    // ── Other UI state ────────────────────────────────────────────────────
     const [langPickerOpen, setLangPickerOpen] = useState(false);
+    const [termsOpen,      setTermsOpen]      = useState(false);
+
+    // ── Handlers ─────────────────────────────────────────────────────────
 
     function openEdit() {
         const parts = (profile?.fullName ?? '').trim().split(/\s+/);
         setEditFirstName(parts[0] ?? '');
         setEditLastName(parts.slice(1).join(' '));
+        setEditPhone(profile?.phone ?? '');
+        setPhoneVerified(false);
+        setEditPhase('form');
+        setPhoneOtp('');
+        setPhoneOtpError(null);
         setEditing(true);
     }
 
     function saveEdit() {
+        const phoneChanged = editPhone.trim() !== (profile?.phone ?? '');
+        if (phoneChanged && !phoneVerified) {
+            setPhoneOtpError(t('profile.phone_not_verified'));
+            return;
+        }
         const fullName = [editFirstName.trim(), editLastName.trim()].filter(Boolean).join(' ') || null;
-        updateProfile(
-            { fullName },
-            { onSuccess: () => setEditing(false) },
+        updateProfile({ fullName }, { onSuccess: () => setEditing(false) });
+    }
+
+    function handleSendOtp() {
+        const phone = editPhone.trim();
+        if (!phone) return;
+        setSendingOtp(true);
+        setPhoneOtpError(null);
+        sendOtp(
+            { phone },
+            {
+                onSuccess: () => { setSendingOtp(false); setEditPhase('otp'); },
+                onError:   () => { setSendingOtp(false); setPhoneOtpError(t('errors.generic')); },
+            },
         );
+    }
+
+    async function handleVerifyOtp() {
+        if (phoneOtp.trim().length < 4) {
+            setPhoneOtpError(t('auth.otp.invalid_otp'));
+            return;
+        }
+        setVerifyingOtp(true);
+        setPhoneOtpError(null);
+        try {
+            await apiClient.post(ENDPOINTS.AUTH.VERIFY_OTP, {
+                phone: editPhone.trim(),
+                code:  phoneOtp.trim(),
+            });
+            setPhoneVerified(true);
+            setEditPhase('form');
+            setPhoneOtp('');
+        } catch {
+            setPhoneOtpError(t('auth.otp.invalid_otp'));
+        } finally {
+            setVerifyingOtp(false);
+        }
     }
 
     function applyLanguage(lang: ApiLanguage) {
@@ -126,7 +168,6 @@ export default function ProfileTab() {
         updateProfile({ preferredLanguage: lang });
     }
 
-    // ── Notification toggle ───────────────────────────────────────────────
     function togglePref(pref: NotificationPreferenceDto) {
         if (!notifPrefs) return;
         const next = notifPrefs.map((p) =>
@@ -137,29 +178,23 @@ export default function ProfileTab() {
         updatePrefs(next);
     }
 
-    // ── Share referral ────────────────────────────────────────────────────
     async function shareReferral() {
         if (!referral?.shareLink) return;
         await Share.share({ message: `Join me on Adrash! ${referral.shareLink}` });
     }
 
-    // ── Delete account ────────────────────────────────────────────────────
     function confirmDelete() {
         Alert.alert(
             t('profile.delete_confirm_title'),
             t('profile.delete_confirm_body'),
             [
                 { text: t('common.cancel'), style: 'cancel' },
-                {
-                    text: t('profile.delete'),
-                    style: 'destructive',
-                    onPress: () => deleteAccount(),
-                },
+                { text: t('profile.delete'), style: 'destructive', onPress: () => deleteAccount() },
             ],
         );
     }
 
-    // ── Loading / error states ─────────────────────────────────────────────
+    // ── Loading / error ────────────────────────────────────────────────────
     if (profileLoading) {
         return (
             <SafeAreaView style={styles.centered} edges={['top']}>
@@ -179,13 +214,11 @@ export default function ProfileTab() {
         );
     }
 
-    // ── Derived display values ─────────────────────────────────────────────
-    const displayName = profile.fullName ?? profile.phone ?? '—';
-    const avatarLetters = initials(profile.fullName);
-    const currentLangLabel =
-        LANG_OPTIONS.find((l) => l.code === profile.preferredLanguage)?.label ?? 'English';
+    const displayName      = profile.fullName ?? profile.phone ?? '—';
+    const avatarLetters    = initials(profile.fullName);
+    const currentLangLabel = LANG_OPTIONS.find((l) => l.code === profile.preferredLanguage)?.label ?? 'English';
+    const phoneChanged     = editPhone.trim() !== (profile.phone ?? '');
 
-    // ── Render ─────────────────────────────────────────────────────────────
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <ScrollView contentContainerStyle={styles.scroll}>
@@ -242,9 +275,7 @@ export default function ProfileTab() {
                             </Text>
                             <View style={styles.refRow}>
                                 <View style={styles.refCodeBox}>
-                                    <Text style={styles.refCode}>
-                                        {referral?.code ?? '—'}
-                                    </Text>
+                                    <Text style={styles.refCode}>{referral?.code ?? '—'}</Text>
                                 </View>
                                 <Pressable
                                     style={styles.refShareBtn}
@@ -282,7 +313,7 @@ export default function ProfileTab() {
                                     value={pref.isEnabled}
                                     onValueChange={() => togglePref(pref)}
                                     trackColor={{
-                                        true: Colors.brand.primary,
+                                        true:  Colors.brand.primary,
                                         false: Colors.neutral.gray300,
                                     }}
                                 />
@@ -291,7 +322,7 @@ export default function ProfileTab() {
                     )}
                 </Card>
 
-                {/* ── Account (language inline picker + status + role) ── */}
+                {/* ── Account: language + status + terms ── */}
                 <SectionTitle label={t('profile.account_section')} />
                 <Card>
                     <Pressable style={styles.rowItem} onPress={() => setLangPickerOpen((v) => !v)}>
@@ -307,10 +338,16 @@ export default function ProfileTab() {
                             {LANG_OPTIONS.map((l) => (
                                 <Pressable
                                     key={l.code}
-                                    style={[styles.inlineLangOpt, profile?.preferredLanguage === l.code && styles.inlineLangOptActive]}
+                                    style={[
+                                        styles.inlineLangOpt,
+                                        profile.preferredLanguage === l.code && styles.inlineLangOptActive,
+                                    ]}
                                     onPress={() => applyLanguage(l.code)}
                                 >
-                                    <Text style={[styles.inlineLangOptText, profile?.preferredLanguage === l.code && styles.inlineLangOptTextActive]}>
+                                    <Text style={[
+                                        styles.inlineLangOptText,
+                                        profile.preferredLanguage === l.code && styles.inlineLangOptTextActive,
+                                    ]}>
                                         {l.label}
                                     </Text>
                                 </Pressable>
@@ -326,13 +363,17 @@ export default function ProfileTab() {
                             </Text>
                         </View>
                     </View>
-                    <View style={[styles.rowItem, styles.rowDivider]}>
-                        <Text style={styles.rowIcon}>👤</Text>
+                    <Pressable
+                        style={[styles.rowItem, styles.rowDivider]}
+                        onPress={() => setTermsOpen(true)}
+                    >
+                        <Text style={styles.rowIcon}>📋</Text>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.rowLabel}>{t('profile.role')}</Text>
-                            <Text style={styles.rowSub}>{profile.role}</Text>
+                            <Text style={styles.rowLabel}>{t('profile.terms_conditions')}</Text>
+                            <Text style={styles.rowSub}>{t('profile.terms_conditions_sub')}</Text>
                         </View>
-                    </View>
+                        <Text style={styles.rowChev}>›</Text>
+                    </Pressable>
                 </Card>
 
                 {/* ── Danger zone ── */}
@@ -359,84 +400,237 @@ export default function ProfileTab() {
                 <View style={{ height: Spacing.xl }} />
             </ScrollView>
 
-            {/* ── Edit modal overlay ── */}
+            {/* ── Edit overlay ── */}
             {editing && (
                 <View style={styles.modalOverlay}>
                     <View style={styles.modal}>
-                        {/* Header */}
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>{t('profile.edit_title')}</Text>
+                            <Text style={styles.modalTitle}>
+                                {editPhase === 'otp'
+                                    ? t('profile.phone_verify_title')
+                                    : t('profile.edit_title')}
+                            </Text>
                             <Pressable
-                                onPress={() => setEditing(false)}
+                                onPress={() => {
+                                    if (editPhase === 'otp') {
+                                        setEditPhase('form');
+                                        setPhoneOtp('');
+                                        setPhoneOtpError(null);
+                                    } else {
+                                        setEditing(false);
+                                    }
+                                }}
                                 style={styles.modalClose}
-                                disabled={saving}
+                                disabled={saving || verifyingOtp}
                             >
                                 <Text style={styles.modalCloseText}>✕</Text>
                             </Pressable>
                         </View>
 
-                        {/* Avatar preview */}
-                        <View style={styles.modalAvatarRow}>
-                            <View style={styles.modalAvatar}>
-                                <Text style={styles.modalAvatarText}>
-                                    {[editFirstName[0], editLastName[0]]
-                                        .filter(Boolean).join('').toUpperCase() || avatarLetters}
+                        {editPhase === 'form' ? (
+                            <>
+                                {/* Avatar preview */}
+                                <View style={styles.modalAvatarRow}>
+                                    <View style={styles.modalAvatar}>
+                                        <Text style={styles.modalAvatarText}>
+                                            {[editFirstName[0], editLastName[0]]
+                                                .filter(Boolean).join('').toUpperCase() || avatarLetters}
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                {/* First name */}
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.inputLabel}>{t('profile.first_name')}</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={editFirstName}
+                                        onChangeText={setEditFirstName}
+                                        placeholder={t('profile.first_name')}
+                                        placeholderTextColor={Colors.text.disabled}
+                                        autoCorrect={false}
+                                        autoCapitalize="words"
+                                    />
+                                </View>
+
+                                {/* Last name */}
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.inputLabel}>{t('profile.last_name')}</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={editLastName}
+                                        onChangeText={setEditLastName}
+                                        placeholder={t('profile.last_name')}
+                                        placeholderTextColor={Colors.text.disabled}
+                                        autoCorrect={false}
+                                        autoCapitalize="words"
+                                    />
+                                </View>
+
+                                {/* Phone */}
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.inputLabel}>{t('profile.phone')}</Text>
+                                    <View style={styles.phoneRow}>
+                                        <TextInput
+                                            style={[styles.input, styles.phoneInput]}
+                                            value={editPhone}
+                                            onChangeText={(v) => {
+                                                setEditPhone(v);
+                                                setPhoneVerified(false);
+                                                setPhoneOtpError(null);
+                                            }}
+                                            placeholder="09XXXXXXXX"
+                                            placeholderTextColor={Colors.text.disabled}
+                                            keyboardType="phone-pad"
+                                            autoCorrect={false}
+                                        />
+                                        {phoneChanged && !phoneVerified && (
+                                            <Pressable
+                                                style={[
+                                                    styles.otpSendBtn,
+                                                    sendingOtp && styles.modalSaveDisabled,
+                                                ]}
+                                                onPress={handleSendOtp}
+                                                disabled={sendingOtp}
+                                            >
+                                                {sendingOtp ? (
+                                                    <ActivityIndicator size="small" color={Colors.neutral.white} />
+                                                ) : (
+                                                    <Text style={styles.otpSendBtnText}>
+                                                        {t('profile.phone_send_otp')}
+                                                    </Text>
+                                                )}
+                                            </Pressable>
+                                        )}
+                                        {phoneVerified && (
+                                            <Text style={styles.phoneVerifiedBadge}>✓</Text>
+                                        )}
+                                    </View>
+                                    {phoneOtpError ? (
+                                        <Text style={styles.otpError}>{phoneOtpError}</Text>
+                                    ) : null}
+                                </View>
+
+                                {/* Buttons */}
+                                <View style={styles.modalBtns}>
+                                    <Pressable
+                                        style={styles.modalCancel}
+                                        onPress={() => setEditing(false)}
+                                        disabled={saving}
+                                    >
+                                        <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
+                                    </Pressable>
+                                    <Pressable
+                                        style={[styles.modalSave, saving && styles.modalSaveDisabled]}
+                                        onPress={saveEdit}
+                                        disabled={saving}
+                                    >
+                                        {saving ? (
+                                            <ActivityIndicator color={Colors.neutral.white} />
+                                        ) : (
+                                            <Text style={styles.modalSaveText}>{t('common.save')}</Text>
+                                        )}
+                                    </Pressable>
+                                </View>
+                            </>
+                        ) : (
+                            /* OTP phase */
+                            <>
+                                <Text style={styles.otpHint}>
+                                    {t('auth.otp.subtitle', { phone: editPhone })}
                                 </Text>
-                            </View>
-                        </View>
-
-                        {/* First name */}
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>{t('profile.first_name')}</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={editFirstName}
-                                onChangeText={setEditFirstName}
-                                placeholder={t('profile.first_name')}
-                                placeholderTextColor={Colors.text.disabled}
-                                autoCorrect={false}
-                                autoCapitalize="words"
-                            />
-                        </View>
-
-                        {/* Last name */}
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>{t('profile.last_name')}</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={editLastName}
-                                onChangeText={setEditLastName}
-                                placeholder={t('profile.last_name')}
-                                placeholderTextColor={Colors.text.disabled}
-                                autoCorrect={false}
-                                autoCapitalize="words"
-                            />
-                        </View>
-
-                        {/* Buttons */}
-                        <View style={styles.modalBtns}>
-                            <Pressable
-                                style={styles.modalCancel}
-                                onPress={() => setEditing(false)}
-                                disabled={saving}
-                            >
-                                <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
-                            </Pressable>
-                            <Pressable
-                                style={[styles.modalSave, saving && styles.modalSaveDisabled]}
-                                onPress={saveEdit}
-                                disabled={saving}
-                            >
-                                {saving ? (
-                                    <ActivityIndicator color={Colors.neutral.white} />
-                                ) : (
-                                    <Text style={styles.modalSaveText}>{t('common.save')}</Text>
-                                )}
-                            </Pressable>
-                        </View>
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.inputLabel}>{t('auth.otp.title')}</Text>
+                                    <TextInput
+                                        style={[styles.input, styles.otpInput]}
+                                        value={phoneOtp}
+                                        onChangeText={(v) => {
+                                            setPhoneOtp(v.replace(/\D/g, '').slice(0, 6));
+                                            setPhoneOtpError(null);
+                                        }}
+                                        placeholder="– – – – – –"
+                                        placeholderTextColor={Colors.text.disabled}
+                                        keyboardType="number-pad"
+                                        maxLength={6}
+                                        textAlign="center"
+                                    />
+                                    {phoneOtpError ? (
+                                        <Text style={styles.otpError}>{phoneOtpError}</Text>
+                                    ) : null}
+                                </View>
+                                <Pressable
+                                    style={[
+                                        styles.modalSave,
+                                        (verifyingOtp || phoneOtp.length < 4) && styles.modalSaveDisabled,
+                                    ]}
+                                    onPress={handleVerifyOtp}
+                                    disabled={verifyingOtp || phoneOtp.length < 4}
+                                >
+                                    {verifyingOtp ? (
+                                        <ActivityIndicator color={Colors.neutral.white} />
+                                    ) : (
+                                        <Text style={styles.modalSaveText}>{t('auth.otp.verify')}</Text>
+                                    )}
+                                </Pressable>
+                                <Pressable
+                                    style={styles.modalCancel}
+                                    onPress={() => {
+                                        setEditPhase('form');
+                                        setPhoneOtp('');
+                                        setPhoneOtpError(null);
+                                    }}
+                                    disabled={verifyingOtp}
+                                >
+                                    <Text style={styles.modalCancelText}>{t('common.back')}</Text>
+                                </Pressable>
+                            </>
+                        )}
                     </View>
                 </View>
             )}
+
+            {/* ── Terms & Conditions modal ── */}
+            <Modal
+                visible={termsOpen}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setTermsOpen(false)}
+            >
+                <View style={styles.termsBackdrop}>
+                    <View style={styles.termsSheet}>
+                        <View style={styles.termsHeader}>
+                            <Text style={styles.termsTitle} numberOfLines={2}>
+                                {agreement?.title ?? t('profile.terms_conditions')}
+                            </Text>
+                            <Pressable onPress={() => setTermsOpen(false)} style={styles.modalClose}>
+                                <Text style={styles.modalCloseText}>✕</Text>
+                            </Pressable>
+                        </View>
+                        {agreement?.version ? (
+                            <Text style={styles.termsVersion}>v{agreement.version}</Text>
+                        ) : null}
+                        {agreementLoading ? (
+                            <ActivityIndicator
+                                color={Colors.brand.primary}
+                                style={{ marginTop: Spacing.xl }}
+                            />
+                        ) : (
+                            <ScrollView
+                                style={styles.termsScroll}
+                                showsVerticalScrollIndicator={false}
+                                contentContainerStyle={{ paddingBottom: Spacing.xl }}
+                            >
+                                <Text style={styles.termsContent}>
+                                    {agreement?.content ?? ''}
+                                </Text>
+                            </ScrollView>
+                        )}
+                        <Pressable style={styles.termsCloseBtn} onPress={() => setTermsOpen(false)}>
+                            <Text style={styles.termsCloseBtnText}>{t('common.close')}</Text>
+                        </Pressable>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -445,18 +639,16 @@ export default function ProfileTab() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background.secondary },
-    scroll: { padding: Spacing.lg, gap: Spacing.md },
-    centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
+    scroll:    { padding: Spacing.lg, gap: Spacing.md },
+    centered:  { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
 
     pageTitle: { fontSize: 26, fontWeight: '800', color: Colors.text.primary },
 
-    // Section title
     sectionTitle: {
         fontSize: 13, fontWeight: '700', color: Colors.text.tertiary,
         letterSpacing: 0.5, marginTop: Spacing.sm,
     },
 
-    // Generic card
     card: {
         backgroundColor: Colors.background.primary,
         borderRadius: BorderRadius.lg,
@@ -464,18 +656,15 @@ const styles = StyleSheet.create({
         ...Shadow.sm,
     },
 
-    // Profile header card
-    profileCard: {
-        flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    },
+    profileCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
     avatar: {
         width: 64, height: 64, borderRadius: 32,
         backgroundColor: Colors.brand.primary,
         alignItems: 'center', justifyContent: 'center',
     },
     avatarText: { color: Colors.neutral.white, fontSize: 24, fontWeight: '800' },
-    name: { fontSize: 18, fontWeight: '800', color: Colors.text.primary },
-    phone: { color: Colors.text.secondary, fontSize: 13, marginTop: 2 },
+    name:     { fontSize: 18, fontWeight: '800', color: Colors.text.primary },
+    phone:    { color: Colors.text.secondary, fontSize: 13, marginTop: 2 },
     verified: { color: Colors.semantic.success, fontSize: 12, fontWeight: '700', marginTop: 2 },
     editBtn: {
         borderWidth: 1, borderColor: Colors.brand.primary,
@@ -484,23 +673,21 @@ const styles = StyleSheet.create({
     },
     editBtnText: { color: Colors.brand.primary, fontWeight: '700', fontSize: 12 },
 
-    // Balance card
-    balanceCard: { backgroundColor: Colors.brand.primary, gap: 4 },
+    balanceCard:  { backgroundColor: Colors.brand.primary, gap: 4 },
     balanceLabel: { color: Colors.brand.onPrimary, fontSize: 13, fontWeight: '600' },
-    balanceRow: { flexDirection: 'row', alignItems: 'baseline' },
+    balanceRow:   { flexDirection: 'row', alignItems: 'baseline' },
     balanceValue: { color: Colors.neutral.white, fontSize: 40, fontWeight: '800' },
-    balanceUnit: { color: Colors.brand.onPrimary, fontSize: 16 },
+    balanceUnit:  { color: Colors.brand.onPrimary, fontSize: 16 },
     balanceEquiv: { color: Colors.brand.onPrimary, fontSize: 12 },
 
-    // Referral
-    refTitle: { fontWeight: '700', color: Colors.text.primary, fontSize: 15 },
-    refSub: { color: Colors.text.tertiary, fontSize: 13, marginTop: 4 },
-    refRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm, alignItems: 'center' },
+    refTitle:   { fontWeight: '700', color: Colors.text.primary, fontSize: 15 },
+    refSub:     { color: Colors.text.tertiary, fontSize: 13, marginTop: 4 },
+    refRow:     { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm, alignItems: 'center' },
     refCodeBox: {
         flex: 1, backgroundColor: Colors.background.secondary,
         borderRadius: BorderRadius.md, padding: Spacing.md,
     },
-    refCode: { fontFamily: 'monospace', fontSize: 16, fontWeight: '700', color: Colors.text.primary },
+    refCode:     { fontFamily: 'monospace', fontSize: 16, fontWeight: '700', color: Colors.text.primary },
     refShareBtn: {
         backgroundColor: Colors.brand.primary,
         paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
@@ -508,23 +695,20 @@ const styles = StyleSheet.create({
     },
     refShareText: { color: Colors.neutral.white, fontWeight: '700' },
 
-    // Notification prefs
-    prefRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm },
+    prefRow:     { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm },
     prefDivider: { borderTopWidth: 1, borderTopColor: Colors.border.light },
-    prefLabel: { color: Colors.text.primary, fontWeight: '600', fontSize: 14 },
+    prefLabel:   { color: Colors.text.primary, fontWeight: '600', fontSize: 14 },
     prefChannel: { color: Colors.text.tertiary, fontWeight: '400', fontSize: 12 },
-    emptyPrefs: { color: Colors.text.tertiary, fontSize: 13 },
+    emptyPrefs:  { color: Colors.text.tertiary, fontSize: 13 },
 
-    // Account rows
-    rowItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.sm },
+    rowItem:    { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.sm },
     rowDivider: { borderTopWidth: 1, borderTopColor: Colors.border.light },
-    rowIcon: { fontSize: 22 },
-    rowLabel: { color: Colors.text.primary, fontWeight: '600' },
-    rowSub: { color: Colors.text.tertiary, fontSize: 12, marginTop: 2 },
-    rowChev: { fontSize: 22, color: Colors.text.tertiary },
+    rowIcon:    { fontSize: 22 },
+    rowLabel:   { color: Colors.text.primary, fontWeight: '600' },
+    rowSub:     { color: Colors.text.tertiary, fontSize: 12, marginTop: 2 },
+    rowChev:    { fontSize: 22, color: Colors.text.tertiary },
 
-    // Danger / logout
-    deleteRow: { paddingVertical: Spacing.sm },
+    deleteRow:  { paddingVertical: Spacing.sm },
     deleteText: { color: Colors.semantic.error, fontWeight: '700', fontSize: 14 },
     logoutBtn: {
         borderWidth: 1, borderColor: Colors.semantic.error,
@@ -533,7 +717,6 @@ const styles = StyleSheet.create({
     },
     logoutText: { color: Colors.semantic.error, fontWeight: '700' },
 
-    // Error state
     errorText: { color: Colors.text.secondary, fontSize: 15 },
     retryBtn: {
         backgroundColor: Colors.brand.primary, paddingHorizontal: Spacing.xl,
@@ -541,7 +724,6 @@ const styles = StyleSheet.create({
     },
     retryText: { color: Colors.neutral.white, fontWeight: '700' },
 
-    // Inline language picker
     inlineLangPicker: {
         flexDirection: 'row', gap: Spacing.sm,
         paddingTop: Spacing.sm, paddingBottom: Spacing.xs,
@@ -551,11 +733,11 @@ const styles = StyleSheet.create({
         borderWidth: 1.5, borderColor: Colors.border.light,
         alignItems: 'center',
     },
-    inlineLangOptActive: { borderColor: Colors.brand.primary, backgroundColor: Colors.brand.primaryTint },
-    inlineLangOptText: { color: Colors.text.secondary, fontWeight: '600', fontSize: 12 },
+    inlineLangOptActive:    { borderColor: Colors.brand.primary, backgroundColor: Colors.brand.primaryTint },
+    inlineLangOptText:      { color: Colors.text.secondary, fontWeight: '600', fontSize: 12 },
     inlineLangOptTextActive: { color: Colors.brand.primary, fontWeight: '700' },
 
-    // Edit modal
+    // ── Edit modal ──────────────────────────────────────────────────────────
     modalOverlay: {
         position: 'absolute', inset: 0,
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -570,8 +752,8 @@ const styles = StyleSheet.create({
     modalHeader: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     },
-    modalTitle: { fontSize: 20, fontWeight: '900', color: Colors.text.primary },
-    modalClose: { padding: 6 },
+    modalTitle:    { fontSize: 20, fontWeight: '900', color: Colors.text.primary },
+    modalClose:    { padding: 6 },
     modalCloseText: { fontSize: 18, color: Colors.text.tertiary, fontWeight: '700' },
     modalAvatarRow: { alignItems: 'center', paddingVertical: Spacing.xs },
     modalAvatar: {
@@ -602,4 +784,52 @@ const styles = StyleSheet.create({
     },
     modalSaveDisabled: { opacity: 0.5 },
     modalSaveText: { color: Colors.neutral.white, fontWeight: '700' },
+
+    // ── Phone + OTP ────────────────────────────────────────────────────────
+    phoneRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    phoneInput: { flex: 1 },
+    otpSendBtn: {
+        backgroundColor: Colors.brand.primary,
+        borderRadius: BorderRadius.md,
+        paddingHorizontal: Spacing.md, paddingVertical: 13,
+        minWidth: 80, alignItems: 'center',
+    },
+    otpSendBtnText:     { color: Colors.neutral.white, fontWeight: '700', fontSize: 12 },
+    phoneVerifiedBadge: { fontSize: 22, color: Colors.semantic.success, fontWeight: '700' },
+    otpHint: { color: Colors.text.secondary, fontSize: 14, lineHeight: 20 },
+    otpInput: {
+        fontSize: 22, fontWeight: '700', letterSpacing: 8, textAlign: 'center',
+    },
+    otpError: { color: Colors.semantic.error, fontSize: 12, fontWeight: '600', marginTop: 4 },
+
+    // ── Terms modal ────────────────────────────────────────────────────────
+    termsBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    termsSheet: {
+        backgroundColor: Colors.background.primary,
+        borderTopLeftRadius:  BorderRadius['2xl'],
+        borderTopRightRadius: BorderRadius['2xl'],
+        padding: Spacing.xl,
+        paddingBottom: Spacing['2xl'],
+        maxHeight: '90%',
+        gap: Spacing.md,
+        ...Shadow.lg,
+    },
+    termsHeader: {
+        flexDirection: 'row', justifyContent: 'space-between',
+        alignItems: 'flex-start', gap: Spacing.md,
+    },
+    termsTitle:   { flex: 1, fontSize: 20, fontWeight: '900', color: Colors.text.primary },
+    termsVersion: { fontSize: 12, color: Colors.text.tertiary, marginTop: -Spacing.xs },
+    termsScroll:  { flex: 1, maxHeight: 420 },
+    termsContent: { fontSize: 14, color: Colors.text.secondary, lineHeight: 22 },
+    termsCloseBtn: {
+        backgroundColor: Colors.brand.primary,
+        borderRadius: BorderRadius.lg,
+        paddingVertical: 14, alignItems: 'center',
+    },
+    termsCloseBtnText: { color: Colors.neutral.white, fontWeight: '700', fontSize: 16 },
 });
