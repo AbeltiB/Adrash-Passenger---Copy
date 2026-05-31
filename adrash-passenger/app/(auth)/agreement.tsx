@@ -25,6 +25,8 @@ import {
     useCurrentAgreement,
 } from '../../src/features/agreements/hooks/useAgreements';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
+import { markAgreementAccepted } from '../../src/api/client';
+import { useLogout } from '../../src/features/auth/hooks/useLogout';
 
 function formatDate(iso: string): string {
     return new Date(iso).toLocaleDateString(undefined, {
@@ -58,6 +60,7 @@ export default function AgreementScreen() {
     const { mutate: accept, isPending: accepting, error: acceptError } = useAcceptAgreement();
     const authAccept       = useAuthStore((s) => s.acceptAgreement);
     const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
+    const { mutate: logout } = useLogout();
 
     const agreementBody = useMemo(
         () => (agreement ? decodeAgreementContent(agreement.content) : ''),
@@ -71,18 +74,22 @@ export default function AgreementScreen() {
             { agreementType: 'Passenger', documentVersion: agreement.version },
             {
                 onSuccess: () => {
+                    // Mark immediately so the 403 interceptor won't redirect
+                    // back to this screen during the server-propagation window.
+                    markAgreementAccepted();
                     authAccept(agreement.version);
 
                     if (next === 'tabs' || (isReaccept && next !== 'pin-setup')) {
-                        // Splash-triggered re-accept: ensure the tabs guard passes.
+                        // Re-accept path (splash-triggered or mid-session 403):
+                        // ensure the tabs auth guard passes.
                         setAuthenticated(true);
                         router.replace('/(tabs)');
                     } else if (next === 'pin-setup') {
-                        // Post-OTP / post-setup path: setAuthenticated already called
-                        // by useOtpVerify/usePinVerify/setup.tsx before this screen.
+                        // Post-OTP / post-setup: setAuthenticated already called
+                        // by useOtpVerify before this screen.
                         router.replace('/(auth)/pin-setup');
                     } else {
-                        // First-time onboarding → phone number + OTP
+                        // First-time onboarding (shown before phone/OTP).
                         router.replace('/(auth)/phone');
                     }
                 },
@@ -91,9 +98,13 @@ export default function AgreementScreen() {
     }, [agreement, accepting, accept, authAccept, setAuthenticated, isReaccept, next]);
 
     const handleDecline = useCallback(() => {
-        // Declining terms always returns to splash — user cannot proceed without accepting
+        if (isReaccept) {
+            // User declined an updated agreement while authenticated.
+            // Log them out — they cannot use the app without accepting.
+            logout();
+        }
         router.replace('/(auth)');
-    }, []);
+    }, [isReaccept, logout]);
 
     const canAgree = !accepting && !isLoading && !isError;
 

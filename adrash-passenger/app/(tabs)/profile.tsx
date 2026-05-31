@@ -17,7 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../src/constants';
 import { useLogout } from '../../src/features/auth/hooks/useLogout';
-import { useOtpSend } from '../../src/features/auth/hooks/useOtpSend';
+import { usePinSetup } from '../../src/features/auth/hooks/usePinSetup';
 import { useProfile } from '../../src/features/profile/hooks/useProfile';
 import { useUpdateProfile } from '../../src/features/profile/hooks/useUpdateProfile';
 import { useDeleteAccount } from '../../src/features/profile/hooks/useDeleteAccount';
@@ -28,15 +28,13 @@ import {
     useUpdateNotificationPreferences,
 } from '../../src/features/profile/hooks/useNotificationPreferences';
 import { useCurrentAgreement } from '../../src/features/agreements/hooks/useAgreements';
-import { apiClient } from '../../src/api/client';
-import { ENDPOINTS } from '../../src/api/endpoints';
 import type { ApiLanguage, NotificationPreferenceDto } from '../../src/api/types';
 import { changeLanguage } from '../../src/lib/i18n';
 import { MMKVKeys } from '../../src/constants/mmkvKeys';
 import { writeString } from '../../src/lib/storage';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function initials(name: string | null): string {
     if (!name) return '?';
@@ -53,8 +51,6 @@ const LANG_CODE_MAP: Record<ApiLanguage, 'en' | 'am' | 'om'> = {
     En: 'en', Am: 'am', Om: 'om',
 };
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
 function SectionTitle({ label }: { label: string }) {
     return <Text style={styles.sectionTitle}>{label}</Text>;
 }
@@ -68,93 +64,74 @@ function Card({ children, style }: { children: React.ReactNode; style?: object }
 export default function ProfileTab() {
     const { t } = useTranslation();
 
-    const { mutate: logout, isPending: loggingOut } = useLogout();
+    const { mutate: logout,        isPending: loggingOut  } = useLogout();
+    const { mutate: changePin,     isPending: savingPin   } = usePinSetup();
     const setAuthLanguage = useAuthStore((s) => s.setLanguage);
-    const { mutate: deleteAccount, isPending: deleting } = useDeleteAccount();
+    const { mutate: deleteAccount, isPending: deleting    } = useDeleteAccount();
 
     const { data: profile, isLoading: profileLoading, error: profileError, refetch } = useProfile();
-    const { data: balance, isLoading: balanceLoading } = useRewardsBalance();
-    const { data: referral, isLoading: referralLoading } = useReferral();
-    const { data: notifPrefs, isLoading: prefsLoading } = useNotificationPreferences();
-    const { data: agreement, isLoading: agreementLoading } = useCurrentAgreement();
+    const { data: balance,    isLoading: balanceLoading  } = useRewardsBalance();
+    const { data: referral,   isLoading: referralLoading } = useReferral();
+    const { data: notifPrefs, isLoading: prefsLoading    } = useNotificationPreferences();
+    const { data: agreement,  isLoading: agreementLoading } = useCurrentAgreement();
 
-    const { mutate: updateProfile, isPending: saving } = useUpdateProfile();
-    const { mutate: updatePrefs } = useUpdateNotificationPreferences();
-    const { mutate: sendOtp } = useOtpSend();
+    const { mutate: updateProfile, isPending: saving     } = useUpdateProfile();
+    const { mutate: updatePrefs                          } = useUpdateNotificationPreferences();
 
-    // ── Edit modal state ──────────────────────────────────────────────────
+    // ── Edit name modal ───────────────────────────────────────────────────────
     const [editing,       setEditing]       = useState(false);
     const [editFirstName, setEditFirstName] = useState('');
     const [editLastName,  setEditLastName]  = useState('');
-    const [editPhone,     setEditPhone]     = useState('');
-    const [editPhase,     setEditPhase]     = useState<'form' | 'otp'>('form');
-    const [phoneOtp,      setPhoneOtp]      = useState('');
-    const [phoneVerified, setPhoneVerified] = useState(false);
-    const [sendingOtp,    setSendingOtp]    = useState(false);
-    const [verifyingOtp,  setVerifyingOtp]  = useState(false);
-    const [phoneOtpError, setPhoneOtpError] = useState<string | null>(null);
 
-    // ── Other UI state ────────────────────────────────────────────────────
+    // ── PIN change modal ──────────────────────────────────────────────────────
+    const [pinOpen,    setPinOpen]    = useState(false);
+    const [pinPhase,   setPinPhase]   = useState<'current' | 'new' | 'confirm'>('current');
+    const [pinCurrent, setPinCurrent] = useState('');
+    const [pinNew,     setPinNew]     = useState('');
+    const [pinConfirm, setPinConfirm] = useState('');
+    const [pinError,   setPinError]   = useState<string | null>(null);
+
+    // ── Other UI ──────────────────────────────────────────────────────────────
     const [langPickerOpen, setLangPickerOpen] = useState(false);
     const [termsOpen,      setTermsOpen]      = useState(false);
 
-    // ── Handlers ─────────────────────────────────────────────────────────
+    // ── Handlers ─────────────────────────────────────────────────────────────
 
     function openEdit() {
         const parts = (profile?.fullName ?? '').trim().split(/\s+/);
         setEditFirstName(parts[0] ?? '');
         setEditLastName(parts.slice(1).join(' '));
-        setEditPhone(profile?.phone ?? '');
-        setPhoneVerified(false);
-        setEditPhase('form');
-        setPhoneOtp('');
-        setPhoneOtpError(null);
         setEditing(true);
     }
 
     function saveEdit() {
-        const phoneChanged = editPhone.trim() !== (profile?.phone ?? '');
-        if (phoneChanged && !phoneVerified) {
-            setPhoneOtpError(t('profile.phone_not_verified'));
-            return;
-        }
         const fullName = [editFirstName.trim(), editLastName.trim()].filter(Boolean).join(' ') || null;
         updateProfile({ fullName }, { onSuccess: () => setEditing(false) });
     }
 
-    function handleSendOtp() {
-        const phone = editPhone.trim();
-        if (!phone) return;
-        setSendingOtp(true);
-        setPhoneOtpError(null);
-        sendOtp(
-            { phone },
-            {
-                onSuccess: () => { setSendingOtp(false); setEditPhase('otp'); },
-                onError:   () => { setSendingOtp(false); setPhoneOtpError(t('errors.generic')); },
-            },
-        );
+    function openPinChange() {
+        setPinCurrent(''); setPinNew(''); setPinConfirm('');
+        setPinError(null); setPinPhase('current');
+        setPinOpen(true);
     }
 
-    async function handleVerifyOtp() {
-        if (phoneOtp.trim().length < 4) {
-            setPhoneOtpError(t('auth.otp.invalid_otp'));
-            return;
-        }
-        setVerifyingOtp(true);
-        setPhoneOtpError(null);
-        try {
-            await apiClient.post(ENDPOINTS.AUTH.VERIFY_OTP, {
-                phone: editPhone.trim(),
-                code:  phoneOtp.trim(),
-            });
-            setPhoneVerified(true);
-            setEditPhase('form');
-            setPhoneOtp('');
-        } catch {
-            setPhoneOtpError(t('auth.otp.invalid_otp'));
-        } finally {
-            setVerifyingOtp(false);
+    function handlePinNext() {
+        setPinError(null);
+        if (pinPhase === 'current') {
+            if (pinCurrent.length < 4) { setPinError('Enter your current PIN.'); return; }
+            setPinPhase('new');
+        } else if (pinPhase === 'new') {
+            if (pinNew.length < 4) { setPinError('PIN must be at least 4 digits.'); return; }
+            setPinPhase('confirm');
+        } else {
+            if (pinConfirm !== pinNew) { setPinError(t('auth.pin_setup.mismatch')); return; }
+            changePin(
+                { newPin: pinNew, currentPin: pinCurrent },
+                {
+                    onSuccess: () => { setPinOpen(false); Alert.alert(t('profile.pin_changed')); },
+                    onError:   () => { setPinError(t('profile.pin_wrong')); setPinPhase('current'); },
+                },
+            );
         }
     }
 
@@ -194,7 +171,7 @@ export default function ProfileTab() {
         );
     }
 
-    // ── Loading / error ────────────────────────────────────────────────────
+    // ── Loading / error ───────────────────────────────────────────────────────
     if (profileLoading) {
         return (
             <SafeAreaView style={styles.centered} edges={['top']}>
@@ -214,10 +191,20 @@ export default function ProfileTab() {
         );
     }
 
-    const displayName      = profile.fullName ?? profile.phone ?? '—';
-    const avatarLetters    = initials(profile.fullName);
-    const currentLangLabel = LANG_OPTIONS.find((l) => l.code === profile.preferredLanguage)?.label ?? 'English';
-    const phoneChanged     = editPhone.trim() !== (profile.phone ?? '');
+    const displayName       = profile.fullName ?? profile.phone ?? '—';
+    const avatarLetters     = initials(profile.fullName);
+    const currentLangLabel  = LANG_OPTIONS.find((l) => l.code === profile.preferredLanguage)?.label ?? 'English';
+
+    // ── PIN phase label ───────────────────────────────────────────────────────
+    const pinPhaseLabel = pinPhase === 'current'
+        ? t('profile.current_pin')
+        : pinPhase === 'new'
+            ? t('profile.new_pin')
+            : t('profile.confirm_pin');
+    const pinPhaseValue = pinPhase === 'current' ? pinCurrent
+        : pinPhase === 'new' ? pinNew : pinConfirm;
+    const pinPhaseSet   = pinPhase === 'current' ? setPinCurrent
+        : pinPhase === 'new' ? setPinNew : setPinConfirm;
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -312,17 +299,14 @@ export default function ProfileTab() {
                                 <Switch
                                     value={pref.isEnabled}
                                     onValueChange={() => togglePref(pref)}
-                                    trackColor={{
-                                        true:  Colors.brand.primary,
-                                        false: Colors.neutral.gray300,
-                                    }}
+                                    trackColor={{ true: Colors.brand.primary, false: Colors.neutral.gray300 }}
                                 />
                             </View>
                         ))
                     )}
                 </Card>
 
-                {/* ── Account: language + status + terms ── */}
+                {/* ── Account ── */}
                 <SectionTitle label={t('profile.account_section')} />
                 <Card>
                     <Pressable style={styles.rowItem} onPress={() => setLangPickerOpen((v) => !v)}>
@@ -376,6 +360,19 @@ export default function ProfileTab() {
                     </Pressable>
                 </Card>
 
+                {/* ── Security ── */}
+                <SectionTitle label={t('profile.security')} />
+                <Card>
+                    <Pressable style={styles.rowItem} onPress={openPinChange}>
+                        <Text style={styles.rowIcon}>🔑</Text>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.rowLabel}>{t('profile.change_pin')}</Text>
+                            <Text style={styles.rowSub}>{t('profile.change_pin_sub')}</Text>
+                        </View>
+                        <Text style={styles.rowChev}>›</Text>
+                    </Pressable>
+                </Card>
+
                 {/* ── Danger zone ── */}
                 <SectionTitle label={t('profile.danger_zone')} />
                 <Card>
@@ -386,12 +383,7 @@ export default function ProfileTab() {
                     </Pressable>
                 </Card>
 
-                {/* ── Logout ── */}
-                <Pressable
-                    style={styles.logoutBtn}
-                    onPress={() => logout()}
-                    disabled={loggingOut}
-                >
+                <Pressable style={styles.logoutBtn} onPress={() => logout()} disabled={loggingOut}>
                     <Text style={styles.logoutText}>
                         {loggingOut ? t('profile.logging_out') : t('profile.logout')}
                     </Text>
@@ -400,191 +392,126 @@ export default function ProfileTab() {
                 <View style={{ height: Spacing.xl }} />
             </ScrollView>
 
-            {/* ── Edit overlay ── */}
+            {/* ── Edit name overlay ── */}
             {editing && (
                 <View style={styles.modalOverlay}>
                     <View style={styles.modal}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>
-                                {editPhase === 'otp'
-                                    ? t('profile.phone_verify_title')
-                                    : t('profile.edit_title')}
-                            </Text>
-                            <Pressable
-                                onPress={() => {
-                                    if (editPhase === 'otp') {
-                                        setEditPhase('form');
-                                        setPhoneOtp('');
-                                        setPhoneOtpError(null);
-                                    } else {
-                                        setEditing(false);
-                                    }
-                                }}
-                                style={styles.modalClose}
-                                disabled={saving || verifyingOtp}
-                            >
+                            <Text style={styles.modalTitle}>{t('profile.edit_title')}</Text>
+                            <Pressable onPress={() => setEditing(false)} style={styles.modalClose} disabled={saving}>
                                 <Text style={styles.modalCloseText}>✕</Text>
                             </Pressable>
                         </View>
 
-                        {editPhase === 'form' ? (
-                            <>
-                                {/* Avatar preview */}
-                                <View style={styles.modalAvatarRow}>
-                                    <View style={styles.modalAvatar}>
-                                        <Text style={styles.modalAvatarText}>
-                                            {[editFirstName[0], editLastName[0]]
-                                                .filter(Boolean).join('').toUpperCase() || avatarLetters}
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                {/* First name */}
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>{t('profile.first_name')}</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        value={editFirstName}
-                                        onChangeText={setEditFirstName}
-                                        placeholder={t('profile.first_name')}
-                                        placeholderTextColor={Colors.text.disabled}
-                                        autoCorrect={false}
-                                        autoCapitalize="words"
-                                    />
-                                </View>
-
-                                {/* Last name */}
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>{t('profile.last_name')}</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        value={editLastName}
-                                        onChangeText={setEditLastName}
-                                        placeholder={t('profile.last_name')}
-                                        placeholderTextColor={Colors.text.disabled}
-                                        autoCorrect={false}
-                                        autoCapitalize="words"
-                                    />
-                                </View>
-
-                                {/* Phone */}
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>{t('profile.phone')}</Text>
-                                    <View style={styles.phoneRow}>
-                                        <TextInput
-                                            style={[styles.input, styles.phoneInput]}
-                                            value={editPhone}
-                                            onChangeText={(v) => {
-                                                setEditPhone(v);
-                                                setPhoneVerified(false);
-                                                setPhoneOtpError(null);
-                                            }}
-                                            placeholder="09XXXXXXXX"
-                                            placeholderTextColor={Colors.text.disabled}
-                                            keyboardType="phone-pad"
-                                            autoCorrect={false}
-                                        />
-                                        {phoneChanged && !phoneVerified && (
-                                            <Pressable
-                                                style={[
-                                                    styles.otpSendBtn,
-                                                    sendingOtp && styles.modalSaveDisabled,
-                                                ]}
-                                                onPress={handleSendOtp}
-                                                disabled={sendingOtp}
-                                            >
-                                                {sendingOtp ? (
-                                                    <ActivityIndicator size="small" color={Colors.neutral.white} />
-                                                ) : (
-                                                    <Text style={styles.otpSendBtnText}>
-                                                        {t('profile.phone_send_otp')}
-                                                    </Text>
-                                                )}
-                                            </Pressable>
-                                        )}
-                                        {phoneVerified && (
-                                            <Text style={styles.phoneVerifiedBadge}>✓</Text>
-                                        )}
-                                    </View>
-                                    {phoneOtpError ? (
-                                        <Text style={styles.otpError}>{phoneOtpError}</Text>
-                                    ) : null}
-                                </View>
-
-                                {/* Buttons */}
-                                <View style={styles.modalBtns}>
-                                    <Pressable
-                                        style={styles.modalCancel}
-                                        onPress={() => setEditing(false)}
-                                        disabled={saving}
-                                    >
-                                        <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
-                                    </Pressable>
-                                    <Pressable
-                                        style={[styles.modalSave, saving && styles.modalSaveDisabled]}
-                                        onPress={saveEdit}
-                                        disabled={saving}
-                                    >
-                                        {saving ? (
-                                            <ActivityIndicator color={Colors.neutral.white} />
-                                        ) : (
-                                            <Text style={styles.modalSaveText}>{t('common.save')}</Text>
-                                        )}
-                                    </Pressable>
-                                </View>
-                            </>
-                        ) : (
-                            /* OTP phase */
-                            <>
-                                <Text style={styles.otpHint}>
-                                    {t('auth.otp.subtitle', { phone: editPhone })}
+                        <View style={styles.modalAvatarRow}>
+                            <View style={styles.modalAvatar}>
+                                <Text style={styles.modalAvatarText}>
+                                    {[editFirstName[0], editLastName[0]].filter(Boolean).join('').toUpperCase() || avatarLetters}
                                 </Text>
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>{t('auth.otp.title')}</Text>
-                                    <TextInput
-                                        style={[styles.input, styles.otpInput]}
-                                        value={phoneOtp}
-                                        onChangeText={(v) => {
-                                            setPhoneOtp(v.replace(/\D/g, '').slice(0, 6));
-                                            setPhoneOtpError(null);
-                                        }}
-                                        placeholder="– – – – – –"
-                                        placeholderTextColor={Colors.text.disabled}
-                                        keyboardType="number-pad"
-                                        maxLength={6}
-                                        textAlign="center"
-                                    />
-                                    {phoneOtpError ? (
-                                        <Text style={styles.otpError}>{phoneOtpError}</Text>
-                                    ) : null}
-                                </View>
-                                <Pressable
-                                    style={[
-                                        styles.modalSave,
-                                        (verifyingOtp || phoneOtp.length < 4) && styles.modalSaveDisabled,
-                                    ]}
-                                    onPress={handleVerifyOtp}
-                                    disabled={verifyingOtp || phoneOtp.length < 4}
-                                >
-                                    {verifyingOtp ? (
-                                        <ActivityIndicator color={Colors.neutral.white} />
-                                    ) : (
-                                        <Text style={styles.modalSaveText}>{t('auth.otp.verify')}</Text>
-                                    )}
-                                </Pressable>
-                                <Pressable
-                                    style={styles.modalCancel}
-                                    onPress={() => {
-                                        setEditPhase('form');
-                                        setPhoneOtp('');
-                                        setPhoneOtpError(null);
-                                    }}
-                                    disabled={verifyingOtp}
-                                >
-                                    <Text style={styles.modalCancelText}>{t('common.back')}</Text>
-                                </Pressable>
-                            </>
-                        )}
+                            </View>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>{t('profile.first_name')}</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={editFirstName}
+                                onChangeText={setEditFirstName}
+                                placeholder={t('profile.first_name')}
+                                placeholderTextColor={Colors.text.disabled}
+                                autoCorrect={false}
+                                autoCapitalize="words"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>{t('profile.last_name')}</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={editLastName}
+                                onChangeText={setEditLastName}
+                                placeholder={t('profile.last_name')}
+                                placeholderTextColor={Colors.text.disabled}
+                                autoCorrect={false}
+                                autoCapitalize="words"
+                            />
+                        </View>
+
+                        <View style={styles.modalBtns}>
+                            <Pressable style={styles.modalCancel} onPress={() => setEditing(false)} disabled={saving}>
+                                <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
+                            </Pressable>
+                            <Pressable
+                                style={[styles.modalSave, saving && styles.modalSaveDisabled]}
+                                onPress={saveEdit}
+                                disabled={saving}
+                            >
+                                {saving
+                                    ? <ActivityIndicator color={Colors.neutral.white} />
+                                    : <Text style={styles.modalSaveText}>{t('common.save')}</Text>}
+                            </Pressable>
+                        </View>
+                    </View>
+                </View>
+            )}
+
+            {/* ── PIN change overlay ── */}
+            {pinOpen && (
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modal}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>{t('profile.change_pin')}</Text>
+                            <Pressable onPress={() => setPinOpen(false)} style={styles.modalClose} disabled={savingPin}>
+                                <Text style={styles.modalCloseText}>✕</Text>
+                            </Pressable>
+                        </View>
+
+                        {/* Step indicator */}
+                        <View style={styles.pinSteps}>
+                            {(['current', 'new', 'confirm'] as const).map((phase, i) => (
+                                <View key={phase} style={[styles.pinStep, pinPhase === phase && styles.pinStepActive]} />
+                            ))}
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>{pinPhaseLabel}</Text>
+                            <TextInput
+                                style={[styles.input, styles.pinInput]}
+                                value={pinPhaseValue}
+                                onChangeText={(v) => { pinPhaseSet(v.replace(/\D/g, '').slice(0, 6)); setPinError(null); }}
+                                placeholder="• • • • • •"
+                                placeholderTextColor={Colors.text.disabled}
+                                keyboardType="number-pad"
+                                maxLength={6}
+                                secureTextEntry
+                                textAlign="center"
+                            />
+                            {pinError ? <Text style={styles.pinError}>{pinError}</Text> : null}
+                        </View>
+
+                        <View style={styles.modalBtns}>
+                            <Pressable
+                                style={styles.modalCancel}
+                                onPress={() => {
+                                    if (pinPhase === 'current') { setPinOpen(false); }
+                                    else setPinPhase(pinPhase === 'confirm' ? 'new' : 'current');
+                                }}
+                                disabled={savingPin}
+                            >
+                                <Text style={styles.modalCancelText}>{t('common.back')}</Text>
+                            </Pressable>
+                            <Pressable
+                                style={[styles.modalSave, savingPin && styles.modalSaveDisabled]}
+                                onPress={handlePinNext}
+                                disabled={savingPin || pinPhaseValue.length < 4}
+                            >
+                                {savingPin
+                                    ? <ActivityIndicator color={Colors.neutral.white} />
+                                    : <Text style={styles.modalSaveText}>
+                                        {pinPhase === 'confirm' ? t('common.save') : t('common.next')}
+                                    </Text>}
+                            </Pressable>
+                        </View>
                     </View>
                 </View>
             )}
@@ -610,19 +537,14 @@ export default function ProfileTab() {
                             <Text style={styles.termsVersion}>v{agreement.version}</Text>
                         ) : null}
                         {agreementLoading ? (
-                            <ActivityIndicator
-                                color={Colors.brand.primary}
-                                style={{ marginTop: Spacing.xl }}
-                            />
+                            <ActivityIndicator color={Colors.brand.primary} style={{ marginTop: Spacing.xl }} />
                         ) : (
                             <ScrollView
                                 style={styles.termsScroll}
                                 showsVerticalScrollIndicator={false}
                                 contentContainerStyle={{ paddingBottom: Spacing.xl }}
                             >
-                                <Text style={styles.termsContent}>
-                                    {agreement?.content ?? ''}
-                                </Text>
+                                <Text style={styles.termsContent}>{agreement?.content ?? ''}</Text>
                             </ScrollView>
                         )}
                         <Pressable style={styles.termsCloseBtn} onPress={() => setTermsOpen(false)}>
@@ -643,17 +565,13 @@ const styles = StyleSheet.create({
     centered:  { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
 
     pageTitle: { fontSize: 26, fontWeight: '800', color: Colors.text.primary },
-
     sectionTitle: {
         fontSize: 13, fontWeight: '700', color: Colors.text.tertiary,
         letterSpacing: 0.5, marginTop: Spacing.sm,
     },
-
     card: {
         backgroundColor: Colors.background.primary,
-        borderRadius: BorderRadius.lg,
-        padding: Spacing.md,
-        ...Shadow.sm,
+        borderRadius: BorderRadius.lg, padding: Spacing.md, ...Shadow.sm,
     },
 
     profileCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
@@ -668,8 +586,7 @@ const styles = StyleSheet.create({
     verified: { color: Colors.semantic.success, fontSize: 12, fontWeight: '700', marginTop: 2 },
     editBtn: {
         borderWidth: 1, borderColor: Colors.brand.primary,
-        paddingHorizontal: Spacing.md, paddingVertical: 6,
-        borderRadius: BorderRadius.full,
+        paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.full,
     },
     editBtnText: { color: Colors.brand.primary, fontWeight: '700', fontSize: 12 },
 
@@ -690,8 +607,7 @@ const styles = StyleSheet.create({
     refCode:     { fontFamily: 'monospace', fontSize: 16, fontWeight: '700', color: Colors.text.primary },
     refShareBtn: {
         backgroundColor: Colors.brand.primary,
-        paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
-        borderRadius: BorderRadius.md,
+        paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderRadius: BorderRadius.md,
     },
     refShareText: { color: Colors.neutral.white, fontWeight: '700' },
 
@@ -724,20 +640,16 @@ const styles = StyleSheet.create({
     },
     retryText: { color: Colors.neutral.white, fontWeight: '700' },
 
-    inlineLangPicker: {
-        flexDirection: 'row', gap: Spacing.sm,
-        paddingTop: Spacing.sm, paddingBottom: Spacing.xs,
-    },
+    inlineLangPicker: { flexDirection: 'row', gap: Spacing.sm, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
     inlineLangOpt: {
         flex: 1, paddingVertical: 10, borderRadius: BorderRadius.md,
-        borderWidth: 1.5, borderColor: Colors.border.light,
-        alignItems: 'center',
+        borderWidth: 1.5, borderColor: Colors.border.light, alignItems: 'center',
     },
-    inlineLangOptActive:    { borderColor: Colors.brand.primary, backgroundColor: Colors.brand.primaryTint },
-    inlineLangOptText:      { color: Colors.text.secondary, fontWeight: '600', fontSize: 12 },
+    inlineLangOptActive:     { borderColor: Colors.brand.primary, backgroundColor: Colors.brand.primaryTint },
+    inlineLangOptText:       { color: Colors.text.secondary, fontWeight: '600', fontSize: 12 },
     inlineLangOptTextActive: { color: Colors.brand.primary, fontWeight: '700' },
 
-    // ── Edit modal ──────────────────────────────────────────────────────────
+    // ── Modals (shared) ────────────────────────────────────────────────────────
     modalOverlay: {
         position: 'absolute', inset: 0,
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -745,32 +657,25 @@ const styles = StyleSheet.create({
     },
     modal: {
         backgroundColor: Colors.background.primary,
-        borderRadius: BorderRadius.xl,
-        padding: Spacing.xl, gap: Spacing.lg,
-        ...Shadow.lg,
+        borderRadius: BorderRadius.xl, padding: Spacing.xl, gap: Spacing.lg, ...Shadow.lg,
     },
-    modalHeader: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    },
-    modalTitle:    { fontSize: 20, fontWeight: '900', color: Colors.text.primary },
-    modalClose:    { padding: 6 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    modalTitle:     { fontSize: 20, fontWeight: '900', color: Colors.text.primary },
+    modalClose:     { padding: 6 },
     modalCloseText: { fontSize: 18, color: Colors.text.tertiary, fontWeight: '700' },
     modalAvatarRow: { alignItems: 'center', paddingVertical: Spacing.xs },
     modalAvatar: {
         width: 72, height: 72, borderRadius: 36,
         backgroundColor: Colors.brand.primary,
-        alignItems: 'center', justifyContent: 'center',
-        ...Shadow.sm,
+        alignItems: 'center', justifyContent: 'center', ...Shadow.sm,
     },
     modalAvatarText: { color: Colors.neutral.white, fontSize: 26, fontWeight: '900' },
     inputGroup: { gap: 6 },
     inputLabel: { fontSize: 13, fontWeight: '600', color: Colors.text.secondary },
     input: {
-        borderWidth: 1.5, borderColor: Colors.border.medium,
-        borderRadius: BorderRadius.lg,
+        borderWidth: 1.5, borderColor: Colors.border.medium, borderRadius: BorderRadius.lg,
         paddingHorizontal: Spacing.md, paddingVertical: 13,
-        fontSize: 16, color: Colors.text.primary,
-        backgroundColor: Colors.background.secondary,
+        fontSize: 16, color: Colors.text.primary, backgroundColor: Colors.background.secondary,
     },
     modalBtns: { flexDirection: 'row', gap: Spacing.md },
     modalCancel: {
@@ -785,50 +690,31 @@ const styles = StyleSheet.create({
     modalSaveDisabled: { opacity: 0.5 },
     modalSaveText: { color: Colors.neutral.white, fontWeight: '700' },
 
-    // ── Phone + OTP ────────────────────────────────────────────────────────
-    phoneRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-    phoneInput: { flex: 1 },
-    otpSendBtn: {
-        backgroundColor: Colors.brand.primary,
-        borderRadius: BorderRadius.md,
-        paddingHorizontal: Spacing.md, paddingVertical: 13,
-        minWidth: 80, alignItems: 'center',
+    // ── PIN ────────────────────────────────────────────────────────────────────
+    pinSteps: { flexDirection: 'row', gap: Spacing.sm, justifyContent: 'center' },
+    pinStep: {
+        flex: 1, height: 4, borderRadius: 2,
+        backgroundColor: Colors.border.light, maxWidth: 60,
     },
-    otpSendBtnText:     { color: Colors.neutral.white, fontWeight: '700', fontSize: 12 },
-    phoneVerifiedBadge: { fontSize: 22, color: Colors.semantic.success, fontWeight: '700' },
-    otpHint: { color: Colors.text.secondary, fontSize: 14, lineHeight: 20 },
-    otpInput: {
-        fontSize: 22, fontWeight: '700', letterSpacing: 8, textAlign: 'center',
-    },
-    otpError: { color: Colors.semantic.error, fontSize: 12, fontWeight: '600', marginTop: 4 },
+    pinStepActive: { backgroundColor: Colors.brand.primary },
+    pinInput: { fontSize: 22, fontWeight: '700', letterSpacing: 8, textAlign: 'center' },
+    pinError: { color: Colors.semantic.error, fontSize: 12, fontWeight: '600', marginTop: 4 },
 
-    // ── Terms modal ────────────────────────────────────────────────────────
-    termsBackdrop: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end',
-    },
+    // ── Terms ──────────────────────────────────────────────────────────────────
+    termsBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     termsSheet: {
         backgroundColor: Colors.background.primary,
-        borderTopLeftRadius:  BorderRadius['2xl'],
-        borderTopRightRadius: BorderRadius['2xl'],
-        padding: Spacing.xl,
-        paddingBottom: Spacing['2xl'],
-        maxHeight: '90%',
-        gap: Spacing.md,
-        ...Shadow.lg,
+        borderTopLeftRadius: BorderRadius['2xl'], borderTopRightRadius: BorderRadius['2xl'],
+        padding: Spacing.xl, paddingBottom: Spacing['2xl'], maxHeight: '90%',
+        gap: Spacing.md, ...Shadow.lg,
     },
-    termsHeader: {
-        flexDirection: 'row', justifyContent: 'space-between',
-        alignItems: 'flex-start', gap: Spacing.md,
-    },
+    termsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: Spacing.md },
     termsTitle:   { flex: 1, fontSize: 20, fontWeight: '900', color: Colors.text.primary },
     termsVersion: { fontSize: 12, color: Colors.text.tertiary, marginTop: -Spacing.xs },
     termsScroll:  { flex: 1, maxHeight: 420 },
     termsContent: { fontSize: 14, color: Colors.text.secondary, lineHeight: 22 },
     termsCloseBtn: {
-        backgroundColor: Colors.brand.primary,
-        borderRadius: BorderRadius.lg,
+        backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg,
         paddingVertical: 14, alignItems: 'center',
     },
     termsCloseBtnText: { color: Colors.neutral.white, fontWeight: '700', fontSize: 16 },

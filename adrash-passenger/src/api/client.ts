@@ -54,6 +54,17 @@ function flushQueue(err: unknown, token: string | null) {
     queue = [];
 }
 
+// ── Agreement redirect guard ──────────────────────────────────────────────────
+// Prevents a race condition where a 403 fires in the brief window between
+// the user accepting the agreement and the server registering that acceptance.
+// Call markAgreementAccepted() from the agreement screen's onSuccess handler.
+let _agreementJustAccepted = false;
+export function markAgreementAccepted() {
+    _agreementJustAccepted = true;
+    // Clear after 30 s — long enough to cover any server propagation delay.
+    setTimeout(() => { _agreementJustAccepted = false; }, 30_000);
+}
+
 // ── Axios instance ────────────────────────────────────────────────────────────
 export const apiClient: AxiosInstance = axios.create({
     baseURL: API_V1_BASE,
@@ -92,10 +103,15 @@ apiClient.interceptors.response.use(
             err.response?.status === 403 &&
             errorCode === 'Auth.AgreementUpdateRequired'
         ) {
-            router.replace({
-                pathname: '/(auth)/agreement',
-                params:   { reaccept: '1', next: 'tabs' },
-            });
+            // Guard: if the user just accepted (within the last 30 s), this 403
+            // is a server-propagation race. Drop the redirect so the user is not
+            // bounced back to the agreement screen they already completed.
+            if (!_agreementJustAccepted) {
+                router.replace({
+                    pathname: '/(auth)/agreement',
+                    params:   { reaccept: '1', next: 'tabs' },
+                });
+            }
             // Return a never-resolving promise so the calling hook stays in
             // its loading state until the user has re-accepted and navigated back.
             return new Promise(() => {});

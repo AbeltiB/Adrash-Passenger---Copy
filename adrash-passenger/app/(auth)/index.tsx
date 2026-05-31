@@ -37,6 +37,11 @@ import {
 
 type Lang = 'en' | 'am' | 'om';
 
+// Maps i18n language codes to the format the agreements API expects
+const AGREEMENT_LANG: Record<string, 'En' | 'Am' | 'Om'> = {
+    en: 'En', am: 'Am', om: 'Om',
+};
+
 const LANGUAGES: { code: Lang; native: string; label: string }[] = [
     { code: 'en', native: 'English',      label: 'English'  },
     { code: 'am', native: 'አማርኛ',         label: 'Amharic'  },
@@ -49,7 +54,7 @@ export default function SplashScreen() {
     const [checking, setChecking] = useState(true);
 
     const hasAcceptedAgreement = useAuthStore((s) => s.hasAcceptedAgreement);
-    const agreementVersion     = useAuthStore((s) => s.agreementVersion);
+    const preferredLanguage    = useAuthStore((s) => s.preferredLanguage);
     const setAuthenticated     = useAuthStore((s) => s.setAuthenticated);
     const setLanguage          = useAuthStore((s) => s.setLanguage);
 
@@ -66,12 +71,13 @@ export default function SplashScreen() {
                 const hasValidToken = token !== null && !expired;
 
                 if (hasValidToken) {
-                    // Token is valid → the user is authenticated. Set this immediately
-                    // so the (tabs)/_layout.tsx guard doesn't redirect them back here.
+                    // Token is valid → user is authenticated. Set this immediately
+                    // so the (tabs)/_layout.tsx guard doesn't redirect them back.
                     setAuthenticated(true);
 
-                    // ── Agreement check ─────────────────────────────────────
-                    // First, check the local flag.
+                    // ── Agreement check ──────────────────────────────────────
+                    // Fast path: user has never accepted on this device → go to
+                    // agreement without a network round-trip.
                     if (!hasAcceptedAgreement) {
                         router.replace({
                             pathname: '/(auth)/agreement',
@@ -80,21 +86,25 @@ export default function SplashScreen() {
                         return;
                     }
 
-                    // Then ask the server whether a new version was published.
-                    // If the network call fails we let the user in — we'd rather
-                    // show them the app than block them on a bad connection.
+                    // Slow path: ask the server if the current version is signed.
+                    // isSigned = false means a new agreement was published since
+                    // the user last accepted. On any network error let them in —
+                    // the 403 interceptor will catch it on the next request.
                     try {
-                        const res = await apiClient.get<unknown>(
+                        const lang = AGREEMENT_LANG[preferredLanguage] ?? 'En';
+                        const res  = await apiClient.get<unknown>(
                             ENDPOINTS.AGREEMENTS.CURRENT,
-                            { params: { type: 'Passenger', lang: 'En' } },
+                            { params: { type: 'Passenger', lang } },
                         );
                         const raw  = res.data as Record<string, unknown>;
                         const data = (raw?.data as Record<string, unknown>) ?? raw;
-                        const serverVersion = String(
-                            data?.version ?? data?.documentVersion ?? '',
-                        ).trim();
 
-                        if (serverVersion && serverVersion !== agreementVersion) {
+                        // isSigned is the server's authoritative flag.
+                        // false → the user hasn't signed the CURRENT version.
+                        const isSigned =
+                            data?.isSigned === true || data?.accepted === true;
+
+                        if (!isSigned) {
                             router.replace({
                                 pathname: '/(auth)/agreement',
                                 params: { reaccept: '1', next: 'tabs' },
@@ -102,7 +112,8 @@ export default function SplashScreen() {
                             return;
                         }
                     } catch {
-                        // Network / parse error — proceed to tabs without blocking
+                        // Network / parse error — let the user in, the
+                        // 403 interceptor will handle it on the next request.
                     }
 
                     router.replace('/(tabs)');
