@@ -188,11 +188,15 @@
         "payment": {
             "title": "Kaffaltii",
             "select_method": "Haala Kaffaltii Filadhu",
-            "telebirr": "TeleBirr",
-            "cbe_birr": "CBE Birr",
-            "awash": "Baankii Awash",
             "pay_now": "ETB {{amount}} Kafali",
-            "processing": "Hojjetamaa jira…"
+            "processing": "Hojjetamaa jira…",
+            "account_ref_label": "Lakkoofsa bilbilaa {{provider}} waliin galmaaye",
+            "account_ref_placeholder": "+2519XXXXXXXX",
+            "already_in_progress": "Kaffaltiin eeyyama kanaaf dursee hojjatamaa jira.",
+            "provider_disabled": "Kaffaltiin online yeroof hin argamu. Booda irra deebi'i yaali.",
+            "provider_unavailable": "Kennaaa kaffaltii amma hin dhaqqabamne. Irra deebi'i yaali.",
+            "provider_error": "Kaffaltiin kennaan didame. Mala biraa yaali.",
+            "idempotency_hint": "Lammaffaa tuquun lammaffaa si kaffalchiisu."
         },
         "waiting": {
             "title": "Mirkaneessaa Eegaa Jira",

@@ -10,10 +10,13 @@ export interface PassengerDetailDTO { fullName: string; phone: string; nextOfKin
 export interface CreateBookingDTO { tripId: string; seatNumbers: number[]; pickupLocationId: string; dropoffStopId: string; pointsToRedeem: number; passengerDetails: PassengerDetailDTO[]; }
 export type BookingStatusDTO = 'Pending' | 'Confirmed' | 'CheckedIn' | 'Completed' | 'Cancelled' | 'NoShow';
 export interface BookingDTO { id: string; bookingReference: string; tripId: string; status: BookingStatusDTO; seatNumbers: number[]; pickupLocationId?: string; dropoffStopId?: string; totalFare: number; serviceFee?: number; rewardsDiscount?: number; qrCode?: string; expiresAt?: string; createdAt: string; updatedAt?: string; trip?: TripDTO | null; passengerDetails?: PassengerDetailDTO[]; refundStatus?: string | null; hasReview?: boolean; }
-export type PaymentMethodDTO = 'ADC' | 'Telebirr' | 'CBE Birr' | 'HelloCash';
-export interface InitiatePaymentDTO { bookingId: string; method: PaymentMethodDTO; accountRef: string; }
-export type PaymentStatusDTO = 'Pending' | 'Processing' | 'Success' | 'Failed' | 'Expired';
-export interface PaymentTransactionDTO { transactionId: string; bookingId: string; status: PaymentStatusDTO; method: PaymentMethodDTO; amount?: number; instructions?: string[]; expiresAt?: string; maskedAccountRef?: string; }
+// SantimPay is the only live aggregator. ADC is a skeleton and non-functional.
+// santimPayPartner picks the downstream rail that SantimPay routes through.
+export type PaymentMethodDTO  = 'SantimPay' | 'ADC';
+export type SantimPayPartner  = 'Telebirr' | 'CBEBirr' | 'MPesa';
+export interface InitiatePaymentDTO { bookingId: string; method: PaymentMethodDTO; accountRef: string; santimPayPartner?: SantimPayPartner; }
+export type PaymentStatusDTO = 'Pending' | 'Processing' | 'Success' | 'Failed' | 'TimedOut' | 'Expired';
+export interface PaymentTransactionDTO { transactionId: string; bookingId: string; status: PaymentStatusDTO; method: PaymentMethodDTO; santimPayPartner?: SantimPayPartner; amount?: number; providerInstructions?: string; expiresAt?: string; maskedAccountRef?: string; }
 export interface VerifyPaymentDTO { transactionId: string; }
 export interface TripLocationDTO { lat: number; lng: number; heading: number; speed: number; timestamp?: string; currentStopId?: string; }
 export interface ReviewDTO { id: string; bookingId: string; score: number; comment: string; createdAt: string; }

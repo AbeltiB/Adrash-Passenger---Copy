@@ -1,12 +1,22 @@
 // app/(tabs)/booking/payment.tsx
-// Payment method selection + payment initiation.
-// Phase A: choose provider + enter account ref → tap Pay
-// Phase B: waiting — automatic polling every 8 s, manual verify button, 5-min countdown
+//
+// Payment is always routed through SantimPay (Ethiopian aggregator).
+// The user picks which downstream rail (Telebirr / CBE Birr / M-Pesa) via the
+// optional `santimPayPartner` hint field — SantimPay handles the actual routing.
+//
+// Error handling covers the cases documented in the payment flow spec:
+//   409 Payment.AlreadyInProgress  → skip to waiting screen (use existing txn)
+//   503 Payment.ProviderDisabled   → kill switch message
+//   503 Payment.ProviderUnavailable / 400 Payment.ProviderError → provider message
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
+import axios from 'axios';
 import {
     ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -18,205 +28,202 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { useInitiatePayment } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
-import type { PaymentMethodDTO } from '@/features/passenger-booking/dtos/bookingDtos';
+import {
+    SANTIMPAY_PARTNERS,
+    type PartnerInfo,
+} from '@/features/passenger-booking/services/paymentService';
+import type { SantimPayPartner } from '@/features/passenger-booking/dtos/bookingDtos';
 
-// ─── Provider metadata ────────────────────────────────────────────────────────
+// ─── Error code helpers ───────────────────────────────────────────────────────
 
-interface ProviderInfo {
-    method: PaymentMethodDTO;
-    label: string;
-    description: string;
-    badge?: string;
-    emoji: string;
-    instructions: string;
+function parsePaymentError(err: unknown): { code: string; existingTxnId?: string } {
+    if (!axios.isAxiosError(err)) return { code: 'unknown' };
+
+    const data = err.response?.data as Record<string, unknown> | undefined;
+    // The server wraps errors: { success: false, code?, data?: { existingTransactionId? } }
+    const code  = String(data?.code ?? data?.errors?.[0] ?? 'unknown');
+    const meta  = (data?.data ?? data?.meta ?? {}) as Record<string, unknown>;
+    const existingTxnId = String(meta?.existingTransactionId ?? '').trim() || undefined;
+    return { code, existingTxnId };
 }
-
-const PROVIDERS: ProviderInfo[] = [
-    {
-        method:       'Telebirr',
-        label:        'Telebirr',
-        description:  'Ethio Telecom mobile money',
-        badge:        'Most popular',
-        emoji:        '📱',
-        instructions: 'Open your Telebirr app or check your phone for a payment prompt, then confirm.',
-    },
-    {
-        method:       'CBE Birr',
-        label:        'CBE Birr',
-        description:  'Commercial Bank of Ethiopia',
-        emoji:        '🏦',
-        instructions: 'A USSD prompt will appear on your phone. Dial the code and enter your PIN.',
-    },
-    {
-        method:       'HelloCash',
-        label:        'HelloCash',
-        description:  'Amhara Bank · Postal network',
-        emoji:        '💳',
-        instructions: 'Confirm via your HelloCash USSD menu or agent.',
-    },
-    {
-        method:       'ADC',
-        label:        'ADC',
-        description:  'ADC Research and Development',
-        emoji:        '🔷',
-        instructions: 'Complete payment in your ADC account.',
-    },
-];
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function PaymentScreen() {
+    const { t } = useTranslation();
     const flow     = useBookingFlowStore();
     const initiate = useInitiatePayment();
 
-    const [selectedMethod, setSelectedMethod] = useState<PaymentMethodDTO | null>(
-        flow.selectedPaymentMethod,
-    );
-    const [accountRef, setAccountRef] = useState(
-        flow.passengerDetails[0]?.phone ?? '',
-    );
-    const [error, setError] = useState('');
+    // One idempotency key per screen mount: prevents charging twice on double-tap.
+    // If the user navigates away and back they get a new key (which is correct).
+    const idempotencyKey = useId();
 
-    const selectedProvider = PROVIDERS.find((p) => p.method === selectedMethod);
-    const totalEtb = flow.pendingBooking?.totalFare ?? 0;
+    const [selectedPartner, setSelectedPartner] = useState<SantimPayPartner | null>(null);
+    const [accountRef,      setAccountRef]      = useState(flow.passengerDetails[0]?.phone ?? '');
+    const [error,           setError]           = useState('');
 
-    const canPay = Boolean(selectedMethod) && accountRef.trim().length >= 9 && !initiate.isPending;
+    const selectedInfo = SANTIMPAY_PARTNERS.find((p) => p.partner === selectedPartner);
+    const totalEtb     = flow.pendingBooking?.totalFare ?? 0;
+    const canPay       = Boolean(selectedPartner) && accountRef.trim().length >= 9 && !initiate.isPending;
 
     async function handlePay() {
-        if (!flow.pendingBooking || !selectedMethod) return;
+        if (!flow.pendingBooking || !selectedPartner) return;
         setError('');
 
         try {
             const txn = await initiate.mutateAsync({
-                bookingId:  flow.pendingBooking.id,
-                method:     selectedMethod,
-                accountRef: accountRef.trim(),
+                body: {
+                    bookingId:       flow.pendingBooking.id,
+                    method:          'SantimPay',
+                    accountRef:      accountRef.trim(),
+                    santimPayPartner: selectedPartner,
+                },
+                idempotencyKey,
             });
-            // Store method for use on waiting + confirmation screens
-            flow.setPaymentMethod(selectedMethod);
+
+            flow.setPaymentMethod('SantimPay');
             router.push({
                 pathname: '/(tabs)/booking/waiting',
                 params:   { transactionId: txn.transactionId },
             });
         } catch (e) {
-            setError(e instanceof Error ? e.message : 'Payment initiation failed. Please try again.');
+            const { code, existingTxnId } = parsePaymentError(e);
+
+            if (code.includes('AlreadyInProgress') && existingTxnId) {
+                // A payment is already running — resume it on the waiting screen
+                router.replace({
+                    pathname: '/(tabs)/booking/waiting',
+                    params:   { transactionId: existingTxnId },
+                });
+                return;
+            }
+            if (code.includes('ProviderDisabled')) {
+                setError(t('booking.payment.provider_disabled'));
+                return;
+            }
+            if (code.includes('ProviderUnavailable')) {
+                setError(t('booking.payment.provider_unavailable'));
+                return;
+            }
+            if (code.includes('ProviderError')) {
+                setError(t('booking.payment.provider_error'));
+                return;
+            }
+            setError(e instanceof Error ? e.message : t('errors.generic'));
         }
     }
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-            <ScrollView
-                contentContainerStyle={styles.content}
-                keyboardShouldPersistTaps="handled"
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-                {/* ── Header ── */}
-                <Pressable onPress={() => router.back()} style={styles.backBtn}>
-                    <Text style={styles.back}>←  Review order</Text>
-                </Pressable>
-
-                <Text style={styles.title}>How would you like to pay?</Text>
-
-                {/* ── Total amount ── */}
-                <View style={styles.totalCard}>
-                    <Text style={styles.totalLabel}>Total amount due</Text>
-                    <Text style={styles.totalAmount}>ETB {totalEtb.toFixed(2)}</Text>
-                    <Text style={styles.totalSub}>
-                        {flow.selectedSeats.length} seat(s) ·{' '}
-                        {flow.origin} → {flow.destination}
-                    </Text>
+                {/* Header */}
+                <View style={styles.header}>
+                    <Pressable onPress={() => router.back()} style={styles.backBtn}>
+                        <Text style={styles.backText}>←</Text>
+                    </Pressable>
+                    <Text style={styles.title}>{t('booking.payment.title')}</Text>
                 </View>
 
-                {/* ── Provider cards ── */}
-                <Text style={styles.sectionLabel}>Select payment method</Text>
-                {PROVIDERS.map((p) => {
-                    const active = selectedMethod === p.method;
-                    return (
-                        <Pressable
-                            key={p.method}
-                            style={[styles.providerCard, active && styles.providerCardActive]}
-                            onPress={() => setSelectedMethod(p.method)}
-                            accessibilityRole="radio"
-                            accessibilityState={{ checked: active }}
-                        >
-                            <View style={styles.providerLeft}>
-                                <Text style={styles.providerEmoji}>{p.emoji}</Text>
-                                <View>
-                                    <View style={styles.providerTitleRow}>
-                                        <Text style={styles.providerLabel}>{p.label}</Text>
-                                        {p.badge && (
-                                            <View style={styles.badge}>
-                                                <Text style={styles.badgeText}>{p.badge}</Text>
-                                            </View>
-                                        )}
-                                    </View>
-                                    <Text style={styles.providerDesc}>{p.description}</Text>
-                                </View>
-                            </View>
-                            <View style={[styles.radio, active && styles.radioActive]}>
-                                {active && <View style={styles.radioInner} />}
-                            </View>
-                        </Pressable>
-                    );
-                })}
-
-                {/* ── Account reference input ── */}
-                {selectedMethod && (
-                    <View style={styles.phoneBox}>
-                        <Text style={styles.phoneLabel}>
-                            Phone number registered with {selectedMethod}
-                        </Text>
-                        <TextInput
-                            style={styles.phoneInput}
-                            value={accountRef}
-                            onChangeText={setAccountRef}
-                            keyboardType="phone-pad"
-                            placeholder="09XX XXX XXX"
-                            placeholderTextColor={Colors.text.disabled}
-                            maxLength={13}
-                            accessibilityLabel="Payment account phone number"
-                        />
-                        <Text style={styles.phoneHint}>
-                            Enter the phone number linked to your {selectedMethod} account
-                        </Text>
-                    </View>
-                )}
-
-                {/* ── Instructions ── */}
-                {selectedProvider && (
-                    <View style={styles.instructionBox}>
-                        <Text style={styles.instructionIcon}>ℹ️</Text>
-                        <Text style={styles.instructionText}>{selectedProvider.instructions}</Text>
-                    </View>
-                )}
-
-                {/* ── Security note ── */}
-                <View style={styles.securityNote}>
-                    <Text style={styles.securityIcon}>🔒</Text>
-                    <Text style={styles.securityText}>
-                        No card or payment information is stored on your device.
-                    </Text>
-                </View>
-
-                {/* ── Error ── */}
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-                {/* ── Pay button ── */}
-                <Pressable
-                    style={[styles.payBtn, !canPay && styles.payBtnDisabled]}
-                    onPress={() => void handlePay()}
-                    disabled={!canPay}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Pay ETB ${totalEtb.toFixed(2)}`}
+                <ScrollView
+                    contentContainerStyle={styles.content}
+                    keyboardShouldPersistTaps="handled"
                 >
-                    {initiate.isPending ? (
-                        <ActivityIndicator color="#fff" />
-                    ) : (
-                        <Text style={styles.payBtnText}>
-                            Pay  ETB {totalEtb.toFixed(2)}
+                    {/* ── Amount due ── */}
+                    <View style={styles.amountCard}>
+                        <Text style={styles.amountLabel}>Total amount due</Text>
+                        <Text style={styles.amountValue}>ETB {totalEtb.toFixed(2)}</Text>
+                        <Text style={styles.amountSub}>
+                            {flow.selectedSeats.length} seat(s) · {flow.origin} → {flow.destination}
                         </Text>
+                    </View>
+
+                    {/* ── Partner selection ── */}
+                    <Text style={styles.sectionLabel}>{t('booking.payment.select_method')}</Text>
+                    {SANTIMPAY_PARTNERS.map((p: PartnerInfo) => {
+                        const active = selectedPartner === p.partner;
+                        return (
+                            <Pressable
+                                key={p.partner}
+                                style={[styles.partnerCard, active && styles.partnerCardActive]}
+                                onPress={() => { setSelectedPartner(p.partner); setError(''); }}
+                                accessibilityRole="radio"
+                                accessibilityState={{ checked: active }}
+                            >
+                                <View style={styles.partnerLeft}>
+                                    <Text style={styles.partnerEmoji}>{p.emoji}</Text>
+                                    <View style={{ flex: 1 }}>
+                                        <View style={styles.partnerTitleRow}>
+                                            <Text style={styles.partnerLabel}>{p.label}</Text>
+                                            {p.badge && (
+                                                <View style={styles.badge}>
+                                                    <Text style={styles.badgeText}>{p.badge}</Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                        <Text style={styles.partnerDesc}>{p.description}</Text>
+                                    </View>
+                                </View>
+                                <View style={[styles.radio, active && styles.radioActive]}>
+                                    {active && <View style={styles.radioInner} />}
+                                </View>
+                            </Pressable>
+                        );
+                    })}
+
+                    {/* ── Account ref + instructions ── */}
+                    {selectedInfo && (
+                        <>
+                            <View style={styles.accountBox}>
+                                <Text style={styles.accountLabel}>
+                                    {t('booking.payment.account_ref_label', { provider: selectedInfo.label })}
+                                </Text>
+                                <TextInput
+                                    style={styles.accountInput}
+                                    value={accountRef}
+                                    onChangeText={(v) => { setAccountRef(v); setError(''); }}
+                                    keyboardType="phone-pad"
+                                    placeholder={t('booking.payment.account_ref_placeholder')}
+                                    placeholderTextColor={Colors.text.disabled}
+                                    maxLength={13}
+                                    accessibilityLabel="Payment account phone number"
+                                />
+                            </View>
+
+                            <View style={styles.instructionCard}>
+                                <Text style={styles.instructionText}>
+                                    {selectedInfo.instructions}
+                                </Text>
+                            </View>
+                        </>
                     )}
-                </Pressable>
-            </ScrollView>
+
+                    {/* ── Error ── */}
+                    {error ? <Text style={styles.error}>{error}</Text> : null}
+
+                    {/* ── CTA ── */}
+                    <Pressable
+                        style={[styles.payBtn, !canPay && styles.payBtnDisabled]}
+                        onPress={() => void handlePay()}
+                        disabled={!canPay}
+                        accessibilityRole="button"
+                    >
+                        {initiate.isPending ? (
+                            <ActivityIndicator color={Colors.neutral.white} />
+                        ) : (
+                            <Text style={styles.payBtnText}>
+                                {t('booking.payment.pay_now', { amount: totalEtb.toFixed(2) })}
+                            </Text>
+                        )}
+                    </Pressable>
+
+                    <Text style={styles.safetyNote}>{t('booking.payment.idempotency_hint')}</Text>
+
+                    <View style={{ height: Spacing.xl }} />
+                </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
@@ -225,107 +232,108 @@ export default function PaymentScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background.secondary },
-    content:   { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.md,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.md,
+        backgroundColor: Colors.background.primary,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.light,
+    },
+    backBtn:  { padding: 4 },
+    backText: { fontSize: 22, color: Colors.text.primary, fontWeight: '600' },
+    title:    { fontSize: 20, fontWeight: '900', color: Colors.text.primary },
+    content:  { padding: Spacing.lg, gap: Spacing.md },
 
-    backBtn: { marginBottom: Spacing.xs },
-    back:    { color: Colors.brand.primary, fontWeight: '700', fontSize: 14 },
-
-    title: { fontSize: 22, fontWeight: '800', color: Colors.text.primary },
-
-    totalCard: {
+    amountCard: {
         backgroundColor: Colors.brand.primary,
         borderRadius: BorderRadius.xl,
-        padding: Spacing.lg,
+        padding: Spacing.base,
         gap: 4,
         ...Shadow.md,
     },
-    totalLabel:  { color: Colors.brand.onPrimary, fontSize: 12, fontWeight: '600' },
-    totalAmount: { color: '#fff', fontSize: 36, fontWeight: '900' },
-    totalSub:    { color: Colors.brand.onPrimary, fontSize: 12 },
+    amountLabel: { color: Colors.brand.onPrimary, fontSize: 13, fontWeight: '600' },
+    amountValue: { color: Colors.neutral.white, fontSize: 36, fontWeight: '900' },
+    amountSub:   { color: Colors.brand.onPrimary, fontSize: 12 },
 
-    sectionLabel: { fontSize: 13, fontWeight: '700', color: Colors.text.tertiary, marginTop: Spacing.xs },
+    sectionLabel: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: Colors.text.tertiary,
+        letterSpacing: 0.5,
+        marginTop: Spacing.xs,
+    },
 
-    providerCard: {
+    partnerCard: {
+        backgroundColor: Colors.background.primary,
+        borderRadius: BorderRadius.xl,
+        padding: Spacing.base,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: Colors.background.primary,
-        borderRadius: BorderRadius.lg,
-        padding: Spacing.md,
-        borderWidth: 2,
+        borderWidth: 1.5,
         borderColor: Colors.border.light,
         ...Shadow.sm,
     },
-    providerCardActive: {
+    partnerCardActive: {
         borderColor: Colors.brand.primary,
         backgroundColor: Colors.brand.primaryTint,
     },
-    providerLeft:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, flex: 1 },
-    providerEmoji:    { fontSize: 28, width: 36, textAlign: 'center' },
-    providerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-    providerLabel:    { fontWeight: '800', fontSize: 15, color: Colors.text.primary },
-    providerDesc:     { color: Colors.text.tertiary, fontSize: 12, marginTop: 2 },
-
+    partnerLeft:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, flex: 1 },
+    partnerEmoji:    { fontSize: 28 },
+    partnerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
+    partnerLabel:    { fontSize: 16, fontWeight: '700', color: Colors.text.primary },
+    partnerDesc:     { fontSize: 12, color: Colors.text.tertiary, marginTop: 2 },
     badge: {
-        backgroundColor: Colors.semantic.success,
-        paddingHorizontal: 8,
-        paddingVertical: 2,
+        backgroundColor: Colors.semantic.successLight,
         borderRadius: BorderRadius.full,
+        paddingHorizontal: 8, paddingVertical: 2,
     },
-    badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-
+    badgeText: { fontSize: 10, fontWeight: '700', color: Colors.semantic.success },
     radio: {
         width: 22, height: 22, borderRadius: 11,
         borderWidth: 2, borderColor: Colors.border.medium,
         alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0,
     },
     radioActive: { borderColor: Colors.brand.primary },
-    radioInner:  { width: 11, height: 11, borderRadius: 6, backgroundColor: Colors.brand.primary },
+    radioInner: {
+        width: 11, height: 11, borderRadius: 6,
+        backgroundColor: Colors.brand.primary,
+    },
 
-    phoneBox: {
+    accountBox: {
         backgroundColor: Colors.background.primary,
-        borderRadius: BorderRadius.lg,
-        padding: Spacing.md,
-        gap: 6,
+        borderRadius: BorderRadius.xl,
+        padding: Spacing.base,
+        gap: 8,
         ...Shadow.sm,
     },
-    phoneLabel: { fontSize: 13, fontWeight: '700', color: Colors.text.secondary },
-    phoneInput: {
-        borderWidth: 1.5, borderColor: Colors.border.medium,
-        borderRadius: BorderRadius.md,
-        padding: Spacing.md,
-        fontSize: 16, fontWeight: '600',
+    accountLabel: { fontSize: 13, fontWeight: '600', color: Colors.text.secondary },
+    accountInput: {
+        borderWidth: 1.5,
+        borderColor: Colors.border.medium,
+        borderRadius: BorderRadius.lg,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 13,
+        fontSize: 16,
         color: Colors.text.primary,
-        backgroundColor: Colors.background.primary,
+        backgroundColor: Colors.background.secondary,
     },
-    phoneHint: { color: Colors.text.tertiary, fontSize: 12 },
 
-    instructionBox: {
-        flexDirection: 'row',
-        gap: Spacing.sm,
+    instructionCard: {
         backgroundColor: Colors.semantic.infoLight,
-        borderRadius: BorderRadius.md,
+        borderRadius: BorderRadius.lg,
         padding: Spacing.md,
     },
-    instructionIcon: { fontSize: 16, flexShrink: 0 },
-    instructionText: { flex: 1, color: Colors.semantic.info, fontSize: 13, fontWeight: '500' },
+    instructionText: { fontSize: 13, color: Colors.semantic.info, lineHeight: 20 },
 
-    securityNote: {
-        flexDirection: 'row',
-        gap: Spacing.sm,
-        alignItems: 'center',
-    },
-    securityIcon: { fontSize: 14 },
-    securityText: { flex: 1, color: Colors.text.tertiary, fontSize: 12 },
-
-    errorText: {
+    error: {
         color: Colors.semantic.error,
         fontWeight: '700',
         textAlign: 'center',
-        backgroundColor: Colors.semantic.errorLight,
-        borderRadius: BorderRadius.md,
-        padding: Spacing.md,
+        fontSize: 13,
     },
 
     payBtn: {
@@ -333,8 +341,10 @@ const styles = StyleSheet.create({
         borderRadius: BorderRadius.lg,
         paddingVertical: 16,
         alignItems: 'center',
-        marginTop: Spacing.sm,
+        marginTop: Spacing.xs,
+        ...Shadow.sm,
     },
     payBtnDisabled: { opacity: 0.4 },
-    payBtnText:     { color: '#fff', fontWeight: '800', fontSize: 17 },
+    payBtnText:     { color: Colors.neutral.white, fontWeight: '800', fontSize: 16 },
+    safetyNote:     { color: Colors.text.tertiary, fontSize: 11, textAlign: 'center' },
 });

@@ -188,11 +188,15 @@
         "payment": {
             "title": "Payment",
             "select_method": "Select payment method",
-            "telebirr": "TeleBirr",
-            "cbe_birr": "CBE Birr",
-            "awash": "Awash Bank",
-            "pay_now": "Pay {{amount}} ETB",
-            "processing": "Processing…"
+            "pay_now": "Pay ETB {{amount}}",
+            "processing": "Processing…",
+            "account_ref_label": "Phone number registered with {{provider}}",
+            "account_ref_placeholder": "+2519XXXXXXXX",
+            "already_in_progress": "A payment is already in progress for this booking.",
+            "provider_disabled": "Online payment is temporarily unavailable. Please try again later.",
+            "provider_unavailable": "Payment provider is currently unreachable. Please try again.",
+            "provider_error": "Payment was declined by the provider. Please try a different method.",
+            "idempotency_hint": "Tapping Pay twice will not charge you twice."
         },
         "waiting": {
             "title": "Awaiting confirmation",

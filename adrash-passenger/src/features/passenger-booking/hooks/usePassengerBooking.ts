@@ -128,9 +128,15 @@ export function useCancelBooking() {
 
 // ─── Payments ─────────────────────────────────────────────────────────────────
 
+interface InitiatePayload {
+    body:           InitiatePaymentDTO;
+    idempotencyKey: string;
+}
+
 export function useInitiatePayment() {
     return useMutation({
-        mutationFn: (body: InitiatePaymentDTO) => paymentService.initiate(body),
+        mutationFn: ({ body, idempotencyKey }: InitiatePayload) =>
+            paymentService.initiate(body, idempotencyKey),
     });
 }
 

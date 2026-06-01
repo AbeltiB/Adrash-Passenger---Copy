@@ -188,11 +188,15 @@
         "payment": {
             "title": "ክፍያ",
             "select_method": "የክፍያ ዘዴ ይምረጡ",
-            "telebirr": "ቴሌብር",
-            "cbe_birr": "CBE ብር",
-            "awash": "አዋሽ ባንክ",
-            "pay_now": "{{amount}} ብር ክፈል",
-            "processing": "በሂደት ላይ…"
+            "pay_now": "ETB {{amount}} ክፈል",
+            "processing": "በሂደት ላይ…",
+            "account_ref_label": "{{provider}} ጋር የተመዘገበ ስልክ ቁጥር",
+            "account_ref_placeholder": "+2519XXXXXXXX",
+            "already_in_progress": "ለዚህ ማስያዝ ክፍያ አስቀድሞ በሂደት ላይ ነው።",
+            "provider_disabled": "የኦንላይን ክፍያ ለጊዜው አይገኝም። እባክዎ ቆይተው እንደገና ይሞክሩ።",
+            "provider_unavailable": "የክፍያ አቅራቢ አሁን አይደርስም። እባክዎ እንደገና ይሞክሩ።",
+            "provider_error": "ክፍያ በአቅራቢ ውድቅ ሆነ። ሌላ ዘዴ ይሞክሩ።",
+            "idempotency_hint": "ሁለቴ መጫን ሁለቴ አይከፍልዎም።"
         },
         "waiting": {
             "title": "ማረጋገጫ በመጠባበቅ ላይ",

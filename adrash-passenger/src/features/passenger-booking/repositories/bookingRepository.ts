@@ -32,8 +32,11 @@ export class BookingRepository {
         return getData<CancellationInfoDto>(`/bookings/${id}/cancellation-info`, undefined, signal);
     }
 
-    initiatePayment(body: InitiatePaymentDTO, signal?: AbortSignal) {
-        return postData<PaymentTransactionDTO, InitiatePaymentDTO>('/payments/initiate', body, signal);
+    initiatePayment(body: InitiatePaymentDTO, idempotencyKey: string, signal?: AbortSignal) {
+        return postData<PaymentTransactionDTO, InitiatePaymentDTO>(
+            '/payments/initiate', body, signal,
+            { 'Idempotency-Key': idempotencyKey },
+        );
     }
 
     verifyPayment(body: VerifyPaymentDTO, signal?: AbortSignal) {
