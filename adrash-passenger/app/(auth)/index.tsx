@@ -56,6 +56,7 @@ export default function SplashScreen() {
     const hasAcceptedAgreement = useAuthStore((s) => s.hasAcceptedAgreement);
     const preferredLanguage    = useAuthStore((s) => s.preferredLanguage);
     const setAuthenticated     = useAuthStore((s) => s.setAuthenticated);
+    const setAuthInitialized   = useAuthStore((s) => s.setAuthInitialized);
     const setLanguage          = useAuthStore((s) => s.setLanguage);
 
     // ── On mount: decide where to send the user ───────────────────────────
@@ -132,6 +133,7 @@ export default function SplashScreen() {
                 // Any error → show language selector (safe fallback)
             } finally {
                 setChecking(false);
+                setAuthInitialized();
             }
         })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

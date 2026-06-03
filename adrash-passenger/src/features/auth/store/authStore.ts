@@ -21,6 +21,7 @@ export const useAuthStore = create<AuthState>()(
             isBiometricEnabled:   false,
             accessToken:          null,
             refreshToken:         null,
+            authInitialized:      false,
 
             setUser: (user: User | null) => set({ user }),
 
@@ -65,6 +66,8 @@ export const useAuthStore = create<AuthState>()(
             setCustomValue: (key: string, value: string) => {
                 authStorage.set(key, value);
             },
+
+            setAuthInitialized: () => set({ authInitialized: true }),
 
             logout: () =>
                 set({

@@ -167,14 +167,17 @@ export function DateTimePicker({ date, time, onChange }: DateTimePickerProps) {
     const [pickerHour,   setPickerHour]   = useState(9);
     const [pickerMinute, setPickerMinute] = useState(0);
 
-    // Next 14 days (today inclusive)
+    // Next 14 days (today inclusive) — use local date parts to avoid UTC offset shifting the date
     const dateOptions = useMemo(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         return Array.from({ length: 14 }, (_, i) => {
             const d = new Date(today);
             d.setDate(d.getDate() + i);
-            return d.toISOString().slice(0, 10);
+            const y  = d.getFullYear();
+            const m  = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${dd}`;
         });
     }, []);
 

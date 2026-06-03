@@ -75,6 +75,7 @@ export interface AuthState {
     // ─ Session-only ───────────────────────────────────────────────────────
     accessToken: string | null;
     refreshToken: string | null;
+    authInitialized: boolean;
     // ─ Actions ────────────────────────────────────────────────────────────
     setUser: (user: User | null) => void;
     setAuthenticated: (value: boolean) => void;
@@ -86,6 +87,7 @@ export interface AuthState {
     setBiometricEnabled: (enabled: boolean) => void;
     acceptAgreement: (version: string) => void;
     setCustomValue: (key: string, value: string) => void;
+    setAuthInitialized: () => void;
     logout: () => void;
 }
 

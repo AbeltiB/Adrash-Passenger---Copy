@@ -178,7 +178,7 @@ export default function HomeTab() {
                     <Field
                         label={t('home.from')}
                         value={origin}
-                        onChangeText={(v) => { setSearch({ origin: v }); selectPickup(null); }}
+                        onChangeText={(v) => { setSearch({ origin: v }); selectPickup(null); selectRoute(null); }}
                         placeholder={t('home.from_placeholder')}
                     />
                     <View style={styles.chips}>
@@ -186,20 +186,20 @@ export default function HomeTab() {
                             <Pressable
                                 key={city}
                                 style={styles.chip}
-                                onPress={() => { setSearch({ origin: city }); selectPickup(null); }}
+                                onPress={() => { setSearch({ origin: city }); selectPickup(null); selectRoute(null); }}
                             >
                                 <Text style={styles.chipText}>{city}</Text>
                             </Pressable>
                         ))}
                     </View>
 
-                    <Pressable style={styles.swap} onPress={() => { swap(); selectPickup(null); }}>
+                    <Pressable style={styles.swap} onPress={() => { swap(); selectPickup(null); selectRoute(null); }}>
                         <Text style={styles.swapIcon}>⇅</Text>
                     </Pressable>
                     <Field
                         label={t('home.to')}
                         value={destination}
-                        onChangeText={(v) => setSearch({ destination: v })}
+                        onChangeText={(v) => { setSearch({ destination: v }); selectRoute(null); }}
                         placeholder={t('home.to')}
                     />
 
