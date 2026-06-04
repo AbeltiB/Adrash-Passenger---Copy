@@ -54,6 +54,7 @@ export default function SplashScreen() {
     const [checking, setChecking] = useState(true);
 
     const hasAcceptedAgreement = useAuthStore((s) => s.hasAcceptedAgreement);
+    const agreementVersion     = useAuthStore((s) => s.agreementVersion);
     const preferredLanguage    = useAuthStore((s) => s.preferredLanguage);
     const setAuthenticated     = useAuthStore((s) => s.setAuthenticated);
     const setAuthInitialized   = useAuthStore((s) => s.setAuthInitialized);
@@ -105,7 +106,18 @@ export default function SplashScreen() {
                         const isSigned =
                             data?.isSigned === true || data?.accepted === true;
 
-                        if (!isSigned) {
+                        // Short-circuit: if the locally stored acceptance version
+                        // matches the server's current version, trust the local
+                        // record — this prevents a re-accept loop caused by server
+                        // propagation lag or a stale isSigned flag.
+                        const serverVersion = data?.version as string | undefined;
+                        const alreadyAcceptedCurrentVersion =
+                            hasAcceptedAgreement &&
+                            agreementVersion != null &&
+                            serverVersion != null &&
+                            serverVersion === agreementVersion;
+
+                        if (!isSigned && !alreadyAcceptedCurrentVersion) {
                             router.replace({
                                 pathname: '/(auth)/agreement',
                                 params: { reaccept: '1', next: 'tabs' },

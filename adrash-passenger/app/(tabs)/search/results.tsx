@@ -119,17 +119,21 @@ export default function ResultsScreen() {
     const tripFilters = useMemo(() => {
         const d = new Date();
         const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const isToday = flow.date === todayStr;
 
-        // from: for today start 10 min ago (small grace for late departures);
-        //       for future dates start at local midnight of that day.
+        // Guard: if the persisted date is missing or corrupt, fall back to today.
+        // An invalid date string causes new Date(...).toISOString() to throw a
+        // RangeError which crashes the screen entirely.
+        const dateStr = (flow.date && /^\d{4}-\d{2}-\d{2}$/.test(flow.date))
+            ? flow.date
+            : todayStr;
+
+        const isToday = dateStr === todayStr;
+
         const from = isToday
             ? new Date(Date.now() - 10 * 60 * 1000).toISOString()
-            : new Date(`${flow.date}T00:00:00`).toISOString();   // local midnight → UTC
+            : new Date(`${dateStr}T00:00:00`).toISOString();
 
-        // to: end of the selected local day (23:59:59.999 local → UTC).
-        // This ensures trips at any time during the day are included.
-        const to = new Date(`${flow.date}T23:59:59.999`).toISOString();
+        const to = new Date(`${dateStr}T23:59:59.999`).toISOString();
 
         return {
             ...(flow.selectedRoute?.id ? { routeId: flow.selectedRoute.id } : {}),

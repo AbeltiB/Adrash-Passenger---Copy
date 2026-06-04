@@ -109,9 +109,9 @@ export default function OtpScreen() {
                                 params: { reaccept: '1', next: 'pin-setup' },
                             });
                         } else {
-                            // Returning user (on a new device, or OTP was explicitly chosen):
-                            // offer PIN setup for this device, they can skip
-                            router.replace('/(auth)/pin-setup');
+                            // Returning user — go straight home.
+                            // PIN can be set up from Profile → Security if needed.
+                            router.replace('/(tabs)');
                         }
                     }, 500);
                 },
