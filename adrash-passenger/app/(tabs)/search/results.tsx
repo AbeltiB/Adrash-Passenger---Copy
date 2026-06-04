@@ -121,10 +121,10 @@ export default function ResultsScreen() {
         const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         const isToday = flow.date === todayStr;
 
-        // from: for today start 30 min ago (boarding grace window);
+        // from: for today start 10 min ago (small grace for late departures);
         //       for future dates start at local midnight of that day.
         const from = isToday
-            ? new Date(Date.now() - 30 * 60 * 1000).toISOString()
+            ? new Date(Date.now() - 10 * 60 * 1000).toISOString()
             : new Date(`${flow.date}T00:00:00`).toISOString();   // local midnight → UTC
 
         // to: end of the selected local day (23:59:59.999 local → UTC).
@@ -145,7 +145,7 @@ export default function ResultsScreen() {
         const all = query.data?.pages.flatMap((p) => p.items) ?? [];
         // Client-side: remove trips that departed more than 30 min ago
         // (handles cases where the server returns more than requested).
-        const graceCutoff = Date.now() - 30 * 60 * 1000;
+        const graceCutoff = Date.now() - 10 * 60 * 1000;
         const visible = all.filter((t) => new Date(t.departureTime).getTime() >= graceCutoff);
         return [...visible].sort((a, b) => {
             if (sort === 'earliest') return +new Date(a.departureTime) - +new Date(b.departureTime);
