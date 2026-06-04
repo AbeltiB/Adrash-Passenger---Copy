@@ -37,8 +37,15 @@ function TripCard({ trip, onPress }: { trip: TripDTO; onPress: () => void }) {
     const durationMin = Math.floor((durationMs % 3_600_000) / 60_000);
     const durationStr = durationMin > 0 ? `${durationHrs}h ${durationMin}m` : `${durationHrs}h`;
 
-    const seatsLeft  = trip.availableSeats ?? 0;
-    const seatsColor = seatsLeft <= 3 ? Colors.semantic.warning : Colors.semantic.success;
+    // availableSeats is optional — the API may omit it on a new trip.
+    // Treat null/undefined as "unknown" (not sold out).
+    // Fall back to totalSeats or bus capacity so fresh trips aren't shown as full.
+    const hasSeatsData  = trip.availableSeats != null;
+    const seatsLeft     = trip.availableSeats ?? trip.totalSeats ?? trip.bus?.capacity;
+    const soldOut       = trip.availableSeats === 0; // only explicit zero = truly sold out
+    const seatsColor    = (seatsLeft ?? 1) <= 3
+        ? Colors.semantic.warning
+        : Colors.semantic.success;
 
     const amenities = trip.bus?.amenities ?? [];
 
@@ -70,7 +77,9 @@ function TripCard({ trip, onPress }: { trip: TripDTO; onPress: () => void }) {
                         {trip.bus?.plateNumber ? `  ·  ${trip.bus.plateNumber}` : ''}
                     </Text>
                     <Text style={[styles.seatsText, { color: seatsColor }]}>
-                        {seatsLeft} seat{seatsLeft !== 1 ? 's' : ''} available
+                        {seatsLeft != null
+                            ? `${seatsLeft} seat${seatsLeft !== 1 ? 's' : ''} available`
+                            : 'Seats available'}
                     </Text>
                     {amenities.length > 0 && (
                         <Text style={styles.amenities}>
@@ -86,13 +95,13 @@ function TripCard({ trip, onPress }: { trip: TripDTO; onPress: () => void }) {
             </View>
 
             {/* ── Low seats warning ── */}
-            {seatsLeft > 0 && seatsLeft <= 5 && (
+            {hasSeatsData && !soldOut && seatsLeft != null && seatsLeft <= 5 && (
                 <View style={styles.urgencyBadge}>
                     <Text style={styles.urgencyText}>Only {seatsLeft} left!</Text>
                 </View>
             )}
 
-            {seatsLeft === 0 && (
+            {soldOut && (
                 <View style={styles.soldOutBadge}>
                     <Text style={styles.soldOutText}>Sold out</Text>
                 </View>
@@ -141,12 +150,15 @@ export default function ResultsScreen() {
         return [...visible].sort((a, b) => {
             if (sort === 'earliest') return +new Date(a.departureTime) - +new Date(b.departureTime);
             if (sort === 'cheapest') return (a.fare ?? 999999) - (b.fare ?? 999999);
-            return (b.availableSeats ?? 0) - (a.availableSeats ?? 0);
+            // Treat null/undefined as "high" so they sort above explicitly sold-out trips
+            return (b.availableSeats ?? 999) - (a.availableSeats ?? 999);
         });
     }, [query.data, sort]);
 
     function selectTrip(trip: TripDTO) {
-        if ((trip.availableSeats ?? 0) === 0) return;
+        // Only block on an explicit zero — null/undefined means the API didn't return
+        // the count yet (e.g. new trip), not that it's sold out.
+        if (trip.availableSeats === 0) return;
         flow.selectTrip(trip);
         router.push('/(tabs)/booking/pickup');
     }
