@@ -107,18 +107,38 @@ export default function ResultsScreen() {
     const [sort, setSort] = useState<Sort>('earliest');
     const flow = useBookingFlowStore();
 
-    const tripFilters = useMemo(() => ({
-        ...(flow.selectedRoute?.id ? { routeId: flow.selectedRoute.id } : {}),
-        from:   flow.date,
-        to:     flow.date,
-        status: 'Scheduled' as const,
-    }), [flow.selectedRoute?.id, flow.date]);
+    const tripFilters = useMemo(() => {
+        const d = new Date();
+        const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const isToday = flow.date === todayStr;
+
+        // from: for today start 30 min ago (boarding grace window);
+        //       for future dates start at local midnight of that day.
+        const from = isToday
+            ? new Date(Date.now() - 30 * 60 * 1000).toISOString()
+            : new Date(`${flow.date}T00:00:00`).toISOString();   // local midnight → UTC
+
+        // to: end of the selected local day (23:59:59.999 local → UTC).
+        // This ensures trips at any time during the day are included.
+        const to = new Date(`${flow.date}T23:59:59.999`).toISOString();
+
+        return {
+            ...(flow.selectedRoute?.id ? { routeId: flow.selectedRoute.id } : {}),
+            from,
+            to,
+            status: 'Scheduled' as const,
+        };
+    }, [flow.selectedRoute?.id, flow.date]);
 
     const query = useTrips(tripFilters);
 
     const trips = useMemo(() => {
         const all = query.data?.pages.flatMap((p) => p.items) ?? [];
-        return [...all].sort((a, b) => {
+        // Client-side: remove trips that departed more than 30 min ago
+        // (handles cases where the server returns more than requested).
+        const graceCutoff = Date.now() - 30 * 60 * 1000;
+        const visible = all.filter((t) => new Date(t.departureTime).getTime() >= graceCutoff);
+        return [...visible].sort((a, b) => {
             if (sort === 'earliest') return +new Date(a.departureTime) - +new Date(b.departureTime);
             if (sort === 'cheapest') return (a.fare ?? 999999) - (b.fare ?? 999999);
             return (b.availableSeats ?? 0) - (a.availableSeats ?? 0);
@@ -197,9 +217,9 @@ export default function ResultsScreen() {
                 ) : trips.length === 0 ? (
                     <View style={styles.centred}>
                         <Text style={styles.emptyIcon}>🚌</Text>
-                        <Text style={styles.emptyText}>No trips found for this date</Text>
+                        <Text style={styles.emptyText}>No upcoming trips found</Text>
                         <Text style={styles.emptySubText}>
-                            Try a different date or departure city
+                            Try a different date or select a route from the home screen
                         </Text>
                         <Pressable style={styles.retryBtn} onPress={() => router.push('/(tabs)')}>
                             <Text style={styles.retryText}>Change search</Text>

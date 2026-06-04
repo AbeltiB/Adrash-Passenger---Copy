@@ -84,7 +84,11 @@ export default function PaymentScreen() {
             flow.setPaymentMethod('SantimPay');
             router.push({
                 pathname: '/(tabs)/booking/waiting',
-                params:   { transactionId: txn.transactionId },
+                params:   {
+                    transactionId:        txn.transactionId,
+                    providerInstructions: txn.providerInstructions ?? '',
+                    expiresAt:            txn.expiresAt ?? '',
+                },
             });
         } catch (e) {
             const { code, existingTxnId } = parsePaymentError(e);

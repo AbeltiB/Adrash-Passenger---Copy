@@ -392,24 +392,31 @@ export default function ProfileTab() {
                 <View style={{ height: Spacing.xl }} />
             </ScrollView>
 
-            {/* ── Edit name overlay ── */}
-            {editing && (
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modal}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>{t('profile.edit_title')}</Text>
-                            <Pressable onPress={() => setEditing(false)} style={styles.modalClose} disabled={saving}>
-                                <Text style={styles.modalCloseText}>✕</Text>
-                            </Pressable>
-                        </View>
+            {/* ── Edit name bottom sheet ── */}
+            <Modal
+                visible={editing}
+                transparent
+                animationType="slide"
+                onRequestClose={() => { if (!saving) setEditing(false); }}
+            >
+                <Pressable style={styles.editBackdrop} onPress={() => { if (!saving) setEditing(false); }}>
+                    <Pressable style={styles.editSheet} onPress={(e) => e.stopPropagation()}>
+                        {/* Drag handle */}
+                        <View style={styles.editHandle} />
 
-                        <View style={styles.modalAvatarRow}>
+                        {/* Live avatar preview */}
+                        <View style={styles.editAvatarWrap}>
                             <View style={styles.modalAvatar}>
                                 <Text style={styles.modalAvatarText}>
                                     {[editFirstName[0], editLastName[0]].filter(Boolean).join('').toUpperCase() || avatarLetters}
                                 </Text>
                             </View>
+                            <Text style={styles.editPreviewName} numberOfLines={1}>
+                                {[editFirstName, editLastName].filter(Boolean).join(' ') || '—'}
+                            </Text>
                         </View>
+
+                        <Text style={styles.editSheetTitle}>{t('profile.edit_title')}</Text>
 
                         <View style={styles.inputGroup}>
                             <Text style={styles.inputLabel}>{t('profile.first_name')}</Text>
@@ -421,6 +428,8 @@ export default function ProfileTab() {
                                 placeholderTextColor={Colors.text.disabled}
                                 autoCorrect={false}
                                 autoCapitalize="words"
+                                returnKeyType="next"
+                                editable={!saving}
                             />
                         </View>
 
@@ -434,26 +443,28 @@ export default function ProfileTab() {
                                 placeholderTextColor={Colors.text.disabled}
                                 autoCorrect={false}
                                 autoCapitalize="words"
+                                returnKeyType="done"
+                                onSubmitEditing={saveEdit}
+                                editable={!saving}
                             />
                         </View>
 
-                        <View style={styles.modalBtns}>
-                            <Pressable style={styles.modalCancel} onPress={() => setEditing(false)} disabled={saving}>
-                                <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
-                            </Pressable>
-                            <Pressable
-                                style={[styles.modalSave, saving && styles.modalSaveDisabled]}
-                                onPress={saveEdit}
-                                disabled={saving}
-                            >
-                                {saving
-                                    ? <ActivityIndicator color={Colors.neutral.white} />
-                                    : <Text style={styles.modalSaveText}>{t('common.save')}</Text>}
-                            </Pressable>
-                        </View>
-                    </View>
-                </View>
-            )}
+                        <Pressable
+                            style={[styles.editSaveBtn, saving && styles.modalSaveDisabled]}
+                            onPress={saveEdit}
+                            disabled={saving}
+                        >
+                            {saving
+                                ? <ActivityIndicator color={Colors.neutral.white} />
+                                : <Text style={styles.editSaveBtnText}>{t('common.save')}</Text>}
+                        </Pressable>
+
+                        <Pressable style={styles.editCancelBtn} onPress={() => setEditing(false)} disabled={saving}>
+                            <Text style={styles.editCancelBtnText}>{t('common.cancel')}</Text>
+                        </Pressable>
+                    </Pressable>
+                </Pressable>
+            </Modal>
 
             {/* ── PIN change overlay ── */}
             {pinOpen && (
@@ -649,12 +660,39 @@ const styles = StyleSheet.create({
     inlineLangOptText:       { color: Colors.text.secondary, fontWeight: '600', fontSize: 12 },
     inlineLangOptTextActive: { color: Colors.brand.primary, fontWeight: '700' },
 
-    // ── Modals (shared) ────────────────────────────────────────────────────────
-    modalOverlay: {
-        position: 'absolute', inset: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center', padding: Spacing.lg,
+    // ── Edit name bottom sheet ─────────────────────────────────────────────────
+    editBackdrop: {
+        flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end',
     },
+    editSheet: {
+        backgroundColor: Colors.background.primary,
+        borderTopLeftRadius: BorderRadius['2xl'], borderTopRightRadius: BorderRadius['2xl'],
+        paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing['3xl'],
+        gap: Spacing.md, ...Shadow.lg,
+    },
+    editHandle: {
+        width: 40, height: 4, borderRadius: 2,
+        backgroundColor: Colors.border.medium,
+        alignSelf: 'center', marginBottom: Spacing.sm,
+    },
+    editAvatarWrap: { alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.xs },
+    editPreviewName: {
+        fontSize: 18, fontWeight: '800', color: Colors.text.primary, textAlign: 'center',
+    },
+    editSheetTitle: {
+        fontSize: 13, fontWeight: '700', color: Colors.text.tertiary,
+        letterSpacing: 0.5, textTransform: 'uppercase', textAlign: 'center',
+        marginBottom: Spacing.xs,
+    },
+    editSaveBtn: {
+        backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg,
+        paddingVertical: 16, alignItems: 'center', marginTop: Spacing.xs,
+    },
+    editSaveBtnText: { color: Colors.neutral.white, fontWeight: '800', fontSize: 16 },
+    editCancelBtn: { paddingVertical: Spacing.sm, alignItems: 'center' },
+    editCancelBtnText: { color: Colors.text.tertiary, fontWeight: '600', fontSize: 15 },
+
+    // ── Modals (shared) ────────────────────────────────────────────────────────
     modal: {
         backgroundColor: Colors.background.primary,
         borderRadius: BorderRadius.xl, padding: Spacing.xl, gap: Spacing.lg, ...Shadow.lg,
@@ -663,13 +701,12 @@ const styles = StyleSheet.create({
     modalTitle:     { fontSize: 20, fontWeight: '900', color: Colors.text.primary },
     modalClose:     { padding: 6 },
     modalCloseText: { fontSize: 18, color: Colors.text.tertiary, fontWeight: '700' },
-    modalAvatarRow: { alignItems: 'center', paddingVertical: Spacing.xs },
     modalAvatar: {
-        width: 72, height: 72, borderRadius: 36,
+        width: 80, height: 80, borderRadius: 40,
         backgroundColor: Colors.brand.primary,
         alignItems: 'center', justifyContent: 'center', ...Shadow.sm,
     },
-    modalAvatarText: { color: Colors.neutral.white, fontSize: 26, fontWeight: '900' },
+    modalAvatarText: { color: Colors.neutral.white, fontSize: 28, fontWeight: '900' },
     inputGroup: { gap: 6 },
     inputLabel: { fontSize: 13, fontWeight: '600', color: Colors.text.secondary },
     input: {

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
+import { useBookingDetail } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
 
 // ─── QR ticket display ────────────────────────────────────────────────────────
@@ -55,7 +56,13 @@ function QRDisplay({ data, bookingRef }: { data: string; bookingRef: string }) {
 
 export default function ConfirmationScreen() {
     const flow = useBookingFlowStore();
-    const booking = flow.pendingBooking;
+    const storedBooking = flow.pendingBooking;
+
+    // Re-fetch the booking to get the confirmed state (QR code, Confirmed status).
+    // The waiting screen already updated pendingBooking, but this is a safety net
+    // in case of any race condition.
+    const { data: liveBooking } = useBookingDetail(storedBooking?.id);
+    const booking = liveBooking ?? storedBooking;
 
     const qrData = booking?.qrCode ?? booking?.bookingReference ?? 'CONFIRMED';
     const bookingRef = booking?.bookingReference ?? '—';
@@ -113,6 +120,29 @@ export default function ConfirmationScreen() {
                             {flow.selectedSeats.join(', ')}
                         </Text>
                     </View>
+                    <View style={styles.divider} />
+                    {(booking?.serviceFee ?? 0) > 0 && (
+                        <>
+                            <View style={styles.divider} />
+                            <View style={styles.summaryRow}>
+                                <Text style={styles.summaryLabel}>Service fee</Text>
+                                <Text style={styles.summaryValue}>
+                                    ETB {(booking?.serviceFee ?? 0).toFixed(2)}
+                                </Text>
+                            </View>
+                        </>
+                    )}
+                    {(booking?.rewardsDiscount ?? 0) > 0 && (
+                        <>
+                            <View style={styles.divider} />
+                            <View style={styles.summaryRow}>
+                                <Text style={styles.summaryLabel}>Rewards discount</Text>
+                                <Text style={[styles.summaryValue, { color: Colors.semantic.success }]}>
+                                    −ETB {(booking?.rewardsDiscount ?? 0).toFixed(2)}
+                                </Text>
+                            </View>
+                        </>
+                    )}
                     <View style={styles.divider} />
                     <View style={styles.summaryRow}>
                         <Text style={styles.summaryLabel}>Total paid</Text>

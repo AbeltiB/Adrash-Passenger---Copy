@@ -63,37 +63,38 @@ const dotStyles = StyleSheet.create({
 // ─── Numpad ───────────────────────────────────────────────────────────────────
 
 function NumPad({ onPress, onDelete }: { onPress: (n: string) => void; onDelete: () => void }) {
-    const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+    const rows: string[][] = [['1','2','3'],['4','5','6'],['7','8','9'],['','0','⌫']];
     return (
         <View style={padStyles.grid}>
-            {keys.map((k, i) => {
-                if (k === '') return <View key={i} style={padStyles.empty} />;
-                const isDelete = k === '⌫';
-                return (
-                    <Pressable
-                        key={i}
-                        style={({ pressed }) => [padStyles.key, pressed && padStyles.keyPressed]}
-                        onPress={() => isDelete ? onDelete() : onPress(k)}
-                        accessibilityLabel={isDelete ? 'Delete' : k}
-                    >
-                        <Text style={[padStyles.keyText, isDelete && padStyles.deleteText]}>{k}</Text>
-                    </Pressable>
-                );
-            })}
+            {rows.map((row, ri) => (
+                <View key={ri} style={padStyles.row}>
+                    {row.map((k, ki) => {
+                        if (k === '') return <View key={ki} style={padStyles.empty} />;
+                        const isDelete = k === '⌫';
+                        return (
+                            <Pressable
+                                key={ki}
+                                style={({ pressed }) => [padStyles.key, pressed && padStyles.keyPressed]}
+                                onPress={() => isDelete ? onDelete() : onPress(k)}
+                                accessibilityLabel={isDelete ? 'Delete' : k}
+                            >
+                                <Text style={[padStyles.keyText, isDelete && padStyles.deleteText]}>{k}</Text>
+                            </Pressable>
+                        );
+                    })}
+                </View>
+            ))}
         </View>
     );
 }
 
 const padStyles = StyleSheet.create({
-    grid: { flexDirection: 'row', flexWrap: 'wrap', width: 280, alignSelf: 'center' },
-    empty: { width: 280 / 3, height: 72 },
-    key: {
-        width: 280 / 3, height: 72,
-        alignItems: 'center', justifyContent: 'center',
-        borderRadius: BorderRadius.lg,
-    },
+    grid:       { alignSelf: 'center', width: 300 },
+    row:        { flexDirection: 'row' },
+    empty:      { flex: 1, height: 72 },
+    key:        { flex: 1, height: 72, alignItems: 'center', justifyContent: 'center', borderRadius: BorderRadius.lg },
     keyPressed: { backgroundColor: Colors.background.tertiary },
-    keyText: { fontSize: 26, fontWeight: '600', color: Colors.text.primary },
+    keyText:    { fontSize: 26, fontWeight: '600', color: Colors.text.primary },
     deleteText: { fontSize: 22 },
 });
 

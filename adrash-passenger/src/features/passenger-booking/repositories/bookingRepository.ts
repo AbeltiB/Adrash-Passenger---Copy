@@ -9,7 +9,7 @@ import type {
     VerifyPaymentDTO,
 } from '../dtos/bookingDtos';
 import type { CancellationInfoDto } from '../../../api/types';
-import { getData, getPage, postData } from '../services/apiEnvelope';
+import { getData, getPage, postData, deleteData } from '../services/apiEnvelope';
 
 export class BookingRepository {
     create(body: CreateBookingDTO, signal?: AbortSignal) {
@@ -25,7 +25,7 @@ export class BookingRepository {
     }
 
     cancel(id: string, signal?: AbortSignal) {
-        return postData<BookingDTO, Record<string, never>>(`/bookings/${id}/cancel`, {}, signal);
+        return deleteData<BookingDTO>(`/bookings/${id}`, signal);
     }
 
     cancellationInfo(id: string, signal?: AbortSignal) {

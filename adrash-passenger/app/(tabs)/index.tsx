@@ -147,7 +147,15 @@ export default function HomeTab() {
         [routes, origin],
     );
 
-    const search = () => { rememberSearch(); router.push('/(tabs)/search/results'); };
+    const search = () => {
+        rememberSearch();
+        // Auto-select the best matching route so results are scoped to the
+        // correct route even when the user types and hits Search directly.
+        if (!selectedRoute && filteredRoutes.length > 0) {
+            selectRoute(filteredRoutes[0]);
+        }
+        router.push('/(tabs)/search/results');
+    };
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
