@@ -9,7 +9,7 @@
 //   503 Payment.ProviderDisabled   → kill switch message
 //   503 Payment.ProviderUnavailable / 400 Payment.ProviderError → provider message
 
-import { useId, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import axios from 'axios';
@@ -34,6 +34,25 @@ import {
 } from '@/features/passenger-booking/services/paymentService';
 import type { SantimPayPartner } from '@/features/passenger-booking/dtos/bookingDtos';
 
+// ─── Phone helpers ────────────────────────────────────────────────────────────
+// SantimPay requires E.164 (+2519XXXXXXXX). The server forwards accountRef verbatim,
+// so we must normalize on the client before sending. A local-format number passes
+// the server's 4–40 char length check but is rejected by SantimPay with 422
+// Payment.ProviderError, which auto-cancels the booking.
+
+function toE164(raw: string): string {
+    const s = raw.replace(/[\s\-()+]/g, '');
+    if (/^\+251[79]\d{8}$/.test(raw.trim())) return raw.trim();
+    if (/^251[79]\d{8}$/.test(s))  return `+${s}`;
+    if (/^0[79]\d{8}$/.test(s))    return `+251${s.slice(1)}`;
+    if (/^[79]\d{8}$/.test(s))     return `+251${s}`;
+    return raw.trim();
+}
+
+function isValidAccountRef(raw: string): boolean {
+    return /^\+251[79]\d{8}$/.test(toE164(raw.trim()));
+}
+
 // ─── Error code helpers ───────────────────────────────────────────────────────
 
 function parsePaymentError(err: unknown): { code: string; existingTxnId?: string } {
@@ -56,15 +75,21 @@ export default function PaymentScreen() {
 
     // One idempotency key per screen mount: prevents charging twice on double-tap.
     // If the user navigates away and back they get a new key (which is correct).
-    const idempotencyKey = useId();
+    const [idempotencyKey] = useState(() => crypto.randomUUID());
 
     const [selectedPartner, setSelectedPartner] = useState<SantimPayPartner | null>(null);
-    const [accountRef,      setAccountRef]      = useState(flow.passengerDetails[0]?.phone ?? '');
-    const [error,           setError]           = useState('');
+    // Pre-fill with passenger phone, normalized to E.164 so SantimPay accepts it.
+    const [accountRef, setAccountRef] = useState(() => {
+        const raw = flow.passengerDetails[0]?.phone ?? '';
+        const normalized = toE164(raw);
+        return isValidAccountRef(normalized) ? normalized : raw;
+    });
+    const [error, setError] = useState('');
 
-    const selectedInfo = SANTIMPAY_PARTNERS.find((p) => p.partner === selectedPartner);
-    const totalEtb     = flow.pendingBooking?.totalFare ?? 0;
-    const canPay       = Boolean(selectedPartner) && accountRef.trim().length >= 9 && !initiate.isPending;
+    const selectedInfo   = SANTIMPAY_PARTNERS.find((p) => p.partner === selectedPartner);
+    const totalEtb       = flow.pendingBooking?.totalFare ?? 0;
+    const phoneValid     = isValidAccountRef(accountRef);
+    const canPay         = Boolean(selectedPartner) && phoneValid && !initiate.isPending;
 
     async function handlePay() {
         if (!flow.pendingBooking || !selectedPartner) return;
@@ -73,9 +98,9 @@ export default function PaymentScreen() {
         try {
             const txn = await initiate.mutateAsync({
                 body: {
-                    bookingId:       flow.pendingBooking.id,
-                    method:          'SantimPay',
-                    accountRef:      accountRef.trim(),
+                    bookingId:        flow.pendingBooking.id,
+                    method:           'SantimPay',
+                    accountRef:       toE164(accountRef.trim()),  // must be E.164; server forwards verbatim to SantimPay
                     santimPayPartner: selectedPartner,
                 },
                 idempotencyKey,
@@ -185,15 +210,20 @@ export default function PaymentScreen() {
                                     {t('booking.payment.account_ref_label', { provider: selectedInfo.label })}
                                 </Text>
                                 <TextInput
-                                    style={styles.accountInput}
+                                    style={[styles.accountInput, accountRef.length > 3 && !phoneValid && styles.accountInputError]}
                                     value={accountRef}
                                     onChangeText={(v) => { setAccountRef(v); setError(''); }}
                                     keyboardType="phone-pad"
-                                    placeholder={t('booking.payment.account_ref_placeholder')}
+                                    placeholder="+251 9XX XXX XXX"
                                     placeholderTextColor={Colors.text.disabled}
-                                    maxLength={13}
+                                    maxLength={15}
                                     accessibilityLabel="Payment account phone number"
                                 />
+                                {accountRef.length > 3 && !phoneValid ? (
+                                    <Text style={styles.phoneHint}>
+                                        Enter your Ethiopian number: +251 9XX XXX XXX or 09XX XXX XXX
+                                    </Text>
+                                ) : null}
                             </View>
 
                             <View style={styles.instructionCard}>
@@ -324,6 +354,14 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: Colors.text.primary,
         backgroundColor: Colors.background.secondary,
+    },
+    accountInputError: {
+        borderColor: Colors.semantic.error,
+    },
+    phoneHint: {
+        fontSize: 11,
+        color: Colors.semantic.error,
+        marginTop: 2,
     },
 
     instructionCard: {
