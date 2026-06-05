@@ -10,6 +10,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 
 // ─── Ethiopian calendar (JDN-based) ──────────────────────────────────────────
@@ -159,7 +160,8 @@ export interface DateTimePickerProps {
 
 export function DateTimePicker({ date, time, onChange }: DateTimePickerProps) {
     const { t, i18n } = useTranslation();
-    const lang = i18n.language ?? 'en';
+    const lang    = i18n.language ?? 'en';
+    const insets  = useSafeAreaInsets();
 
     const [open,         setOpen]         = useState(false);
     const [pickerDate,   setPickerDate]   = useState(date);
@@ -282,7 +284,10 @@ export function DateTimePicker({ date, time, onChange }: DateTimePickerProps) {
             {/* ── Bottom-sheet modal ── */}
             <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
                 <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
-                    <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+                    <Pressable
+                        style={[styles.sheet, { paddingBottom: Math.max(Spacing['3xl'], insets.bottom + Spacing.lg) }]}
+                        onPress={(e) => e.stopPropagation()}
+                    >
 
                         {/* Header */}
                         <View style={styles.sheetHeader}>
@@ -401,7 +406,6 @@ const styles = StyleSheet.create({
         borderTopLeftRadius:  BorderRadius['2xl'],
         borderTopRightRadius: BorderRadius['2xl'],
         padding: Spacing.xl,
-        paddingBottom: Spacing['3xl'],
         gap: Spacing.md,
         ...Shadow.lg,
     },

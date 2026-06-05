@@ -87,7 +87,7 @@ function RootLayout() {
             <GestureHandlerRootView style={{ flex: 1 }}>
                 <SafeAreaProvider>
                     <QueryClientProvider client={queryClient}>
-                        <StatusBar style="auto" />
+                        <StatusBar style="dark" />
                         <Stack screenOptions={{ headerShown: false }}>
                             {/* Auth group */}
                             <Stack.Screen name="(auth)" />

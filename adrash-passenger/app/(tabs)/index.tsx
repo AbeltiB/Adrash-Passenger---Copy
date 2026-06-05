@@ -1,11 +1,13 @@
 // app/(tabs)/index.tsx
 // Home / search screen.
-// Avatar in the top-right corner opens a small popover with
-// "View Profile" and "Logout" actions.
+// Hero header extends behind the status bar for a full-bleed branded look.
+// StatusBar is explicitly set to "light" so the white clock/battery icons are
+// visible on the dark-blue hero background.
 
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import {
     Image,
     Modal,
@@ -13,14 +15,15 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ADRASH_LOGO from '../../assets/Logo Adrash one.png';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
-import { Field, StateView } from '@/features/passenger-booking/components/BookingUi';
 import { DateTimePicker } from '@/features/passenger-booking/components/DateTimePicker';
+import { StateView } from '@/features/passenger-booking/components/BookingUi';
 import { useRoutes } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
 import { routeService } from '@/features/passenger-booking/services/routeService';
@@ -41,9 +44,8 @@ function AvatarMenu() {
     const { data: profile } = useProfile();
     const { mutate: logout, isPending } = useLogout();
 
-    const fullName = profile?.fullName
-        ?? (user?.firstName ? `${user.firstName} ${user.lastName ?? ''}`.trim() : null);
-    const initials = getInitials(fullName);
+    const fullName    = profile?.fullName ?? (user?.firstName ? `${user.firstName} ${user.lastName ?? ''}`.trim() : null);
+    const initials    = getInitials(fullName);
     const hasInitials = initials.length > 0;
     const displayName = fullName ?? 'My Account';
     const displayPhone = profile?.phone ?? user?.phoneNumber ?? null;
@@ -59,54 +61,25 @@ function AvatarMenu() {
                 <Text style={styles.avatarText}>{hasInitials ? initials : '?'}</Text>
             </Pressable>
 
-            {/* Popover modal — renders over everything, closes on backdrop tap */}
-            <Modal
-                visible={visible}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setVisible(false)}
-            >
+            <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
                 <Pressable style={styles.backdrop} onPress={() => setVisible(false)}>
-                    {/* Stop propagation so tapping inside the menu doesn't close it */}
                     <Pressable style={styles.menu} onPress={(e) => e.stopPropagation()}>
-                        {/* User info header */}
                         <View style={styles.menuHeader}>
                             <View style={styles.menuAvatar}>
                                 <Text style={styles.menuAvatarText}>{initials}</Text>
                             </View>
                             <View>
                                 <Text style={styles.menuName}>{displayName}</Text>
-                                {displayPhone ? (
-                                    <Text style={styles.menuPhone}>{displayPhone}</Text>
-                                ) : null}
+                                {displayPhone ? <Text style={styles.menuPhone}>{displayPhone}</Text> : null}
                             </View>
                         </View>
-
                         <View style={styles.menuDivider} />
-
-                        {/* View Profile */}
-                        <TouchableOpacity
-                            style={styles.menuItem}
-                            onPress={() => {
-                                setVisible(false);
-                                router.push('/(tabs)/profile');
-                            }}
-                        >
+                        <TouchableOpacity style={styles.menuItem} onPress={() => { setVisible(false); router.push('/(tabs)/profile'); }}>
                             <Text style={styles.menuItemIcon}>👤</Text>
                             <Text style={styles.menuItemText}>View Profile</Text>
                         </TouchableOpacity>
-
                         <View style={styles.menuDivider} />
-
-                        {/* Logout */}
-                        <TouchableOpacity
-                            style={styles.menuItem}
-                            onPress={() => {
-                                setVisible(false);
-                                logout();
-                            }}
-                            disabled={isPending}
-                        >
+                        <TouchableOpacity style={styles.menuItem} onPress={() => { setVisible(false); logout(); }} disabled={isPending}>
                             <Text style={styles.menuItemIcon}>🚪</Text>
                             <Text style={[styles.menuItemText, styles.menuItemDanger]}>
                                 {isPending ? 'Logging out…' : 'Logout'}
@@ -119,13 +92,85 @@ function AvatarMenu() {
     );
 }
 
+// ─── City search input with live dropdown ─────────────────────────────────────
+
+interface CityInputProps {
+    label:        string;
+    icon:         string;
+    value:        string;
+    placeholder:  string;
+    allCities:    string[];
+    onChangeText: (v: string) => void;
+    onSelect:     (city: string) => void;
+}
+
+function CityInput({ label, icon, value, placeholder, allCities, onChangeText, onSelect }: CityInputProps) {
+    const [focused, setFocused] = useState(false);
+
+    const suggestions = useMemo(() => {
+        if (!value.trim() || !focused) return [];
+        const lower = value.toLowerCase();
+        return allCities
+            .filter((c) => c && c.toLowerCase().includes(lower) && c.toLowerCase() !== lower)
+            .slice(0, 6);
+    }, [allCities, value, focused]);
+
+    const showDropdown = focused && suggestions.length > 0;
+
+    return (
+        <View>
+            <View style={[styles.cityField, focused && styles.cityFieldFocused]}>
+                <Text style={styles.cityFieldIcon}>{icon}</Text>
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.cityFieldLabel}>{label}</Text>
+                    <TextInput
+                        value={value}
+                        onChangeText={onChangeText}
+                        onFocus={() => setFocused(true)}
+                        onBlur={() => setTimeout(() => setFocused(false), 150)}
+                        placeholder={placeholder}
+                        placeholderTextColor={Colors.text.disabled}
+                        style={styles.cityFieldInput}
+                        autoCorrect={false}
+                        autoCapitalize="words"
+                    />
+                </View>
+                {value.length > 0 && (
+                    <Pressable
+                        onPress={() => { onChangeText(''); }}
+                        style={styles.clearBtn}
+                        hitSlop={8}
+                    >
+                        <Text style={styles.clearBtnText}>✕</Text>
+                    </Pressable>
+                )}
+            </View>
+
+            {showDropdown && (
+                <View style={styles.dropdown}>
+                    {suggestions.map((city, i) => (
+                        <Pressable
+                            key={city}
+                            style={[styles.dropdownItem, i < suggestions.length - 1 && styles.dropdownItemBorder]}
+                            onPress={() => { onSelect(city); setFocused(false); }}
+                        >
+                            <Text style={styles.dropdownItemPin}>📍</Text>
+                            <Text style={styles.dropdownItemText}>{city}</Text>
+                        </Pressable>
+                    ))}
+                </View>
+            )}
+        </View>
+    );
+}
+
 // ─── Home tab ─────────────────────────────────────────────────────────────────
 
 export default function HomeTab() {
     const { t } = useTranslation();
     const {
         origin, destination, date, time, passengersCount,
-        recentSearches, setSearch, swap, rememberSearch, selectRoute, selectPickup,
+        selectedRoute, recentSearches, setSearch, swap, rememberSearch, selectRoute, selectPickup,
     } = useBookingFlowStore();
 
     const [passengerErr, setPassengerErr] = useState<string | null>(null);
@@ -134,92 +179,116 @@ export default function HomeTab() {
         () => routesQuery.data?.pages.flatMap((p) => p.items) ?? [],
         [routesQuery.data],
     );
+
+    // All unique city names from all routes — used for autocomplete
+    const allCities = useMemo(
+        () => Array.from(new Set(
+            routes.flatMap((r) => [r.originCity, r.destinationCity]).filter(Boolean)
+        )).sort() as string[],
+        [routes],
+    );
+
     const filteredRoutes = useMemo(
         () => routeService.filter(routes, origin, destination).slice(0, 8),
         [routes, origin, destination],
     );
-    const cities = useMemo(
-        () => origin
-            ? Array.from(new Set(routes.flatMap((r) => [r.originCity, r.destinationCity])))
-                .filter((c) => c != null && c.toLowerCase().includes(origin.toLowerCase()))
-                .slice(0, 8)
-            : [],
-        [routes, origin],
-    );
 
     const search = () => {
-        // Wrap in try-catch: errors in event handlers bypass React's ErrorBoundary
-        // and crash the app on Android/Hermes. Navigation must always proceed.
         try {
             rememberSearch();
             if (!selectedRoute && filteredRoutes.length > 0) {
                 selectRoute(filteredRoutes[0]);
             }
         } catch {
-            // Pre-navigation error must never block the user from seeing results.
+            // guard: errors must not block navigation
         }
         router.push('/(tabs)/search/results');
     };
 
+    const canSearch = Boolean(origin && destination && origin !== destination);
+
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <ScrollView
-                contentContainerStyle={styles.scroll}
-                keyboardShouldPersistTaps="handled"
-            >
-                {/* ── Header ── */}
-                <View style={styles.header}>
+        // SafeAreaView background = brand dark blue so the status bar area is branded
+        <SafeAreaView style={styles.outerContainer} edges={['top']}>
+            {/* Light icons (white clock/battery) on the dark-blue hero */}
+            <StatusBar style="light" />
+
+            {/* ── Hero header ── */}
+            <View style={styles.hero}>
+                <View style={styles.heroRow}>
                     <Image source={ADRASH_LOGO} style={styles.logo} resizeMode="contain" />
-                    <View style={styles.headerRight}>
+                    <View style={styles.heroActions}>
                         <Pressable
                             style={styles.iconBtn}
                             onPress={() => router.push('/(tabs)/notifications')}
                             accessibilityLabel="Notifications"
                         >
-                            <Text>🔔</Text>
+                            <Text style={styles.iconBtnText}>🔔</Text>
                         </Pressable>
                         <AvatarMenu />
                     </View>
                 </View>
+                <Text style={styles.heroTitle}>{t('home.greeting')}</Text>
+                <Text style={styles.heroSub}>{t('home.greeting_sub')}</Text>
+            </View>
 
-                <Text style={styles.greeting}>{t('home.greeting')}</Text>
-                <Text style={styles.greetingSub}>{t('home.greeting_sub')}</Text>
-
+            {/* ── Scrollable light content ── */}
+            <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={styles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+            >
                 {/* ── Search card ── */}
                 <View style={styles.searchCard}>
-                    <Field
+
+                    {/* Origin */}
+                    <CityInput
                         label={t('home.from')}
+                        icon="🚏"
                         value={origin}
+                        placeholder="e.g. Addis Ababa"
+                        allCities={allCities}
                         onChangeText={(v) => { setSearch({ origin: v }); selectPickup(null); selectRoute(null); }}
-                        placeholder={t('home.from_placeholder')}
+                        onSelect={(city) => { setSearch({ origin: city }); selectPickup(null); selectRoute(null); }}
                     />
-                    <View style={styles.chips}>
-                        {cities.map((city) => (
-                            <Pressable
-                                key={city}
-                                style={styles.chip}
-                                onPress={() => { setSearch({ origin: city }); selectPickup(null); selectRoute(null); }}
-                            >
-                                <Text style={styles.chipText}>{city}</Text>
-                            </Pressable>
-                        ))}
+
+                    {/* Swap button */}
+                    <View style={styles.swapRow}>
+                        <View style={styles.swapLine} />
+                        <Pressable
+                            style={styles.swapBtn}
+                            onPress={() => { swap(); selectPickup(null); selectRoute(null); }}
+                            accessibilityLabel="Swap origin and destination"
+                        >
+                            <Text style={styles.swapIcon}>⇅</Text>
+                        </Pressable>
+                        <View style={styles.swapLine} />
                     </View>
 
-                    <Pressable style={styles.swap} onPress={() => { swap(); selectPickup(null); selectRoute(null); }}>
-                        <Text style={styles.swapIcon}>⇅</Text>
-                    </Pressable>
-                    <Field
+                    {/* Destination */}
+                    <CityInput
                         label={t('home.to')}
+                        icon="📍"
                         value={destination}
+                        placeholder="e.g. Hawassa"
+                        allCities={allCities}
                         onChangeText={(v) => { setSearch({ destination: v }); selectRoute(null); }}
-                        placeholder={t('home.to')}
+                        onSelect={(city) => { setSearch({ destination: city }); selectRoute(null); }}
                     />
 
+                    {origin === destination && origin ? (
+                        <Text style={styles.error}>{t('home.origin_destination_same')}</Text>
+                    ) : null}
+
+                    {/* Date + time */}
                     <DateTimePicker
                         date={date}
                         time={time}
                         onChange={(d, tm) => setSearch({ date: d, time: tm })}
                     />
+
+                    {/* Passengers */}
                     <View>
                         <Text style={styles.counterLabel}>{t('home.passengers')}</Text>
                         <View style={styles.counterRow}>
@@ -236,7 +305,12 @@ export default function HomeTab() {
                             >
                                 <Text style={styles.counterBtnText}>−</Text>
                             </Pressable>
-                            <Text style={styles.counterValue}>{passengersCount}</Text>
+                            <View style={styles.counterValueWrap}>
+                                <Text style={styles.counterValue}>{passengersCount}</Text>
+                                <Text style={styles.counterValueLabel}>
+                                    {passengersCount === 1 ? 'passenger' : 'passengers'}
+                                </Text>
+                            </View>
                             <Pressable
                                 style={styles.counterBtn}
                                 onPress={() => {
@@ -254,20 +328,15 @@ export default function HomeTab() {
                         {passengerErr ? <Text style={styles.passengerErr}>{passengerErr}</Text> : null}
                     </View>
 
+                    {/* Search CTA */}
                     <Pressable
-                        style={[
-                            styles.searchBtn,
-                            (!origin || !destination || origin === destination) && styles.disabled,
-                        ]}
-                        disabled={!origin || !destination || origin === destination}
+                        style={[styles.searchBtn, !canSearch && styles.disabled]}
+                        disabled={!canSearch}
                         onPress={search}
+                        accessibilityRole="button"
                     >
-                        <Text style={styles.searchBtnText}>{t('home.search_trips')}</Text>
+                        <Text style={styles.searchBtnText}>🔍  {t('home.search_trips')}</Text>
                     </Pressable>
-
-                    {origin === destination && origin ? (
-                        <Text style={styles.error}>{t('home.origin_destination_same')}</Text>
-                    ) : null}
                 </View>
 
                 {/* ── Matching routes ── */}
@@ -287,50 +356,60 @@ export default function HomeTab() {
                     filteredRoutes.map((r) => (
                         <Pressable
                             key={r.id}
-                            style={styles.popularCard}
+                            style={styles.routeCard}
                             onPress={() => {
                                 selectRoute(r);
                                 setSearch({ origin: r.originCity, destination: r.destinationCity });
                                 router.push('/(tabs)/search/results');
                             }}
                         >
-                            <View>
-                                <Text style={styles.popularRoute}>
-                                    {r.originCity} → {r.destinationCity}
-                                </Text>
-                                <Text style={styles.popularSub}>
-                                    {r.distanceKm} km · {Math.round(r.estimatedDurationMin / 60)}h{' '}
-                                    {r.estimatedDurationMin % 60}m
-                                </Text>
+                            <View style={styles.routeCardAccent} />
+                            <View style={styles.routeCardBody}>
+                                <View style={styles.routeCardLeft}>
+                                    <Text style={styles.routeCardTitle}>
+                                        {r.originCity}  →  {r.destinationCity}
+                                    </Text>
+                                    <Text style={styles.routeCardSub}>
+                                        {r.distanceKm} km  ·  {Math.floor(r.estimatedDurationMin / 60)}h{' '}
+                                        {r.estimatedDurationMin % 60 > 0 ? `${r.estimatedDurationMin % 60}m` : ''}
+                                    </Text>
+                                </View>
+                                <Text style={styles.routeCardChev}>›</Text>
                             </View>
-                            <Text style={styles.chev}>›</Text>
                         </Pressable>
                     ))
                 )}
 
-                {/* ── Recent searches ── */}
-                <Text style={styles.sectionTitle}>{t('home.recent_searches')}</Text>
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.recentRow}
-                >
-                    {(Array.isArray(recentSearches) ? recentSearches : []).map((r, i) => (
-                        <Pressable
-                            key={`${r.origin}-${r.destination}-${i}`}
-                            style={styles.recentCard}
-                            onPress={() => {
-                                try { setSearch(r); } catch { /* guard against corrupt saved search */ }
-                                router.push('/(tabs)/search/results');
-                            }}
-                        >
-                            <Text style={styles.recentRoute}>
-                                {r.origin} → {r.destination}
-                            </Text>
-                            <Text style={styles.recentDate}>{r.date}</Text>
-                        </Pressable>
-                    ))}
-                </ScrollView>
+                {/* ── Recent searches — same full-width card design ── */}
+                {(Array.isArray(recentSearches) ? recentSearches : []).length > 0 && (
+                    <>
+                        <Text style={styles.sectionTitle}>{t('home.recent_searches')}</Text>
+                        {(Array.isArray(recentSearches) ? recentSearches : []).map((r, i) => (
+                            <Pressable
+                                key={`${r.origin}-${r.destination}-${i}`}
+                                style={styles.routeCard}
+                                onPress={() => {
+                                    try { setSearch(r); } catch { /* guard against corrupt saved search */ }
+                                    router.push('/(tabs)/search/results');
+                                }}
+                            >
+                                <View style={[styles.routeCardAccent, { backgroundColor: Colors.text.tertiary }]} />
+                                <View style={styles.routeCardBody}>
+                                    <View style={styles.routeCardLeft}>
+                                        <View style={styles.recentTitleRow}>
+                                            <Text style={styles.recentIcon}>🕐</Text>
+                                            <Text style={styles.routeCardTitle}>
+                                                {r.origin}  →  {r.destination}
+                                            </Text>
+                                        </View>
+                                        <Text style={styles.routeCardSub}>{r.date}</Text>
+                                    </View>
+                                    <Text style={styles.routeCardChev}>›</Text>
+                                </View>
+                            </Pressable>
+                        ))}
+                    </>
+                )}
 
                 <View style={{ height: Spacing.xl }} />
             </ScrollView>
@@ -341,30 +420,49 @@ export default function HomeTab() {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    container:    { flex: 1, backgroundColor: Colors.background.secondary },
-    scroll:       { padding: Spacing.lg, gap: Spacing.md },
-    header:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    logo:         { width: 100, height: 36 },
-    headerRight:  { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
+    // SafeAreaView background = brand dark so status bar area matches hero
+    outerContainer: { flex: 1, backgroundColor: Colors.brand.primaryDark },
+    scroll:         { flex: 1, backgroundColor: Colors.background.secondary },
+    scrollContent:  { padding: Spacing.lg, gap: Spacing.md, paddingTop: Spacing.lg },
+
+    // ── Hero ──
+    hero: {
+        backgroundColor: Colors.brand.primaryDark,
+        paddingHorizontal: Spacing.lg,
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.xl,
+        gap: 6,
+    },
+    heroRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: Spacing.sm,
+    },
+    logo:       { width: 160, height: 56 },
+    heroActions:{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
     iconBtn: {
         width: 40, height: 40, borderRadius: 20,
-        backgroundColor: Colors.brand.primaryTint,
-        borderWidth: 1, borderColor: Colors.border.light,
+        backgroundColor: 'rgba(255,255,255,0.15)',
         alignItems: 'center', justifyContent: 'center',
     },
+    iconBtnText: { fontSize: 16 },
     avatar: {
         width: 40, height: 40, borderRadius: 20,
-        backgroundColor: Colors.brand.primary,
+        backgroundColor: Colors.brand.secondary,
         alignItems: 'center', justifyContent: 'center',
+        borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)',
     },
-    avatarText:   { color: '#fff', fontWeight: '700', fontSize: 14 },
+    avatarText:  { color: '#fff', fontWeight: '700', fontSize: 14 },
+    heroTitle:   { fontSize: 22, fontWeight: '900', color: Colors.neutral.white },
+    heroSub:     { fontSize: 13, color: Colors.brand.onPrimary },
 
-    // Popover modal
+    // ── Popover ──
     backdrop: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.35)',
         alignItems: 'flex-end',
-        paddingTop: 80,          // push below the header
+        paddingTop: 80,
         paddingRight: Spacing.lg,
     },
     menu: {
@@ -374,12 +472,7 @@ const styles = StyleSheet.create({
         ...Shadow.lg,
         overflow: 'hidden',
     },
-    menuHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.md,
-        padding: Spacing.md,
-    },
+    menuHeader:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md },
     menuAvatar: {
         width: 44, height: 44, borderRadius: 22,
         backgroundColor: Colors.brand.primary,
@@ -389,20 +482,12 @@ const styles = StyleSheet.create({
     menuName:       { fontWeight: '700', color: Colors.text.primary, fontSize: 15 },
     menuPhone:      { color: Colors.text.tertiary, fontSize: 12, marginTop: 2 },
     menuDivider:    { height: 1, backgroundColor: Colors.border.light },
-    menuItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.md,
-        paddingVertical: Spacing.md,
-        paddingHorizontal: Spacing.md,
-    },
+    menuItem:       { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing.md },
     menuItemIcon:   { fontSize: 18, width: 24, textAlign: 'center' },
     menuItemText:   { fontSize: 15, color: Colors.text.primary, fontWeight: '500' },
     menuItemDanger: { color: Colors.semantic.error },
 
-    // Search
-    greeting:     { fontSize: 24, fontWeight: '900', color: Colors.text.primary, marginTop: Spacing.sm },
-    greetingSub:  { fontSize: 14, color: Colors.text.tertiary },
+    // ── Search card ──
     searchCard: {
         backgroundColor: Colors.background.primary,
         borderRadius: BorderRadius.xl,
@@ -410,54 +495,114 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
         ...Shadow.md,
     },
-    swap: {
-        alignSelf: 'center', width: 36, height: 36, borderRadius: 18,
-        backgroundColor: Colors.brand.primary,
-        alignItems: 'center', justifyContent: 'center',
-        marginVertical: -2,
-    },
-    swapIcon:      { color: '#fff', fontSize: 18, fontWeight: '700' },
-    searchBtn: {
-        backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg,
-        paddingVertical: 14, alignItems: 'center', marginTop: Spacing.xs,
-    },
-    searchBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-    disabled:      { opacity: 0.4 },
-    error:         { color: Colors.semantic.error, fontWeight: '700' },
-    counterLabel:  { fontSize: 11, fontWeight: '700', color: Colors.text.tertiary, letterSpacing: 0.4, marginBottom: 8 },
-    counterRow:    { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-    counterBtn: {
-        width: 40, height: 40, borderRadius: 20,
-        backgroundColor: Colors.brand.primary,
-        alignItems: 'center', justifyContent: 'center',
-    },
-    counterBtnText: { color: '#fff', fontSize: 22, fontWeight: '700', lineHeight: 22 },
-    counterValue:  { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '800', color: Colors.text.primary },
-    passengerErr:  { color: Colors.semantic.error, fontSize: 11, fontWeight: '600', marginTop: 4 },
-    sectionTitle:  { fontSize: 16, fontWeight: '800', color: Colors.text.primary, marginTop: Spacing.md },
-    chips:         { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-    chip: {
-        backgroundColor: Colors.semantic.infoLight,
-        paddingHorizontal: Spacing.md, paddingVertical: 7,
-        borderRadius: BorderRadius.full,
-    },
-    chipText:      { color: Colors.semantic.info, fontWeight: '700' },
-    popularCard: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        backgroundColor: Colors.background.primary, borderRadius: BorderRadius.lg,
-        padding: Spacing.md, ...Shadow.sm,
-    },
-    popularRoute:  { fontWeight: '800', color: Colors.text.primary, fontSize: 15 },
-    popularSub:    { color: Colors.text.tertiary, fontSize: 12, marginTop: 2 },
-    chev:          { fontSize: 24, color: Colors.text.tertiary },
-    recentRow:     { gap: Spacing.sm, paddingVertical: 4 },
-    recentCard: {
-        backgroundColor: Colors.background.primary,
+
+    // ── City input ──
+    cityField: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+        borderWidth: 1.5,
+        borderColor: Colors.border.light,
         borderRadius: BorderRadius.lg,
-        padding: Spacing.md,
-        width: 220,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 10,
+        backgroundColor: Colors.background.secondary,
+    },
+    cityFieldFocused: {
+        borderColor: Colors.brand.primary,
+        backgroundColor: Colors.brand.primaryTint,
+    },
+    cityFieldIcon:  { fontSize: 18, width: 22, textAlign: 'center' },
+    cityFieldLabel: { fontSize: 10, fontWeight: '700', color: Colors.text.tertiary, letterSpacing: 0.4, marginBottom: 2 },
+    cityFieldInput: { fontSize: 15, fontWeight: '600', color: Colors.text.primary, padding: 0 },
+    clearBtn:       { padding: 4 },
+    clearBtnText:   { color: Colors.text.tertiary, fontWeight: '700', fontSize: 13 },
+
+    // ── City dropdown ──
+    dropdown: {
+        backgroundColor: Colors.background.primary,
+        borderWidth: 1.5,
+        borderColor: Colors.brand.primary,
+        borderRadius: BorderRadius.lg,
+        overflow: 'hidden',
+        marginTop: 2,
+        ...Shadow.md,
+    },
+    dropdownItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 13,
+    },
+    dropdownItemBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border.light },
+    dropdownItemPin:    { fontSize: 14 },
+    dropdownItemText:   { fontSize: 14, fontWeight: '600', color: Colors.text.primary },
+
+    // ── Swap ──
+    swapRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginVertical: -4 },
+    swapLine: { flex: 1, height: 1, backgroundColor: Colors.border.light },
+    swapBtn: {
+        width: 36, height: 36, borderRadius: 18,
+        backgroundColor: Colors.brand.primary,
+        alignItems: 'center', justifyContent: 'center',
         ...Shadow.sm,
     },
-    recentRoute:   { fontWeight: '700', color: Colors.text.primary },
-    recentDate:    { color: Colors.text.tertiary, fontSize: 12, marginTop: 2 },
+    swapIcon: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+    // ── Passengers counter ──
+    counterLabel: { fontSize: 11, fontWeight: '700', color: Colors.text.tertiary, letterSpacing: 0.4, marginBottom: 8 },
+    counterRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    counterBtn: {
+        width: 42, height: 42, borderRadius: 21,
+        backgroundColor: Colors.brand.primary,
+        alignItems: 'center', justifyContent: 'center',
+    },
+    counterBtnText:   { color: '#fff', fontSize: 22, fontWeight: '700', lineHeight: 22 },
+    counterValueWrap: { flex: 1, alignItems: 'center' },
+    counterValue:     { fontSize: 22, fontWeight: '900', color: Colors.text.primary },
+    counterValueLabel:{ fontSize: 11, color: Colors.text.tertiary, fontWeight: '600' },
+    passengerErr:     { color: Colors.semantic.error, fontSize: 11, fontWeight: '600', marginTop: 4 },
+    error:            { color: Colors.semantic.error, fontWeight: '700', fontSize: 12 },
+
+    // ── Search button ──
+    searchBtn: {
+        backgroundColor: Colors.brand.primary,
+        borderRadius: BorderRadius.lg,
+        paddingVertical: 15,
+        alignItems: 'center',
+        marginTop: Spacing.xs,
+        ...Shadow.sm,
+    },
+    searchBtnText: { color: '#fff', fontWeight: '800', fontSize: 16, letterSpacing: 0.3 },
+    disabled:      { opacity: 0.4 },
+
+    // ── Section titles ──
+    sectionTitle: { fontSize: 16, fontWeight: '800', color: Colors.text.primary, marginTop: Spacing.sm },
+
+    // ── Route / recent card (shared full-width design) ──
+    routeCard: {
+        backgroundColor: Colors.background.primary,
+        borderRadius: BorderRadius.xl,
+        overflow: 'hidden',
+        flexDirection: 'row',
+        ...Shadow.sm,
+    },
+    routeCardAccent: { width: 4, backgroundColor: Colors.brand.primary },
+    routeCardBody: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.md,
+    },
+    routeCardLeft:  { flex: 1, gap: 3 },
+    routeCardTitle: { fontWeight: '800', color: Colors.text.primary, fontSize: 15 },
+    routeCardSub:   { color: Colors.text.tertiary, fontSize: 12, marginTop: 1 },
+    routeCardChev:  { fontSize: 22, color: Colors.text.tertiary, marginLeft: Spacing.sm },
+
+    // Recent search label row
+    recentTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    recentIcon:     { fontSize: 13 },
 });
