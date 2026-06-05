@@ -141,18 +141,22 @@ export default function HomeTab() {
     const cities = useMemo(
         () => origin
             ? Array.from(new Set(routes.flatMap((r) => [r.originCity, r.destinationCity])))
-                .filter((c) => c.toLowerCase().includes(origin.toLowerCase()))
+                .filter((c) => c != null && c.toLowerCase().includes(origin.toLowerCase()))
                 .slice(0, 8)
             : [],
         [routes, origin],
     );
 
     const search = () => {
-        rememberSearch();
-        // Auto-select the best matching route so results are scoped to the
-        // correct route even when the user types and hits Search directly.
-        if (!selectedRoute && filteredRoutes.length > 0) {
-            selectRoute(filteredRoutes[0]);
+        // Wrap in try-catch: errors in event handlers bypass React's ErrorBoundary
+        // and crash the app on Android/Hermes. Navigation must always proceed.
+        try {
+            rememberSearch();
+            if (!selectedRoute && filteredRoutes.length > 0) {
+                selectRoute(filteredRoutes[0]);
+            }
+        } catch {
+            // Pre-navigation error must never block the user from seeing results.
         }
         router.push('/(tabs)/search/results');
     };
@@ -311,12 +315,12 @@ export default function HomeTab() {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.recentRow}
                 >
-                    {recentSearches.map((r, i) => (
+                    {(Array.isArray(recentSearches) ? recentSearches : []).map((r, i) => (
                         <Pressable
                             key={`${r.origin}-${r.destination}-${i}`}
                             style={styles.recentCard}
                             onPress={() => {
-                                setSearch(r);
+                                try { setSearch(r); } catch { /* guard against corrupt saved search */ }
                                 router.push('/(tabs)/search/results');
                             }}
                         >
