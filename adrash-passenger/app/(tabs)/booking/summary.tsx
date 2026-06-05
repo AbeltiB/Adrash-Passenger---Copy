@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { useCreateBooking } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
-import { bookingService } from '@/features/passenger-booking/services/bookingService';
+import { bookingService, normalizePhone } from '@/features/passenger-booking/services/bookingService';
 import { toAppError } from '@/features/passenger-booking/utils/errors';
 import { useRewardsBalance } from '../../../src/features/profile/hooks/useRewardsBalance';
 
@@ -28,7 +28,7 @@ function friendlyBookingError(err: ReturnType<typeof toAppError>): string {
     const code = (err.code ?? '').toLowerCase();
 
     if (code.includes('seat') || msg.includes('seat') || msg.includes('already booked')) {
-        return 'The seats could not be reserved — they may have just been taken. Please try again.';
+        return 'Those seats were just taken. Please go back and choose different ones.';
     }
     if (msg.includes('pending') || msg.includes('maximum') || code.includes('maxpending')) {
         return 'You already have 2 pending bookings. Complete or cancel one before creating a new one.';
@@ -42,12 +42,19 @@ function friendlyBookingError(err: ReturnType<typeof toAppError>): string {
     if (msg.includes('point') || msg.includes('redeem') || msg.includes('balance')) {
         return 'Could not apply your rewards points. Try booking without the rewards discount.';
     }
-    // 422 unprocessable: show the raw message if it's not empty (often readable)
-    if (err.status === 422 && err.message && err.message !== 'Request failed') {
+    if (msg.includes('phone') || msg.includes('passenger') || code.includes('passenger')) {
+        return 'A passenger phone number is invalid. Please go back and correct it (+251 9XX or 09XX format).';
+    }
+    // 422/400: show server message only when it's readable (not the raw Axios status string)
+    const isRawAxios = /^request failed/i.test(err.message);
+    if ((err.status === 422 || err.status === 400) && err.message && !isRawAxios) {
         return err.message;
     }
-    if (err.status === 400 && err.message && err.message !== 'Request failed') {
-        return err.message;
+    if (err.status === 422) {
+        return 'Booking details are invalid. Please check your passenger information and try again.';
+    }
+    if (err.status === 400) {
+        return 'Invalid booking request. Please go back and review your details.';
     }
     return 'Booking failed. Please check your details and try again.';
 }
@@ -87,13 +94,22 @@ export default function SummaryScreen() {
     async function handleCreateBooking() {
         setError('');
 
+        // Normalize passenger phones to E.164 before sending.
+        // Users enter local format (09XX…) but the server and downstream providers
+        // require +251 format. A non-normalized number causes a 422 from the server.
+        const normalizedPassengers = f.passengerDetails.map((p) => ({
+            ...p,
+            phone:        normalizePhone(p.phone),
+            nextOfKinPhone: normalizePhone(p.nextOfKinPhone),
+        }));
+
         const body = {
             tripId:            f.selectedTrip?.id ?? '',
             seatNumbers:       f.selectedSeats,
             pickupLocationId:  f.selectedPickup?.id ?? '',
             dropoffStopId:     f.selectedDropoff?.id ?? '',
             pointsToRedeem,
-            passengerDetails:  f.passengerDetails,
+            passengerDetails:  normalizedPassengers,
         };
 
         const validationError = bookingService.validateBooking(body, f.selectedPickup, f.selectedDropoff);
@@ -211,7 +227,11 @@ export default function SummaryScreen() {
                     {createBooking.isPending ? (
                         <ActivityIndicator color={Colors.neutral.white} />
                     ) : (
-                        <Text style={styles.ctaBtnText}>{t('booking.summary.create_booking')}</Text>
+                        <Text style={styles.ctaBtnText}>
+                            {fare != null
+                                ? `Confirm & Pay  ETB ${fare.total}`
+                                : t('booking.summary.create_booking')}
+                        </Text>
                     )}
                 </Pressable>
 

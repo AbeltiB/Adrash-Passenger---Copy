@@ -59,11 +59,13 @@ function PassengerCard({ index, seat, data, onChange, error }: PassengerCardProp
                     style={styles.input}
                     value={data.phone}
                     onChangeText={(v) => onChange('phone', v)}
-                    placeholder={t('booking.passengers.phone_placeholder')}
+                    placeholder="09XX XXX XXX  or  +251 9XX XXX XXX"
                     placeholderTextColor={Colors.text.disabled}
                     keyboardType="phone-pad"
                     autoCorrect={false}
+                    maxLength={15}
                 />
+                <Text style={styles.phoneHint}>Ethio Telecom (09XX) · Safaricom (07XX)</Text>
             </View>
 
             <View style={styles.kinDivider}>
@@ -89,10 +91,11 @@ function PassengerCard({ index, seat, data, onChange, error }: PassengerCardProp
                     style={styles.input}
                     value={data.nextOfKinPhone}
                     onChangeText={(v) => onChange('nextOfKinPhone', v)}
-                    placeholder={t('booking.passengers.phone_placeholder')}
+                    placeholder="09XX XXX XXX  or  +251 9XX XXX XXX"
                     placeholderTextColor={Colors.text.disabled}
                     keyboardType="phone-pad"
                     autoCorrect={false}
+                    maxLength={15}
                 />
             </View>
 
@@ -223,6 +226,11 @@ const styles = StyleSheet.create({
         marginTop: Spacing.xs,
     },
     kinLabel: { fontSize: 12, fontWeight: '600', color: Colors.text.tertiary },
+    phoneHint: {
+        fontSize: 11,
+        color: Colors.text.disabled,
+        marginTop: 3,
+    },
     error: {
         color: Colors.semantic.error,
         fontSize: 12,

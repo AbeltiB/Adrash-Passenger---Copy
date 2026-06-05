@@ -23,93 +23,154 @@ import type { TripDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 
 type Sort = 'earliest' | 'cheapest' | 'seats';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmtTime(d: Date): string {
+    const h  = d.getHours() % 12 || 12;
+    const m  = d.getMinutes().toString().padStart(2, '0');
+    const ap = d.getHours() >= 12 ? 'PM' : 'AM';
+    return `${h}:${m} ${ap}`;
+}
+
+function fmtDuration(ms: number): string {
+    const h = Math.floor(ms / 3_600_000);
+    const m = Math.floor((ms % 3_600_000) / 60_000);
+    if (h === 0) return `${m}m`;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
 // ─── Trip card ────────────────────────────────────────────────────────────────
 
 function TripCard({ trip, onPress }: { trip: TripDTO; onPress: () => void }) {
     const dep = new Date(trip.departureTime);
     const arr = new Date(trip.arrivalEstimate);
 
-    const depStr = dep.toLocaleTimeString('en-ET', { hour: '2-digit', minute: '2-digit' });
-    const arrStr = arr.toLocaleTimeString('en-ET', { hour: '2-digit', minute: '2-digit' });
+    const depStr      = fmtTime(dep);
+    const arrStr      = fmtTime(arr);
+    const durationStr = fmtDuration(arr.getTime() - dep.getTime());
 
-    const durationMs  = arr.getTime() - dep.getTime();
-    const durationHrs = Math.floor(durationMs / 3_600_000);
-    const durationMin = Math.floor((durationMs % 3_600_000) / 60_000);
-    const durationStr = durationMin > 0 ? `${durationHrs}h ${durationMin}m` : `${durationHrs}h`;
+    const seatsLeft = trip.availableSeats ?? trip.totalSeats ?? trip.bus?.capacity;
+    const soldOut   = trip.availableSeats === 0;
+    const lowSeats  = !soldOut && seatsLeft != null && seatsLeft <= 5;
 
-    // availableSeats is optional — the API may omit it on a new trip.
-    // Treat null/undefined as "unknown" (not sold out).
-    // Fall back to totalSeats or bus capacity so fresh trips aren't shown as full.
-    const hasSeatsData  = trip.availableSeats != null;
-    const seatsLeft     = trip.availableSeats ?? trip.totalSeats ?? trip.bus?.capacity;
-    const soldOut       = trip.availableSeats === 0; // only explicit zero = truly sold out
-    const seatsColor    = (seatsLeft ?? 1) <= 3
-        ? Colors.semantic.warning
+    const seatsColor = soldOut  ? Colors.semantic.error
+        : lowSeats              ? Colors.semantic.warning
         : Colors.semantic.success;
 
-    const amenities = trip.bus?.amenities ?? [];
+    // Vehicle label — prefer real data over fallback
+    const busModel   = trip.bus?.model;
+    const busPlate   = trip.bus?.plateNumber;
+    const driverName = trip.driver?.fullName ?? trip.driver?.name;
+    const amenities  = trip.bus?.amenities ?? [];
 
     return (
         <Pressable
-            style={styles.card}
-            onPress={onPress}
+            style={({ pressed }) => [
+                styles.card,
+                soldOut && styles.cardDimmed,
+                pressed && !soldOut && styles.cardPressed,
+            ]}
+            onPress={soldOut ? undefined : onPress}
+            disabled={soldOut}
             accessibilityRole="button"
             accessibilityLabel={`Trip departing at ${depStr}`}
         >
-            {/* ── Times row ── */}
-            <View style={styles.timesRow}>
-                <Text style={styles.time}>{depStr}</Text>
-                <View style={styles.lineWrap}>
-                    <View style={styles.dot} />
-                    <View style={styles.line} />
-                    <Text style={styles.duration}>{durationStr}</Text>
-                    <View style={styles.line} />
-                    <View style={styles.dot} />
-                </View>
-                <Text style={styles.time}>{arrStr}</Text>
-            </View>
+            {/* ── Left accent stripe ── */}
+            <View style={[styles.accent, soldOut && styles.accentDimmed]} />
 
-            {/* ── Bus + seats ── */}
-            <View style={styles.infoRow}>
-                <View style={{ flex: 1, gap: 4 }}>
-                    <Text style={styles.busText}>
-                        🚌  {trip.bus?.model ?? 'Adrash Coach'}
-                        {trip.bus?.plateNumber ? `  ·  ${trip.bus.plateNumber}` : ''}
+            <View style={styles.cardInner}>
+                {/* ── Times row ── */}
+                <View style={styles.timesRow}>
+                    <View style={styles.timeBlock}>
+                        <Text style={styles.timeText}>{depStr}</Text>
+                        <Text style={styles.timeLabel}>Departure</Text>
+                    </View>
+
+                    <View style={styles.durationWrap}>
+                        <View style={styles.durationLine} />
+                        <View style={styles.durationBubble}>
+                            <Text style={styles.durationText}>{durationStr}</Text>
+                        </View>
+                        <View style={styles.durationLine} />
+                    </View>
+
+                    <View style={[styles.timeBlock, { alignItems: 'flex-end' }]}>
+                        <Text style={styles.timeText}>{arrStr}</Text>
+                        <Text style={styles.timeLabel}>Arrival (est.)</Text>
+                    </View>
+                </View>
+
+                {/* ── Divider ── */}
+                <View style={styles.innerDivider} />
+
+                {/* ── Vehicle + Price row ── */}
+                <View style={styles.detailRow}>
+                    <View style={{ flex: 1, gap: 4 }}>
+                        {/* Bus info */}
+                        <View style={styles.busRow}>
+                            <Text style={styles.busIcon}>🚌</Text>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.busModel} numberOfLines={1}>
+                                    {busModel ?? 'Adrash Coach'}
+                                    {busPlate ? `  ·  ${busPlate}` : ''}
+                                </Text>
+                                {driverName ? (
+                                    <Text style={styles.driverText} numberOfLines={1}>
+                                        👤 {driverName}
+                                        {trip.driver?.rating != null
+                                            ? `  ★ ${trip.driver.rating.toFixed(1)}`
+                                            : ''}
+                                    </Text>
+                                ) : null}
+                            </View>
+                        </View>
+
+                        {/* Amenity chips */}
+                        {amenities.length > 0 && (
+                            <View style={styles.amenitiesRow}>
+                                {amenities.slice(0, 3).map((a, i) => (
+                                    <View key={i} style={styles.amenityChip}>
+                                        <Text style={styles.amenityText}>{a}</Text>
+                                    </View>
+                                ))}
+                                {amenities.length > 3 && (
+                                    <Text style={styles.amenityMore}>+{amenities.length - 3}</Text>
+                                )}
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Price block */}
+                    <View style={styles.priceBlock}>
+                        {trip.fare != null ? (
+                            <>
+                                <Text style={styles.fareFrom}>from</Text>
+                                <Text style={styles.fareValue}>ETB {trip.fare}</Text>
+                                <Text style={styles.farePer}>/ seat</Text>
+                            </>
+                        ) : (
+                            <>
+                                <Text style={styles.fareFrom}>price</Text>
+                                <Text style={styles.fareTbd}>at booking</Text>
+                            </>
+                        )}
+                    </View>
+                </View>
+
+                {/* ── Seats status bar ── */}
+                <View style={[styles.seatsBar, { backgroundColor: seatsColor + '18' }]}>
+                    <View style={[styles.seatsDot, { backgroundColor: seatsColor }]} />
+                    <Text style={[styles.seatsLabel, { color: seatsColor }]}>
+                        {soldOut
+                            ? 'Sold out'
+                            : seatsLeft != null
+                                ? (lowSeats
+                                    ? `Only ${seatsLeft} seat${seatsLeft !== 1 ? 's' : ''} left — book fast!`
+                                    : `${seatsLeft} seat${seatsLeft !== 1 ? 's' : ''} available`)
+                                : 'Seats available'}
                     </Text>
-                    <Text style={[styles.seatsText, { color: seatsColor }]}>
-                        {seatsLeft != null
-                            ? `${seatsLeft} seat${seatsLeft !== 1 ? 's' : ''} available`
-                            : 'Seats available'}
-                    </Text>
-                    {amenities.length > 0 && (
-                        <Text style={styles.amenities}>
-                            {amenities.join('  ·  ')}
-                        </Text>
-                    )}
-                </View>
-                <View style={styles.priceBox}>
-                    <Text style={styles.priceLabel}>From</Text>
-                    {trip.fare != null ? (
-                        <Text style={styles.price}>ETB {trip.fare}</Text>
-                    ) : (
-                        <Text style={[styles.price, styles.priceTbd]}>TBD</Text>
-                    )}
-                    <Text style={styles.priceSub}>/ seat</Text>
                 </View>
             </View>
-
-            {/* ── Low seats warning ── */}
-            {hasSeatsData && !soldOut && seatsLeft != null && seatsLeft <= 5 && (
-                <View style={styles.urgencyBadge}>
-                    <Text style={styles.urgencyText}>Only {seatsLeft} left!</Text>
-                </View>
-            )}
-
-            {soldOut && (
-                <View style={styles.soldOutBadge}>
-                    <Text style={styles.soldOutText}>Sold out</Text>
-                </View>
-            )}
         </Pressable>
     );
 }
@@ -317,50 +378,111 @@ const styles = StyleSheet.create({
     pillText:      { color: Colors.text.secondary, fontWeight: '600', fontSize: 13 },
     pillTextActive: { color: '#fff' },
 
-    list:         { padding: Spacing.lg, gap: Spacing.md },
-    resultCount:  { color: Colors.text.tertiary, fontSize: 13, fontWeight: '600' },
+    list:        { padding: Spacing.lg, gap: Spacing.md },
+    resultCount: { color: Colors.text.tertiary, fontSize: 13, fontWeight: '600' },
 
+    // ── Card ──
     card: {
         backgroundColor: Colors.background.primary,
         borderRadius: BorderRadius.xl,
+        overflow: 'hidden',
+        flexDirection: 'row',
+        ...Shadow.md,
+    },
+    cardDimmed:  { opacity: 0.5 },
+    cardPressed: { opacity: 0.85 },
+
+    accent: {
+        width: 4,
+        backgroundColor: Colors.brand.primary,
+    },
+    accentDimmed: { backgroundColor: Colors.neutral.gray300 },
+
+    cardInner: {
+        flex: 1,
         padding: Spacing.md,
         gap: Spacing.sm,
-        ...Shadow.sm,
     },
 
-    timesRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-    time:     { fontWeight: '900', fontSize: 20, color: Colors.text.primary, width: 68 },
-    lineWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 },
-    dot:      { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.brand.primary },
-    line:     { flex: 1, height: 2, backgroundColor: Colors.brand.primary, opacity: 0.3 },
-    duration: { color: Colors.text.tertiary, fontSize: 11, fontWeight: '600', flexShrink: 0 },
+    // ── Times ──
+    timesRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    timeBlock: { alignItems: 'flex-start', minWidth: 72 },
+    timeText:  { fontSize: 22, fontWeight: '900', color: Colors.text.primary },
+    timeLabel: { fontSize: 10, color: Colors.text.tertiary, fontWeight: '600', marginTop: 1 },
 
-    infoRow:  { flexDirection: 'row', alignItems: 'flex-start' },
-    busText:  { fontWeight: '700', color: Colors.text.primary, fontSize: 13 },
-    seatsText: { fontSize: 12, fontWeight: '700' },
-    amenities: { color: Colors.text.tertiary, fontSize: 11 },
-
-    priceBox:  { alignItems: 'flex-end', flexShrink: 0, gap: 1 },
-    priceLabel: { color: Colors.text.tertiary, fontSize: 11 },
-    price:     { fontWeight: '900', fontSize: 20, color: Colors.brand.primary },
-    priceSub:  { color: Colors.text.tertiary, fontSize: 11 },
-    priceTbd:  { fontSize: 16, color: Colors.text.tertiary },
-
-    urgencyBadge: {
-        alignSelf: 'flex-start',
-        backgroundColor: Colors.semantic.warningLight,
-        paddingHorizontal: 10, paddingVertical: 4,
+    durationWrap: {
+        flex: 1, flexDirection: 'row', alignItems: 'center',
+    },
+    durationLine: {
+        flex: 1, height: 1,
+        backgroundColor: Colors.brand.primary,
+        opacity: 0.25,
+    },
+    durationBubble: {
+        backgroundColor: Colors.brand.primaryTint,
         borderRadius: BorderRadius.full,
+        paddingHorizontal: 8, paddingVertical: 3,
+        marginHorizontal: 4,
     },
-    urgencyText: { color: Colors.semantic.warning, fontWeight: '800', fontSize: 11 },
+    durationText: {
+        fontSize: 10, fontWeight: '800',
+        color: Colors.brand.primary,
+    },
 
-    soldOutBadge: {
-        alignSelf: 'flex-start',
-        backgroundColor: Colors.semantic.errorLight,
-        paddingHorizontal: 10, paddingVertical: 4,
-        borderRadius: BorderRadius.full,
+    innerDivider: {
+        height: 1,
+        backgroundColor: Colors.border.light,
+        marginVertical: 2,
     },
-    soldOutText: { color: Colors.semantic.error, fontWeight: '800', fontSize: 11 },
+
+    // ── Detail row ──
+    detailRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: Spacing.sm,
+    },
+
+    busRow:    { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+    busIcon:   { fontSize: 18, marginTop: 1 },
+    busModel:  { fontSize: 13, fontWeight: '700', color: Colors.text.primary },
+    driverText:{ fontSize: 11, color: Colors.text.tertiary, marginTop: 2 },
+
+    amenitiesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+    amenityChip: {
+        backgroundColor: Colors.background.secondary,
+        borderRadius: BorderRadius.full,
+        paddingHorizontal: 8, paddingVertical: 3,
+        borderWidth: 1,
+        borderColor: Colors.border.light,
+    },
+    amenityText: { fontSize: 10, color: Colors.text.secondary, fontWeight: '600' },
+    amenityMore: { fontSize: 10, color: Colors.text.tertiary, alignSelf: 'center' },
+
+    // ── Price ──
+    priceBlock: { alignItems: 'flex-end', minWidth: 80, gap: 1 },
+    fareFrom:   { fontSize: 10, color: Colors.text.tertiary, fontWeight: '600' },
+    fareValue:  { fontSize: 18, fontWeight: '900', color: Colors.brand.primary },
+    farePer:    { fontSize: 10, color: Colors.text.tertiary },
+    fareTbd: {
+        fontSize: 12, fontWeight: '700',
+        color: Colors.text.tertiary,
+        fontStyle: 'italic',
+    },
+
+    // ── Seats bar ──
+    seatsBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        borderRadius: BorderRadius.md,
+        paddingHorizontal: 10, paddingVertical: 6,
+    },
+    seatsDot:   { width: 7, height: 7, borderRadius: 4 },
+    seatsLabel: { fontSize: 12, fontWeight: '700' },
 
     centred:      { alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing['4xl'], gap: Spacing.md },
     emptyIcon:    { fontSize: 44 },
