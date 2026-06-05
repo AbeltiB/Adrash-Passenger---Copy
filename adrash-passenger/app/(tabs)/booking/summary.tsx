@@ -18,7 +18,39 @@ import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { useCreateBooking } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
 import { bookingService } from '@/features/passenger-booking/services/bookingService';
+import { toAppError } from '@/features/passenger-booking/utils/errors';
 import { useRewardsBalance } from '../../../src/features/profile/hooks/useRewardsBalance';
+
+// ── Booking error → user-friendly message ─────────────────────────────────────
+
+function friendlyBookingError(err: ReturnType<typeof toAppError>): string {
+    const msg  = err.message.toLowerCase();
+    const code = (err.code ?? '').toLowerCase();
+
+    if (code.includes('seat') || msg.includes('seat') || msg.includes('already booked')) {
+        return 'The seats could not be reserved — they may have just been taken. Please try again.';
+    }
+    if (msg.includes('pending') || msg.includes('maximum') || code.includes('maxpending')) {
+        return 'You already have 2 pending bookings. Complete or cancel one before creating a new one.';
+    }
+    if (msg.includes('not scheduled') || msg.includes('not available') || code.includes('trip')) {
+        return 'This trip is no longer available. Please go back and choose another.';
+    }
+    if (msg.includes('pickup') || msg.includes('dropoff') || msg.includes('downstream')) {
+        return 'Pickup or drop-off selection is invalid. Please go back and reselect.';
+    }
+    if (msg.includes('point') || msg.includes('redeem') || msg.includes('balance')) {
+        return 'Could not apply your rewards points. Try booking without the rewards discount.';
+    }
+    // 422 unprocessable: show the raw message if it's not empty (often readable)
+    if (err.status === 422 && err.message && err.message !== 'Request failed') {
+        return err.message;
+    }
+    if (err.status === 400 && err.message && err.message !== 'Request failed') {
+        return err.message;
+    }
+    return 'Booking failed. Please check your details and try again.';
+}
 
 function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
     return (
@@ -43,11 +75,14 @@ export default function SummaryScreen() {
         ? Math.round(maxEtbDiscount)
         : 0;
 
-    const fare = bookingService.calculateFare(
-        f.selectedSeats.length,
-        pointsToRedeem,
-        f.selectedTrip?.fare,
-    );
+    // Only compute the breakdown when the fare is known from the API.
+    // If the trip has no fare set (new route, pricing not configured yet),
+    // show a "calculated at checkout" placeholder instead of a fake number.
+    const farePerSeat = f.selectedTrip?.fare;
+    const fareKnown   = farePerSeat != null;
+    const fare        = fareKnown
+        ? bookingService.calculateFare(f.selectedSeats.length, pointsToRedeem, farePerSeat)
+        : null;
 
     async function handleCreateBooking() {
         setError('');
@@ -70,7 +105,7 @@ export default function SummaryScreen() {
             f.setPoints(pointsToRedeem);
             router.push('/(tabs)/booking/payment');
         } catch (e) {
-            setError(e instanceof Error ? e.message : t('errors.generic'));
+            setError(friendlyBookingError(toAppError(e)));
         }
     }
 
@@ -140,20 +175,27 @@ export default function SummaryScreen() {
                 {/* ── Fare breakdown ── */}
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>{t('booking.summary.total')}</Text>
-                    <Row label={t('booking.summary.subtotal')}   value={`ETB ${fare.subtotal}`} />
-                    <Row label={t('booking.summary.service_fee')} value={`ETB ${fare.serviceFee}`} />
-                    {useRewards && fare.rewardsDiscount > 0 && (
-                        <Row
-                            label={t('booking.summary.redeem_amount', { amount: fare.rewardsDiscount })}
-                            value={`−ETB ${fare.rewardsDiscount}`}
-                        />
+                    {fare != null ? (
+                        <>
+                            <Row label={t('booking.summary.subtotal')}    value={`ETB ${fare.subtotal}`} />
+                            <Row label={t('booking.summary.service_fee')} value={`ETB ${fare.serviceFee}`} />
+                            {useRewards && fare.rewardsDiscount > 0 && (
+                                <Row
+                                    label={t('booking.summary.redeem_amount', { amount: fare.rewardsDiscount })}
+                                    value={`−ETB ${fare.rewardsDiscount}`}
+                                />
+                            )}
+                            <View style={styles.totalDivider} />
+                            <Row label={t('booking.summary.total')} value={`ETB ${fare.total}`} bold />
+                        </>
+                    ) : (
+                        <View style={styles.fareUnknown}>
+                            <Text style={styles.fareUnknownText}>
+                                Fare will be calculated at checkout.{'\n'}
+                                The exact amount is shown before you pay.
+                            </Text>
+                        </View>
                     )}
-                    <View style={styles.totalDivider} />
-                    <Row
-                        label={t('booking.summary.total')}
-                        value={`ETB ${fare.total}`}
-                        bold
-                    />
                 </View>
 
                 {/* ── Error ── */}
@@ -262,6 +304,18 @@ const styles = StyleSheet.create({
     fareValue:     { fontSize: 14, color: Colors.text.primary },
     fareValueBold: { fontWeight: '800', color: Colors.brand.primary, fontSize: 18 },
     totalDivider:  { height: 1, backgroundColor: Colors.border.light, marginVertical: Spacing.xs },
+
+    fareUnknown: {
+        backgroundColor: Colors.background.secondary,
+        borderRadius: BorderRadius.md,
+        padding: Spacing.md,
+    },
+    fareUnknownText: {
+        color: Colors.text.tertiary,
+        fontSize: 13,
+        lineHeight: 20,
+        textAlign: 'center',
+    },
 
     error: { color: Colors.semantic.error, fontWeight: '700', textAlign: 'center' },
     ctaBtn: {

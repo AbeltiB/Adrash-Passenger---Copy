@@ -89,7 +89,11 @@ function TripCard({ trip, onPress }: { trip: TripDTO; onPress: () => void }) {
                 </View>
                 <View style={styles.priceBox}>
                     <Text style={styles.priceLabel}>From</Text>
-                    <Text style={styles.price}>ETB {trip.fare ?? 650}</Text>
+                    {trip.fare != null ? (
+                        <Text style={styles.price}>ETB {trip.fare}</Text>
+                    ) : (
+                        <Text style={[styles.price, styles.priceTbd]}>TBD</Text>
+                    )}
                     <Text style={styles.priceSub}>/ seat</Text>
                 </View>
             </View>
@@ -340,6 +344,7 @@ const styles = StyleSheet.create({
     priceLabel: { color: Colors.text.tertiary, fontSize: 11 },
     price:     { fontWeight: '900', fontSize: 20, color: Colors.brand.primary },
     priceSub:  { color: Colors.text.tertiary, fontSize: 11 },
+    priceTbd:  { fontSize: 16, color: Colors.text.tertiary },
 
     urgencyBadge: {
         alignSelf: 'flex-start',
