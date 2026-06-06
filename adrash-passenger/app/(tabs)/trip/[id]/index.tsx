@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { useBookingDetail } from '@/features/passenger-booking/hooks/usePassengerBooking';
+import { QRCode } from '@/components/QRCode';
 import type { BookingStatusDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 
 // ─── QR display (same pattern as confirmation screen) ────────────────────────
@@ -25,8 +26,7 @@ function QRDisplay({ data, bookingRef }: { data: string; bookingRef: string }) {
             <View style={styles.qrCard}>
                 <Text style={styles.qrBrand}>አድራሽ  ·  ADRASH</Text>
                 <View style={styles.qrBox}>
-                    <Text style={styles.qrIcon}>▦</Text>
-                    <Text style={styles.qrDataText} numberOfLines={2}>{data}</Text>
+                    <QRCode value={data} size={160} />
                 </View>
                 <Text style={styles.qrPrompt}>Show this to your driver</Text>
                 <View style={styles.qrDivider} />

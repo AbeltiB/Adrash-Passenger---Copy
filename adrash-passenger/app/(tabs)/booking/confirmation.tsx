@@ -14,14 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { useBookingDetail } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
+import { QRCode } from '@/components/QRCode';
 
 // ─── QR ticket display ────────────────────────────────────────────────────────
-// react-native-qrcode-svg is not yet installed.
-// To enable real QR:
-//   1. npm install react-native-qrcode-svg react-native-svg
-//   2. Replace QRDisplay with:
-//      import QRCode from 'react-native-qrcode-svg';
-//      <QRCode value={data} size={180} />
 
 function QRDisplay({ data, bookingRef }: { data: string; bookingRef: string }) {
     return (
@@ -33,10 +28,8 @@ function QRDisplay({ data, bookingRef }: { data: string; bookingRef: string }) {
                 {/* Header */}
                 <Text style={styles.qrBrand}>አድራሽ  ·  ADRASH</Text>
 
-                {/* Visual QR placeholder — replace with <QRCode value={data} size={180} /> */}
                 <View style={styles.qrBox}>
-                    <Text style={styles.qrIcon}>▦</Text>
-                    <Text style={styles.qrDataText} numberOfLines={2}>{data}</Text>
+                    <QRCode value={data} size={180} />
                 </View>
 
                 <Text style={styles.qrPrompt}>Show this to your driver</Text>

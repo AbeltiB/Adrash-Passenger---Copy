@@ -229,7 +229,8 @@ export default function PaymentScreen() {
 
                             <View style={styles.instructionCard}>
                                 <Text style={styles.instructionText}>
-                                    {selectedInfo.instructions}
+                                    📲 A USSD prompt will appear on your phone. Enter your
+                                    wallet PIN to approve the payment.
                                 </Text>
                             </View>
                         </>

@@ -18,6 +18,7 @@ import { router } from 'expo-router';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import type { BookingDTO, BookingStatusDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 import { useBookings } from '@/features/passenger-booking/hooks/usePassengerBooking';
+import { QRCode } from '@/components/QRCode';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,16 +31,11 @@ const TAB_STATUS: Record<Tab, BookingStatusDTO> = {
 };
 
 // ─── QR ticket display ────────────────────────────────────────────────────────
-// react-native-qrcode-svg is not yet installed.
-// When added: replace this component with <QRCode value={data} size={86} />.
 
-function QRPlaceholder({ data }: { data: string }) {
+function TicketQR({ data }: { data: string }) {
     return (
         <View style={styles.qrBox}>
-            <View style={styles.qrInner}>
-                <Text style={styles.qrIcon}>▦</Text>
-                <Text style={styles.qrRef} numberOfLines={1}>{data.slice(0, 12)}</Text>
-            </View>
+            <QRCode value={data} size={96} padding={6} />
         </View>
     );
 }
@@ -100,7 +96,7 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
             </Text>
 
             {/* QR code */}
-            {qrData ? <QRPlaceholder data={qrData} /> : null}
+            {qrData ? <TicketQR data={qrData} /> : null}
 
             {/* Refund status (cancelled/past) */}
             {booking.refundStatus ? (
@@ -133,7 +129,7 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
 
                 <Pressable
                     style={styles.ghostBtn}
-                    onPress={() => router.push(`/(tabs)/trip/${booking.tripId}/index`)}
+                    onPress={() => router.push({ pathname: '/(tabs)/trip/[id]', params: { id: booking.id } })}
                 >
                     <Text style={styles.ghostBtnText}>View ticket</Text>
                 </Pressable>
