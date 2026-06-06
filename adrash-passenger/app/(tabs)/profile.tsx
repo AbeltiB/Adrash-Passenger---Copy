@@ -126,7 +126,7 @@ export default function ProfileTab() {
         } else {
             if (pinConfirm !== pinNew) { setPinError(t('auth.pin_setup.mismatch')); return; }
             changePin(
-                { newPin: pinNew, currentPin: pinCurrent },
+                { pin: pinNew, currentPin: pinCurrent },
                 {
                     onSuccess: () => { setPinOpen(false); Alert.alert(t('profile.pin_changed')); },
                     onError:   () => { setPinError(t('profile.pin_wrong')); setPinPhase('current'); },

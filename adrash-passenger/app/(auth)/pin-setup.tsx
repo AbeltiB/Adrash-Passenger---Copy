@@ -25,8 +25,25 @@ type Step = 'enter' | 'confirm';
 
 function getErrorMessage(error: unknown): string {
     if (error && typeof error === 'object' && 'response' in error) {
-        const response = (error as { response?: { data?: { message?: string } } }).response;
-        return response?.data?.message ?? 'Could not save PIN. Please try again.';
+        const data = (error as { response?: { data?: unknown } }).response?.data as
+            | {
+                  message?: string;
+                  title?: string;
+                  detail?: string;
+                  // App envelope: errors as a string[]; ASP.NET ValidationProblemDetails: { field: string[] }
+                  errors?: string[] | Record<string, string[]>;
+              }
+            | undefined;
+        if (data) {
+            if (Array.isArray(data.errors) && typeof data.errors[0] === 'string') return data.errors[0];
+            if (data.errors && typeof data.errors === 'object') {
+                const first = Object.values(data.errors).flat()[0];
+                if (typeof first === 'string') return first;
+            }
+            if (data.message) return data.message;
+            if (data.detail) return data.detail;
+            if (data.title) return data.title;
+        }
     }
     if (error instanceof Error) return error.message;
     return 'Could not save PIN. Please try again.';
@@ -148,7 +165,7 @@ export default function PinSetupScreen() {
                 }
                 // PINs match — save
                 setupPin(
-                    { newPin: pin, currentPin: null },
+                    { pin },
                     {
                         onSuccess: () => router.replace('/(tabs)'),
                     },
