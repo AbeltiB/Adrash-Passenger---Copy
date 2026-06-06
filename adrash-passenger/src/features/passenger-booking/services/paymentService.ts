@@ -23,7 +23,7 @@ export const SANTIMPAY_PARTNERS: PartnerInfo[] = [
         accountHint:  'Phone number registered with Telebirr',
     },
     {
-        partner:      'CBEBirr',
+        partner:      'Cbe Birr',
         label:        'CBE Birr',
         description:  'Commercial Bank of Ethiopia',
         emoji:        '🏦',
@@ -31,7 +31,7 @@ export const SANTIMPAY_PARTNERS: PartnerInfo[] = [
         accountHint:  'Phone number registered with CBE Birr',
     },
     {
-        partner:      'MPesa',
+        partner:      'M-Pesa',
         label:        'M-Pesa',
         description:  'Safaricom M-Pesa',
         emoji:        '🌿',

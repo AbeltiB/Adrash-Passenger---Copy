@@ -1,4 +1,8 @@
-export interface RouteDTO { id: string; originCity: string; destinationCity: string; distanceKm: number; estimatedDurationMin: number; polyline?: string | null; stops?: StopDTO[]; baseFare?: number; }
+export interface GpsPointDTO { lat: number; lng: number; }
+// `gpsPolyline` is the route geometry as the backend returns it (RouteDto.gpsPolyline:
+// an ordered array of {lat,lng}). `polyline` (encoded string) is legacy/unused — the
+// API never sends it. Render maps from gpsPolyline.
+export interface RouteDTO { id: string; originCity: string; destinationCity: string; distanceKm: number; estimatedDurationMin: number; gpsPolyline?: GpsPointDTO[]; polyline?: string | null; stops?: StopDTO[]; baseFare?: number; }
 export interface PickupLocationDTO { id: string; name: string; lat: number; lng: number; description: string; sequenceOrder: number; }
 export interface StopDTO { id: string; name: string; lat: number; lng: number; sequenceOrder: number; isPickup: boolean; isDropoff: boolean; }
 export type TripStatusDTO = 'Scheduled' | 'InProgress' | 'Completed';
@@ -13,7 +17,10 @@ export interface BookingDTO { id: string; bookingReference: string; tripId: stri
 // SantimPay is the only live aggregator. ADC is a skeleton and non-functional.
 // santimPayPartner picks the downstream rail that SantimPay routes through.
 export type PaymentMethodDTO  = 'SantimPay' | 'ADC';
-export type SantimPayPartner  = 'Telebirr' | 'CBEBirr' | 'MPesa';
+// These values are sent verbatim to SantimPay as `paymentMethod`, so they must
+// match SantimPay's catalogue names exactly (server forwards them unchanged).
+// Confirmed names: "Telebirr", "Cbe Birr", "M-Pesa".
+export type SantimPayPartner  = 'Telebirr' | 'Cbe Birr' | 'M-Pesa';
 export interface InitiatePaymentDTO { bookingId: string; method: PaymentMethodDTO; accountRef: string; santimPayPartner?: SantimPayPartner; }
 export type PaymentStatusDTO = 'Pending' | 'Processing' | 'Success' | 'Failed' | 'TimedOut' | 'Expired';
 export interface PaymentTransactionDTO { transactionId: string; bookingId: string; status: PaymentStatusDTO; method: PaymentMethodDTO; santimPayPartner?: SantimPayPartner; amount?: number; providerInstructions?: string; expiresAt?: string; maskedAccountRef?: string; }

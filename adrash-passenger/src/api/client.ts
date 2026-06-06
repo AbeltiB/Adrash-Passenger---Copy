@@ -16,12 +16,13 @@ import axios, {
 import { router } from 'expo-router';
 import { ENDPOINTS } from './endpoints';
 import {
+    authTokensFromPair,
     clearTokens,
     getAccessToken,
     getRefreshToken,
     storeTokens,
 } from '../features/auth/utils/token';
-import type { AuthTokens } from '../types';
+import type { TokenPairDto } from '../types';
 
 const RAW_API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.adrash.et';
 
@@ -144,13 +145,12 @@ apiClient.interceptors.response.use(
             const rt = await getRefreshToken();
             if (!rt) throw new Error('no-refresh-token');
 
-            const { data } = await axios.post<{
-                access_token: string;
-                expires_in: number;
-                refresh_token?: string;
-            }>(
+            // Backend contract: body is camelCase { refreshToken } and the
+            // response is a camelCase TokenPair { accessToken, accessTokenExpiresAt,
+            // refreshToken, refreshTokenExpiresAt } — NOT snake_case OAuth fields.
+            const { data } = await axios.post<TokenPairDto>(
                 `${API_V1_BASE}${ENDPOINTS.AUTH.REFRESH}`,
-                { refresh_token: rt },
+                { refreshToken: rt },
                 {
                     headers: {
                         'Content-Type': 'application/json',
@@ -159,20 +159,11 @@ apiClient.interceptors.response.use(
                 },
             );
 
-            // Build a correctly-typed AuthTokens object.
-            // refreshToken is optional on AuthTokens so only include it when present.
-            const tokens: AuthTokens = {
-                accessToken: data.access_token,
-                expiresIn:   data.expires_in,
-                ...(data.refresh_token !== undefined
-                    ? { refreshToken: data.refresh_token }
-                    : {}),
-            };
-
+            const tokens = authTokensFromPair(data);
             await storeTokens(tokens);
 
-            flushQueue(null, data.access_token);
-            original.headers.Authorization = `Bearer ${data.access_token}`;
+            flushQueue(null, tokens.accessToken);
+            original.headers.Authorization = `Bearer ${tokens.accessToken}`;
             return apiClient(original);
 
         } catch (refreshErr) {

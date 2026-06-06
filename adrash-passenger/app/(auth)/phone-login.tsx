@@ -25,6 +25,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius } from '../../src/constants';
+import {
+    formatLocalPhone,
+    isValidLocalPhone,
+    sanitizeLocalPhone,
+    toE164,
+} from '../../src/lib/phone';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
 import { usePinVerify } from '../../src/features/auth/hooks/usePinVerify';
 import { useOtpSend } from '../../src/features/auth/hooks/useOtpSend';
@@ -39,19 +45,15 @@ const PIN_LENGTH = 6;
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function normalisePhone(raw: string): string {
-    const digits = raw.replace(/\D/g, '');
-    const local  = digits.startsWith('0') ? digits.slice(1) : digits;
-    return `+251${local}`;
+    return toE164(raw);
 }
 
 function isValidEthiopianPhone(raw: string): boolean {
-    return /^(09|9|07|7)\d{8}$/.test(raw.replace(/\D/g, ''));
+    return isValidLocalPhone(sanitizeLocalPhone(raw));
 }
 
 function displayPhone(raw: string): string {
-    const digits = raw.replace(/\D/g, '');
-    if (digits.length <= 4) return digits;
-    return `${digits.slice(0, 4)} ${digits.slice(4)}`;
+    return formatLocalPhone(raw);
 }
 
 function getErrorMessage(error: unknown): string {
@@ -165,9 +167,8 @@ export default function PhoneLoginScreen() {
     useEffect(() => {
         getDevicePhone().then((stored) => {
             if (!stored) return;
-            // stored is E.164 like +2519XXXXXXXX — strip +251
-            const digits = stored.replace(/^\+251/, '');
-            setRawPhone(digits);
+            // stored is E.164 like +2519XXXXXXXX — keep just the 9-digit local part
+            setRawPhone(sanitizeLocalPhone(stored.replace(/^\+251/, '')));
         });
         getDeviceToken().then(setDeviceToken);
     }, []);
@@ -318,12 +319,10 @@ export default function PhoneLoginScreen() {
                         <TextInput
                             style={styles.input}
                             keyboardType="phone-pad"
-                            placeholder="09XX XXX XXX"
+                            placeholder="9XX XXX XXX"
                             placeholderTextColor={Colors.text.disabled}
                             value={displayPhone(rawPhone)}
-                            onChangeText={(t) =>
-                                setRawPhone(t.replace(/\D/g, '').slice(0, 10))
-                            }
+                            onChangeText={(t) => setRawPhone(sanitizeLocalPhone(t))}
                             maxLength={11}
                             returnKeyType="done"
                             onSubmitEditing={handlePhoneContinue}

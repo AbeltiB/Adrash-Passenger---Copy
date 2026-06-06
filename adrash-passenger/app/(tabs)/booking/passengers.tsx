@@ -59,13 +59,13 @@ function PassengerCard({ index, seat, data, onChange, error }: PassengerCardProp
                     style={styles.input}
                     value={data.phone}
                     onChangeText={(v) => onChange('phone', v)}
-                    placeholder="09XX XXX XXX  or  +251 9XX XXX XXX"
+                    placeholder="+251 9XX XXX XXX"
                     placeholderTextColor={Colors.text.disabled}
                     keyboardType="phone-pad"
                     autoCorrect={false}
                     maxLength={15}
                 />
-                <Text style={styles.phoneHint}>Ethio Telecom (09XX) · Safaricom (07XX)</Text>
+                <Text style={styles.phoneHint}>Ethio Telecom (9XX) · Safaricom (7XX)</Text>
             </View>
 
             <View style={styles.kinDivider}>
@@ -91,7 +91,7 @@ function PassengerCard({ index, seat, data, onChange, error }: PassengerCardProp
                     style={styles.input}
                     value={data.nextOfKinPhone}
                     onChangeText={(v) => onChange('nextOfKinPhone', v)}
-                    placeholder="09XX XXX XXX  or  +251 9XX XXX XXX"
+                    placeholder="+251 9XX XXX XXX"
                     placeholderTextColor={Colors.text.disabled}
                     keyboardType="phone-pad"
                     autoCorrect={false}
@@ -123,8 +123,14 @@ export default function PassengersScreen() {
     );
 
     function update(index: number, field: keyof PassengerDetailDTO, value: string) {
+        // Phone fields: the +251 country code is implied, so a leading 0 is
+        // never valid — strip it as the user types (e.g. 09… → 9…).
+        const clean =
+            field === 'phone' || field === 'nextOfKinPhone'
+                ? value.replace(/^0+/, '')
+                : value;
         const next = passengers.map((p, i) =>
-            i === index ? { ...p, [field]: value } : p,
+            i === index ? { ...p, [field]: clean } : p,
         );
         setPassengers(next);
         // Clear inline error for this passenger when user edits

@@ -43,7 +43,7 @@ function friendlyBookingError(err: ReturnType<typeof toAppError>): string {
         return 'Could not apply your rewards points. Try booking without the rewards discount.';
     }
     if (msg.includes('phone') || msg.includes('passenger') || code.includes('passenger')) {
-        return 'A passenger phone number is invalid. Please go back and correct it (+251 9XX or 09XX format).';
+        return 'A passenger phone number is invalid. Please go back and correct it (+251 9XX XXX XXX format).';
     }
     // 422/400: show server message only when it's readable (not the raw Axios status string)
     const isRawAxios = /^request failed/i.test(err.message);
@@ -149,7 +149,10 @@ export default function SummaryScreen() {
                     <Text style={styles.cardSub}>{departureDate}</Text>
                     <View style={styles.detailRow}>
                         <Text style={styles.detailLabel}>{t('booking.summary.seats')}</Text>
-                        <Text style={styles.detailValue}>{f.selectedSeats.join(', ')}</Text>
+                        {/* Seats are auto-assigned (FCFS) at booking, not picked here. */}
+                        <Text style={styles.detailValue}>
+                            {f.selectedSeats.length} · assigned at booking
+                        </Text>
                     </View>
                     <View style={styles.detailRow}>
                         <Text style={styles.detailLabel}>{t('booking.pickup.title')}</Text>

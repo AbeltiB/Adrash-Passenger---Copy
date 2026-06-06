@@ -6,15 +6,40 @@ import type { NotificationDto } from '../../../api/types';
 
 export const NOTIFICATIONS_KEY = ['notifications'] as const;
 
+// Backend NotificationDto is { id, type, title, body, isRead, metadataJson?, createdAt }.
+// The app reads `eventType` (icon) and `deepLink` (navigation), so map the API's
+// `type` → eventType and pull a deepLink out of metadataJson when present.
+function mapNotification(raw: unknown): NotificationDto {
+    const r = (raw ?? {}) as Record<string, unknown>;
+    let deepLink: string | null = typeof r.deepLink === 'string' ? r.deepLink : null;
+    if (!deepLink && typeof r.metadataJson === 'string') {
+        try {
+            const meta = JSON.parse(r.metadataJson) as { deepLink?: string; url?: string } | null;
+            deepLink = meta?.deepLink ?? meta?.url ?? null;
+        } catch {
+            deepLink = null;
+        }
+    }
+    return {
+        id: String(r.id ?? ''),
+        title: typeof r.title === 'string' ? r.title : '',
+        body: typeof r.body === 'string' ? r.body : '',
+        eventType: (r.eventType ?? r.type ?? null) as NotificationDto['eventType'],
+        isRead: Boolean(r.isRead),
+        createdAt: typeof r.createdAt === 'string' ? r.createdAt : '',
+        deepLink,
+    };
+}
+
 export function useNotifications() {
     return useInfiniteQuery({
         queryKey: NOTIFICATIONS_KEY,
         queryFn: ({ pageParam = 1, signal }) =>
-            getPage<NotificationDto>(
+            getPage<unknown>(
                 ENDPOINTS.NOTIFICATIONS.LIST,
                 { page: pageParam as number, pageSize: 20 },
                 signal,
-            ),
+            ).then((p) => ({ ...p, items: p.items.map(mapNotification) })),
         initialPageParam: 1,
         getNextPageParam: (last) => {
             if (last.meta?.totalPages && last.meta.page && last.meta.page < last.meta.totalPages) {

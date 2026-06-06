@@ -3,42 +3,26 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius } from '../../src/constants';
 import { useOtpSend } from '../../src/features/auth/hooks/useOtpSend';
+import {
+  formatLocalPhone,
+  isValidLocalPhone,
+  networkLabel,
+  sanitizeLocalPhone,
+  toE164,
+} from '../../src/lib/phone';
 
 /**
- * Accepted formats:
- *   09XXXXXXXX  (10 digits, EthioTelecom)
- *   9XXXXXXXX   (9 digits,  EthioTelecom)
- *   07XXXXXXXX  (10 digits, Safaricom)
- *   7XXXXXXXX   (9 digits,  Safaricom)
- *
- * All normalised to +2519XXXXXXXX or +2517XXXXXXXX before API call.
+ * +251 is prefilled; the user enters only the 9-digit local number starting
+ * with 9 (Ethio Telecom) or 7 (Safaricom). A leading 0 is stripped on input,
+ * and the number is normalised to +2519XXXXXXXX / +2517XXXXXXXX for the API.
  */
 
-const ETHIOPIAN_PHONE_RE = /^(09|9|07|7)\d{8}$/;
-
-function stripLeadingZero(raw: string): string {
-  return raw.startsWith('0') ? raw.slice(1) : raw;
-}
-
-function displayFormat(raw: string): string {
-  const digits = raw.replace(/\D/g, '');
-  if (digits.length <= 4) return digits;
-  return `${digits.slice(0, 4)} ${digits.slice(4)}`;
-}
-
 export function normaliseEthiopianPhone(raw: string): string {
-  const digits = raw.replace(/\D/g, '');
-  const local = stripLeadingZero(digits);
-  return `+251${local}`;
-}
-
-function isValidPhone(raw: string): boolean {
-  const digits = raw.replace(/\D/g, '');
-  return ETHIOPIAN_PHONE_RE.test(digits);
+  return toE164(raw);
 }
 
 function getErrorMessage(error: unknown): string {
@@ -54,11 +38,10 @@ export default function PhoneScreen() {
   const { t } = useTranslation();
   const [raw, setRaw] = useState('');
   const sendOtp = useOtpSend();
-  const valid = isValidPhone(raw);
+  const valid = isValidLocalPhone(raw);
 
   const handleChange = (text: string) => {
-    const digits = text.replace(/\D/g, '').slice(0, 10);
-    setRaw(digits);
+    setRaw(sanitizeLocalPhone(text));
   };
 
   const handleContinue = () => {
@@ -76,12 +59,7 @@ export default function PhoneScreen() {
     );
   };
 
-  const networkHint = (() => {
-    const d = raw.replace(/\D/g, '');
-    if (d.startsWith('09') || d.startsWith('9')) return 'Ethio Telecom';
-    if (d.startsWith('07') || d.startsWith('7')) return 'Safaricom ET';
-    return null;
-  })();
+  const networkHint = networkLabel(raw);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -105,9 +83,9 @@ export default function PhoneScreen() {
           <TextInput
             style={styles.input}
             keyboardType="phone-pad"
-            placeholder="09XX XXX XXX"
+            placeholder="9XX XXX XXX"
             placeholderTextColor={Colors.text.disabled}
-            value={displayFormat(raw)}
+            value={formatLocalPhone(raw)}
             onChangeText={handleChange}
             maxLength={11}
             returnKeyType="done"
@@ -126,10 +104,6 @@ export default function PhoneScreen() {
 
         {sendOtp.error ? <Text style={styles.error}>{getErrorMessage(sendOtp.error)}</Text> : null}
 
-        <Text style={styles.formatHelper}>
-          Accepted: 09XXXXXXXX · 9XXXXXXXX · 07XXXXXXXX · 7XXXXXXXX
-        </Text>
-
         <Pressable
           style={[styles.cta, (!valid || sendOtp.isPending) && styles.ctaDisabled]}
           onPress={handleContinue}
@@ -138,7 +112,14 @@ export default function PhoneScreen() {
           <Text style={styles.ctaText}>{sendOtp.isPending ? t('auth.phone.sending') : t('auth.phone.send_otp')}</Text>
         </Pressable>
 
-        <Text style={styles.terms}>{t('auth.phone.terms')}</Text>
+        <Pressable
+          style={styles.poweredBy}
+          onPress={() => Linking.openURL('https://bstechnologiesplc.com')}
+        >
+          <Text style={styles.poweredByText}>
+            Powered by <Text style={styles.poweredByLink}>BS Technologies</Text>
+          </Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -178,13 +159,13 @@ const styles = StyleSheet.create({
   },
   networkHint: { color: Colors.brand.primary, fontSize: 12, fontWeight: '600', marginTop: 2 },
   error: { color: Colors.semantic.error, fontSize: 13, marginTop: 2 },
-  formatHelper: { color: Colors.text.tertiary, fontSize: 11, marginTop: 4 },
   cta: {
     backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg,
     paddingVertical: 16, alignItems: 'center', marginTop: Spacing.md,
   },
   ctaDisabled: { backgroundColor: Colors.neutral.gray300 },
   ctaText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  terms: { textAlign: 'center', color: Colors.text.tertiary, fontSize: 12, marginTop: Spacing.md },
-  link: { color: Colors.brand.primary, fontWeight: '600' },
+  poweredBy: { alignItems: 'center', marginTop: Spacing.md },
+  poweredByText: { textAlign: 'center', color: Colors.text.tertiary, fontSize: 12 },
+  poweredByLink: { color: Colors.brand.primary, fontWeight: '600' },
 });

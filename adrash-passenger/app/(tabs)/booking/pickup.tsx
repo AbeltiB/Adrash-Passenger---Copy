@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
+import { hasGoogleMaps } from '@/lib/maps';
 import { StateView } from '@/features/passenger-booking/components/BookingUi';
 import { useRouteBundle } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
@@ -112,7 +113,10 @@ export default function PickupScreen() {
         [stops],
     );
     const mapRegion = useMemo(() => calcRegion(stopCoords), [stopCoords]);
-    const hasMap    = mapRegion !== null;
+    // Only render the native map when coordinates exist AND a Google Maps key is
+    // configured — otherwise MapView crashes on Android. Falls back to the
+    // route timeline below.
+    const hasMap    = mapRegion !== null && hasGoogleMaps;
 
     const polylineCoords = useMemo(
         () => [...stops]

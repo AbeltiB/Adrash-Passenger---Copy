@@ -2,12 +2,15 @@ import type { CreateBookingDTO, PassengerDetailDTO, PickupLocationDTO, StopDTO }
 import { bookingRepository } from '../repositories/bookingRepository';
 import { routeService } from './routeService';
 
-// Accepts Ethio Telecom (9...) and Safaricom Ethiopia (7...) with local 0 prefix or +251 prefix.
-const ETH_PHONE = /^(\+251|0)?[79]\d{8}$/;
+// Accepts Ethio Telecom (9...) and Safaricom Ethiopia (7...) as a 9-digit local
+// number or with the +251 prefix. A leading 0 is NOT accepted — the country
+// code is always +251 and the local number starts directly with 9 or 7.
+const ETH_PHONE = /^(\+251)?[79]\d{8}$/;
 
 // Normalize any valid Ethiopian phone to E.164 (+251XXXXXXXXX).
 // The server forwards phone numbers verbatim to SantimPay and other providers,
-// so local-format numbers (09...) must be converted before any API call.
+// so local numbers must be converted before any API call. A stray leading 0 is
+// still tolerated here for safety, but the UI prevents it from being entered.
 export function normalizePhone(raw: string): string {
     const s = raw.replace(/[\s\-()+]/g, '');
     if (/^\+251[79]\d{8}$/.test(raw.trim())) return raw.trim();

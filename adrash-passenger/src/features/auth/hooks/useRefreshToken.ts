@@ -2,9 +2,9 @@ import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_V1_BASE } from '../../../api/client';
 import { ENDPOINTS } from '../../../api/endpoints';
-import { getRefreshToken, storeTokens, clearTokens } from '../utils/token';
+import { authTokensFromPair, getRefreshToken, storeTokens, clearTokens } from '../utils/token';
 import { useAuthStore } from '../store/authStore';
-import type { AuthTokens, RefreshTokenResponse } from '../../../types';
+import type { AuthTokens, TokenPairDto } from '../../../types';
 
 
 /** Manual token refresh hook. The apiClient interceptor handles automatic 401 refreshes. */
@@ -16,13 +16,13 @@ export function useRefreshToken() {
             const refreshToken = await getRefreshToken();
             if (!refreshToken) throw new Error('No refresh token available');
 
-            const { data } = await axios.post<RefreshTokenResponse>(
+            const { data } = await axios.post<TokenPairDto>(
                 `${API_V1_BASE}${ENDPOINTS.AUTH.REFRESH}`,
-                { refresh_token: refreshToken },
+                { refreshToken },
                 { headers: { 'Content-Type': 'application/json', Accept: 'application/json' } },
             );
 
-            return { accessToken: data.access_token, expiresIn: data.expires_in };
+            return authTokensFromPair(data);
         },
         onSuccess: async (tokens) => {
             await storeTokens(tokens);

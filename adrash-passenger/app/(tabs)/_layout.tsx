@@ -70,7 +70,6 @@ export default function TabsLayout() {
 
             {/* Booking flow */}
             <Tabs.Screen name="booking/pickup"       options={{ href: null }} />
-            <Tabs.Screen name="booking/seats"        options={{ href: null }} />
             <Tabs.Screen name="booking/passengers"   options={{ href: null }} />
             <Tabs.Screen name="booking/summary"      options={{ href: null }} />
             <Tabs.Screen name="booking/payment"      options={{ href: null }} />

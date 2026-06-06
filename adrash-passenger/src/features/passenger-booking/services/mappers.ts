@@ -40,6 +40,17 @@ function str(v: unknown): string | undefined {
     return typeof v === 'string' ? v : undefined;
 }
 
+/**
+ * Drop keys whose value is `undefined`, then assert the target type. The app's
+ * DTOs use `exactOptionalPropertyTypes`, so an optional field must be omitted
+ * rather than explicitly set to `undefined`.
+ */
+function compact<T>(obj: Raw): T {
+    const out: Raw = {};
+    for (const k in obj) if (obj[k] !== undefined) out[k] = obj[k];
+    return out as T;
+}
+
 export function mapTrip(raw: unknown): TripDTO {
     const r = asRaw(raw);
 
@@ -48,7 +59,7 @@ export function mapTrip(raw: unknown): TripDTO {
         r.driver !== undefined
             ? (r.driver as DriverDTO)
             : r.driverName || r.driverId
-              ? { id: str(r.driverId), fullName: str(r.driverName), phone: str(r.driverPhone) }
+              ? compact<DriverDTO>({ id: str(r.driverId), fullName: str(r.driverName), phone: str(r.driverPhone) })
               : undefined;
 
     // Bus: detail endpoint returns flat busPlate/busId (no model/capacity).
@@ -56,7 +67,7 @@ export function mapTrip(raw: unknown): TripDTO {
         r.bus !== undefined
             ? (r.bus as BusDTO)
             : r.busPlate || r.busId
-              ? { id: str(r.busId), plateNumber: str(r.busPlate) }
+              ? compact<BusDTO>({ id: str(r.busId), plateNumber: str(r.busPlate) })
               : undefined;
 
     // Route: summary returns flat originCity/destinationCity; detail returns only routeId.
@@ -73,7 +84,7 @@ export function mapTrip(raw: unknown): TripDTO {
                 }
               : undefined;
 
-    return {
+    return compact<TripDTO>({
         id: str(r.id) ?? '',
         routeId: str(r.routeId) ?? '',
         departureTime: str(r.departureTime) ?? '',
@@ -88,7 +99,7 @@ export function mapTrip(raw: unknown): TripDTO {
         bus,
         route,
         policies: Array.isArray(r.policies) ? (r.policies as string[]) : undefined,
-    };
+    });
 }
 
 export function mapBooking(raw: unknown): BookingDTO {
@@ -111,7 +122,7 @@ export function mapBooking(raw: unknown): BookingDTO {
                 })
               : undefined;
 
-    return {
+    return compact<BookingDTO>({
         id: str(r.id) ?? '',
         bookingReference: str(r.bookingReference) ?? str(r.bookingRef) ?? '',
         tripId: str(r.tripId) ?? '',
@@ -133,5 +144,5 @@ export function mapBooking(raw: unknown): BookingDTO {
             : undefined,
         refundStatus: str(r.refundStatus) ?? null,
         hasReview: typeof r.hasReview === 'boolean' ? r.hasReview : undefined,
-    };
+    });
 }

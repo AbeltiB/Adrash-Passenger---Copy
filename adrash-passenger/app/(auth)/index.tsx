@@ -159,8 +159,17 @@ export default function SplashScreen() {
     }, [setLanguage]);
 
     const handleContinue = useCallback(() => {
-        router.push('/(auth)/agreement');
-    }, []);
+        // Terms are shown only the first time the app runs on this device, and
+        // again when the agreement version changes. If the device has already
+        // accepted, skip straight to phone entry. A newer published version is
+        // still enforced after login via the server's isSigned check and the
+        // mid-session 403 re-accept interceptor.
+        if (hasAcceptedAgreement) {
+            router.push('/(auth)/phone');
+        } else {
+            router.push('/(auth)/agreement');
+        }
+    }, [hasAcceptedAgreement]);
 
     if (checking) {
         return (

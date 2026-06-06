@@ -212,7 +212,7 @@ export default function PaymentScreen() {
                                 <TextInput
                                     style={[styles.accountInput, accountRef.length > 3 && !phoneValid && styles.accountInputError]}
                                     value={accountRef}
-                                    onChangeText={(v) => { setAccountRef(v); setError(''); }}
+                                    onChangeText={(v) => { setAccountRef(v.replace(/^0+/, '')); setError(''); }}
                                     keyboardType="phone-pad"
                                     placeholder="+251 9XX XXX XXX"
                                     placeholderTextColor={Colors.text.disabled}
@@ -221,7 +221,7 @@ export default function PaymentScreen() {
                                 />
                                 {accountRef.length > 3 && !phoneValid ? (
                                     <Text style={styles.phoneHint}>
-                                        Enter your Ethiopian number: +251 9XX XXX XXX or 09XX XXX XXX
+                                        Enter your Ethiopian number: +251 9XX XXX XXX
                                     </Text>
                                 ) : null}
                             </View>

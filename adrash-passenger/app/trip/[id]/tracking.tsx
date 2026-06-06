@@ -17,7 +17,8 @@ import {
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
-import { useTrip, useTripLocation } from '@/features/passenger-booking/hooks/usePassengerBooking';
+import { hasGoogleMaps } from '@/lib/maps';
+import { useRouteBundle, useTrip, useTripLocation } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
 import { startTracking, stopTracking } from '@/lib/signalr';
 import { getAccessToken } from '@/features/auth/utils/token';
@@ -88,6 +89,10 @@ export default function TrackingScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const tripQuery = useTrip(id);
     const locQuery  = useTripLocation(id);   // polls /trips/{id}/location/latest every 5s
+    // Route geometry (gpsPolyline + origin/destination) — the trip-detail endpoint
+    // doesn't carry it, so fetch the route by the trip's routeId. Disabled until
+    // the trip (and its routeId) loads.
+    const routeBundle = useRouteBundle(tripQuery.data?.routeId);
     const flow      = useBookingFlowStore();
 
     const [livePos, setLivePos] = useState<LivePosition | null>(null);
@@ -171,6 +176,7 @@ export default function TrackingScreen() {
     }
 
     const trip    = tripQuery.data;
+    const route   = routeBundle.data?.route;
     const pickup  = flow.selectedPickup;
     const dropoff = flow.selectedDropoff;
 
@@ -184,6 +190,7 @@ export default function TrackingScreen() {
     return (
         <View style={styles.container}>
             {/* ── Map ── */}
+            {hasGoogleMaps ? (
             <MapView
                 ref={mapRef}
                 style={styles.map}
@@ -193,10 +200,11 @@ export default function TrackingScreen() {
                 showsCompass
                 mapType="standard"
             >
-                {/* Route polyline (if available) */}
-                {trip?.route?.polyline && (
+                {/* Route polyline — backend returns gpsPolyline as an ordered
+                    [{lat,lng}] array; map to react-native-maps coordinates. */}
+                {route?.gpsPolyline && route.gpsPolyline.length > 1 && (
                     <Polyline
-                        coordinates={decodePolyline(trip.route.polyline)}
+                        coordinates={route.gpsPolyline.map((p) => ({ latitude: p.lat, longitude: p.lng }))}
                         strokeColor={Colors.brand.primary}
                         strokeWidth={4}
                     />
@@ -237,6 +245,15 @@ export default function TrackingScreen() {
                     </Marker>
                 )}
             </MapView>
+            ) : (
+                <View style={[styles.map, styles.mapFallback]}>
+                    <Text style={styles.mapFallbackIcon}>🗺️</Text>
+                    <Text style={styles.mapFallbackText}>Live map unavailable</Text>
+                    <Text style={styles.mapFallbackSub}>
+                        Trip status and ETA continue to update below.
+                    </Text>
+                </View>
+            )}
 
             {/* ── Header overlay ── */}
             <SafeAreaView style={styles.headerOverlay} edges={['top']} pointerEvents="box-none">
@@ -246,7 +263,7 @@ export default function TrackingScreen() {
                     </Pressable>
                     <View style={{ flex: 1 }}>
                         <Text style={styles.headerRoute}>
-                            {trip?.route?.originCity ?? '…'}  →  {trip?.route?.destinationCity ?? '…'}
+                            {route?.originCity ?? trip?.route?.originCity ?? '…'}  →  {route?.destinationCity ?? trip?.route?.destinationCity ?? '…'}
                         </Text>
                         <Text style={styles.headerStatus}>
                             {trip?.status ?? 'Loading'}
@@ -289,39 +306,18 @@ export default function TrackingScreen() {
     );
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function decodePolyline(encoded: string): { latitude: number; longitude: number }[] {
-    let index = 0;
-    const result: { latitude: number; longitude: number }[] = [];
-    let lat = 0, lng = 0;
-    while (index < encoded.length) {
-        let shift = 0, result_val = 0, byte: number;
-        do {
-            byte = encoded.charCodeAt(index++) - 63;
-            result_val |= (byte & 0x1f) << shift;
-            shift += 5;
-        } while (byte >= 0x20);
-        lat += result_val & 1 ? ~(result_val >> 1) : result_val >> 1;
-
-        shift = 0; result_val = 0;
-        do {
-            byte = encoded.charCodeAt(index++) - 63;
-            result_val |= (byte & 0x1f) << shift;
-            shift += 5;
-        } while (byte >= 0x20);
-        lng += result_val & 1 ? ~(result_val >> 1) : result_val >> 1;
-
-        result.push({ latitude: lat * 1e-5, longitude: lng * 1e-5 });
-    }
-    return result;
-}
-
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background.secondary },
     map:       { flex: 1 },
+    mapFallback: {
+        alignItems: 'center', justifyContent: 'center',
+        backgroundColor: Colors.background.secondary, padding: Spacing.xl, gap: Spacing.sm,
+    },
+    mapFallbackIcon: { fontSize: 48 },
+    mapFallbackText: { fontSize: 16, fontWeight: '800', color: Colors.text.primary },
+    mapFallbackSub:  { fontSize: 13, color: Colors.text.tertiary, textAlign: 'center' },
 
     headerOverlay: {
         position: 'absolute', top: 0, left: 0, right: 0,

@@ -23,6 +23,26 @@ export async function storeTokens(tokens: AuthTokens): Promise<void> {
     await Promise.all(writes);
 }
 
+/**
+ * Convert the backend's camelCase TokenPair (absolute expiry timestamps) into
+ * the app's AuthTokens (relative expiresIn seconds). The API returns
+ * accessTokenExpiresAt, not an OAuth expires_in, so derive the duration here.
+ */
+export function authTokensFromPair(tp: {
+    accessToken: string;
+    refreshToken?: string;
+    accessTokenExpiresAt?: string;
+}): AuthTokens {
+    const expiresIn = tp.accessTokenExpiresAt
+        ? Math.max(0, Math.floor((new Date(tp.accessTokenExpiresAt).getTime() - Date.now()) / 1000))
+        : 15 * 60; // backend default access-token lifetime is 15 min
+    return {
+        accessToken: tp.accessToken,
+        ...(tp.refreshToken ? { refreshToken: tp.refreshToken } : {}),
+        expiresIn,
+    };
+}
+
 export async function getAccessToken(): Promise<string | null> {
     return SecureStore.getItemAsync(KEYS.ACCESS);
 }

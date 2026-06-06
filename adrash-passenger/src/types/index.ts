@@ -50,12 +50,18 @@ export interface LoginResponse {
     expires_in: number;
 }
 
-/** Raw token response from POST /auth/refresh (snake_case) */
-export interface RefreshTokenResponse {
-    access_token: string;
-    expires_in: number;
-    /** refresh_token rotation — may or may not be returned */
-    refresh_token?: string;
+/**
+ * Token response from the backend. The API returns a camelCase TokenPair with
+ * absolute expiry timestamps (NOT a snake_case OAuth duration) for every token-
+ * issuing endpoint, including POST /auth/refresh. Convert to AuthTokens via
+ * authTokensFromPair (computes expiresIn from accessTokenExpiresAt).
+ */
+export interface TokenPairDto {
+    accessToken: string;
+    accessTokenExpiresAt?: string;
+    /** Rotated on refresh — may or may not be returned. */
+    refreshToken?: string;
+    refreshTokenExpiresAt?: string;
 }
 
 export interface SetupProfileRequest { firstName: string; lastName: string }

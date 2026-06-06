@@ -8,17 +8,16 @@ export const ENDPOINTS = {
         VERIFY_PIN:    '/auth/pin/verify',
         REFRESH:       '/auth/refresh',
         LOGOUT:        '/auth/logout',
-        LOGIN:         '/auth/login',
-        ME:            '/auth/me',
+        // NOTE: passengers authenticate via OTP/PIN only — there is no
+        // /auth/login or /auth/me. Profile is GET /users/me (see USERS.ME).
     },
     USERS: {
         ME: '/users/me',
     },
     ROUTES: {
         LIST:             '/routes',
-        SEARCH:           '/routes/search',
         DETAIL:           (id: string) => `/routes/${id}`,
-        SEAT_MAP:         (id: string) => `/routes/${id}/seat-map`,
+        // Seat availability is per-TRIP: see TRIPS.SEATS (/trips/{id}/seats).
         PICKUP_LOCATIONS: (id: string) => `/routes/${id}/pickup-locations`,
     },
     TRIPS: {
@@ -31,12 +30,13 @@ export const ENDPOINTS = {
         CREATE:            '/bookings',
         LIST:              '/bookings',
         DETAIL:            (id: string) => `/bookings/${id}`,
-        CANCEL:            (id: string) => `/bookings/${id}/cancel`,
+        // Cancel is DELETE /bookings/{id} (no /cancel sub-path).
+        CANCEL:            (id: string) => `/bookings/${id}`,
         CANCELLATION_INFO: (id: string) => `/bookings/${id}/cancellation-info`,
     },
     PAYMENTS: {
         INITIATE: '/payments/initiate',
-        STATUS:   (paymentId: string) => `/payments/${paymentId}/status`,
+        // Status re-check is POST /payments/verify (no GET /{id}/status).
         VERIFY:   '/payments/verify',
     },
     REVIEWS: {

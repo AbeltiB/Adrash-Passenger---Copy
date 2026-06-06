@@ -67,6 +67,10 @@ export default function ConfirmationScreen() {
     const qrData = booking?.qrCode ?? booking?.bookingReference ?? 'CONFIRMED';
     const bookingRef = booking?.bookingReference ?? '—';
 
+    // Seats are allocated server-side (FCFS), so show the ACTUAL assigned seats
+    // from the confirmed booking — not the placeholder numbers the flow carried.
+    const seats = (booking?.seatNumbers?.length ? booking.seatNumbers : flow.selectedSeats);
+
     function done() {
         flow.resetFlow();
         router.replace('/(tabs)/my-trips');
@@ -114,10 +118,10 @@ export default function ConfirmationScreen() {
                     <View style={styles.divider} />
                     <View style={styles.summaryRow}>
                         <Text style={styles.summaryLabel}>
-                            Seat{flow.selectedSeats.length > 1 ? 's' : ''}
+                            Seat{seats.length > 1 ? 's' : ''}
                         </Text>
                         <Text style={styles.summaryValue}>
-                            {flow.selectedSeats.join(', ')}
+                            {seats.join(', ')}
                         </Text>
                     </View>
                     <View style={styles.divider} />
@@ -162,7 +166,7 @@ export default function ConfirmationScreen() {
                                     {i + 1}.  {p.fullName}
                                 </Text>
                                 <Text style={styles.passengerSeat}>
-                                    Seat {flow.selectedSeats[i] ?? '—'}
+                                    Seat {seats[i] ?? '—'}
                                 </Text>
                             </View>
                         ))}
