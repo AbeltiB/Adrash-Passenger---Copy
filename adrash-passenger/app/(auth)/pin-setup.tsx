@@ -165,7 +165,7 @@ export default function PinSetupScreen() {
                 }
                 // PINs match — save
                 setupPin(
-                    { pin },
+                    { newPin: pin },
                     {
                         onSuccess: () => router.replace('/(tabs)'),
                     },
