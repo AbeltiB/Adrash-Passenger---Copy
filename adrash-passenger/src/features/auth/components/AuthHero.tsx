@@ -88,6 +88,7 @@ const styles = StyleSheet.create({
     heroBar: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+        alignItems: 'center',
         alignSelf: 'stretch',
         marginBottom: Spacing.md,
     },

@@ -242,8 +242,15 @@ export default function PinSetupScreen() {
 
 const styles = StyleSheet.create({
     center: { alignItems: 'center' },
-    skipBtn: { alignItems: 'flex-end', justifyContent: 'center', minWidth: 40, height: 40 },
-    skipText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+    skipBtn: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: BorderRadius.full,
+        paddingHorizontal: 18,
+        paddingVertical: 9,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    skipText: { color: Colors.brand.primary, fontSize: 15, fontWeight: '800' },
     errorText: { color: Colors.semantic.error, fontSize: 13, fontWeight: '600', textAlign: 'center' },
     stepRow: { flexDirection: 'row', gap: 8, marginBottom: Spacing.lg },
     stepDot: {
