@@ -1,8 +1,8 @@
 // app/(auth)/pin-setup.tsx
 // Create a 6-digit PIN after the first login (profile setup for new users, or
 // OTP on a new device for returning users). PIN is used for faster sign-in on
-// trusted devices (POST /auth/pin/verify).
-// This step is mandatory on first login — there is no skip.
+// trusted devices (POST /auth/pin/verify). Shown on first login but skippable —
+// users can also set it later from Profile → Security.
 
 import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -180,6 +180,8 @@ export default function PinSetupScreen() {
         setMismatch(false);
     }, [isPending, setActive]);
 
+    const handleSkip = () => router.replace('/(tabs)');
+
     const handleBack = () => {
         if (step === 'confirm') {
             setStep('enter');
@@ -198,6 +200,11 @@ export default function PinSetupScreen() {
             subtitle={step === 'enter' ? t('auth.pin_setup.subtitle') : t('auth.pin_setup.confirm_subtitle')}
             showBack
             onBack={handleBack}
+            headerRight={
+                <Pressable onPress={handleSkip} disabled={isPending} hitSlop={10} style={styles.skipBtn}>
+                    <Text style={styles.skipText}>{t('auth.pin_setup.skip')}</Text>
+                </Pressable>
+            }
         >
             <View style={styles.center}>
                 {/* Dots */}
@@ -235,6 +242,8 @@ export default function PinSetupScreen() {
 
 const styles = StyleSheet.create({
     center: { alignItems: 'center' },
+    skipBtn: { alignItems: 'flex-end', justifyContent: 'center', minWidth: 40, height: 40 },
+    skipText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
     errorText: { color: Colors.semantic.error, fontSize: 13, fontWeight: '600', textAlign: 'center' },
     stepRow: { flexDirection: 'row', gap: 8, marginBottom: Spacing.lg },
     stepDot: {
