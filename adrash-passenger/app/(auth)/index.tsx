@@ -4,10 +4,15 @@
 // Routing logic on mount:
 //   1. Read saved language → initialise i18n
 //   2. Check SecureStore for access token + device token
-//      a. Token valid + agreement current  → /(tabs)                [straight to home]
-//      b. Token valid + new agreement      → /(auth)/agreement      [re-accept]
-//      c. Token expired + deviceToken      → /(auth)/phone-login    [phone → PIN login]
-//      d. No token / no device token       → show language selector → agreement → phone → OTP
+//      a. Token valid                      → /(tabs)                [straight to home]
+//      b. Token expired + deviceToken      → /(auth)/phone-login    [phone → PIN login]
+//      c. No token / no device token       → show language selector → agreement → phone → OTP
+//
+// Agreement gating is NOT done here. The login responses (otp/pin verify) carry
+// the authoritative `agreementRequired` flag and route to the terms screen, and a
+// mid-session 403 Auth.AgreementUpdateRequired is caught by the api/client
+// interceptor. The previous splash check read an `isSigned` field the backend
+// never returns, so it re-showed the terms on every cold start.
 
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -27,8 +32,6 @@ import { MMKVKeys } from '../../src/constants/mmkvKeys';
 import { changeLanguage } from '../../src/lib/i18n';
 import { writeString } from '../../src/lib/storage';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
-import { apiClient } from '../../src/api/client';
-import { ENDPOINTS } from '../../src/api/endpoints';
 import {
     getAccessToken,
     getDeviceToken,
@@ -36,11 +39,6 @@ import {
 } from '../../src/features/auth/utils/token';
 
 type Lang = 'en' | 'am' | 'om';
-
-// Maps i18n language codes to the format the agreements API expects
-const AGREEMENT_LANG: Record<string, 'En' | 'Am' | 'Om'> = {
-    en: 'En', am: 'Am', om: 'Om',
-};
 
 const LANGUAGES: { code: Lang; native: string; label: string }[] = [
     { code: 'en', native: 'English',      label: 'English'  },
@@ -54,8 +52,6 @@ export default function SplashScreen() {
     const [checking, setChecking] = useState(true);
 
     const hasAcceptedAgreement = useAuthStore((s) => s.hasAcceptedAgreement);
-    const agreementVersion     = useAuthStore((s) => s.agreementVersion);
-    const preferredLanguage    = useAuthStore((s) => s.preferredLanguage);
     const setAuthenticated     = useAuthStore((s) => s.setAuthenticated);
     const setAuthInitialized   = useAuthStore((s) => s.setAuthInitialized);
     const setLanguage          = useAuthStore((s) => s.setLanguage);
@@ -73,62 +69,13 @@ export default function SplashScreen() {
                 const hasValidToken = token !== null && !expired;
 
                 if (hasValidToken) {
-                    // Token is valid → user is authenticated. Set this immediately
-                    // so the (tabs)/_layout.tsx guard doesn't redirect them back.
+                    // Token is valid → user is authenticated. The agreement gate
+                    // was already enforced at login (the verify response's
+                    // agreementRequired flag) and any new version published while
+                    // the app was closed is caught by the 403
+                    // Auth.AgreementUpdateRequired interceptor on the next API
+                    // call. So go straight home — do NOT re-check terms here.
                     setAuthenticated(true);
-
-                    // ── Agreement check ──────────────────────────────────────
-                    // Fast path: user has never accepted on this device → go to
-                    // agreement without a network round-trip.
-                    if (!hasAcceptedAgreement) {
-                        router.replace({
-                            pathname: '/(auth)/agreement',
-                            params: { reaccept: '1', next: 'tabs' },
-                        });
-                        return;
-                    }
-
-                    // Slow path: ask the server if the current version is signed.
-                    // isSigned = false means a new agreement was published since
-                    // the user last accepted. On any network error let them in —
-                    // the 403 interceptor will catch it on the next request.
-                    try {
-                        const lang = AGREEMENT_LANG[preferredLanguage] ?? 'En';
-                        const res  = await apiClient.get<unknown>(
-                            ENDPOINTS.AGREEMENTS.CURRENT,
-                            { params: { type: 'Passenger', lang } },
-                        );
-                        const raw  = res.data as Record<string, unknown>;
-                        const data = (raw?.data as Record<string, unknown>) ?? raw;
-
-                        // isSigned is the server's authoritative flag.
-                        // false → the user hasn't signed the CURRENT version.
-                        const isSigned =
-                            data?.isSigned === true || data?.accepted === true;
-
-                        // Short-circuit: if the locally stored acceptance version
-                        // matches the server's current version, trust the local
-                        // record — this prevents a re-accept loop caused by server
-                        // propagation lag or a stale isSigned flag.
-                        const serverVersion = data?.version as string | undefined;
-                        const alreadyAcceptedCurrentVersion =
-                            hasAcceptedAgreement &&
-                            agreementVersion != null &&
-                            serverVersion != null &&
-                            serverVersion === agreementVersion;
-
-                        if (!isSigned && !alreadyAcceptedCurrentVersion) {
-                            router.replace({
-                                pathname: '/(auth)/agreement',
-                                params: { reaccept: '1', next: 'tabs' },
-                            });
-                            return;
-                        }
-                    } catch {
-                        // Network / parse error — let the user in, the
-                        // 403 interceptor will handle it on the next request.
-                    }
-
                     router.replace('/(tabs)');
                     return;
                 }
