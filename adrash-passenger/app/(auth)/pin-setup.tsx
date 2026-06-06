@@ -1,7 +1,8 @@
 // app/(auth)/pin-setup.tsx
-// Allows the user to create a 6-digit PIN after completing profile setup.
-// PIN is used for faster sign-in on trusted devices (POST /auth/pin/verify).
-// User may skip this step — they can set it later from Profile settings.
+// Create a 6-digit PIN after the first login (profile setup for new users, or
+// OTP on a new device for returning users). PIN is used for faster sign-in on
+// trusted devices (POST /auth/pin/verify).
+// This step is mandatory on first login — there is no skip.
 
 import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,8 +15,8 @@ import {
     Text,
     View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius } from '../../src/constants';
+import { AuthHero } from '../../src/features/auth/components/AuthHero';
 import { usePinSetup } from '../../src/features/auth/hooks/usePinSetup';
 
 const PIN_LENGTH = 6;
@@ -162,8 +163,6 @@ export default function PinSetupScreen() {
         setMismatch(false);
     }, [isPending, setActive]);
 
-    const handleSkip = () => router.replace('/(tabs)');
-
     const handleBack = () => {
         if (step === 'confirm') {
             setStep('enter');
@@ -177,35 +176,15 @@ export default function PinSetupScreen() {
     const hasError = mismatch || !!apiError;
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Pressable style={styles.backBtn} onPress={handleBack} disabled={isPending}>
-                    <Text style={styles.backText}>← Back</Text>
-                </Pressable>
-                <Pressable style={styles.skipBtn} onPress={handleSkip} disabled={isPending}>
-                    <Text style={styles.skipText}>{t('auth.pin_setup.skip')}</Text>
-                </Pressable>
-            </View>
-
-            <View style={styles.content}>
-                {/* Icon */}
-                <View style={styles.iconWrap}>
-                    <Text style={styles.iconEmoji}>🔐</Text>
-                </View>
-
-                {/* Title */}
-                <Text style={styles.title}>
-                    {step === 'enter' ? t('auth.pin_setup.title') : t('auth.pin_setup.confirm_title')}
-                </Text>
-                <Text style={styles.subtitle}>
-                    {step === 'enter' ? t('auth.pin_setup.subtitle') : t('auth.pin_setup.confirm_subtitle')}
-                </Text>
-
+        <AuthHero
+            title={step === 'enter' ? t('auth.pin_setup.title') : t('auth.pin_setup.confirm_title')}
+            subtitle={step === 'enter' ? t('auth.pin_setup.subtitle') : t('auth.pin_setup.confirm_subtitle')}
+            showBack
+            onBack={handleBack}
+        >
+            <View style={styles.center}>
                 {/* Dots */}
-                <View>
-                    <PinDots filled={activePin.length} total={PIN_LENGTH} hasError={Boolean(hasError)} />
-                </View>
+                <PinDots filled={activePin.length} total={PIN_LENGTH} hasError={Boolean(hasError)} />
 
                 {/* Error messages */}
                 {mismatch && (
@@ -233,28 +212,12 @@ export default function PinSetupScreen() {
 
                 <Text style={styles.hint}>{t('auth.pin_setup.hint')}</Text>
             </View>
-        </SafeAreaView>
+        </AuthHero>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background.primary },
-    header: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
-    },
-    backBtn: { paddingVertical: Spacing.sm },
-    backText: { color: Colors.text.secondary, fontSize: 16, fontWeight: '500' },
-    skipBtn: { paddingVertical: Spacing.sm, paddingLeft: Spacing.md },
-    skipText: { color: Colors.brand.primary, fontSize: 15, fontWeight: '600' },
-    content: { flex: 1, alignItems: 'center', paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg },
-    iconWrap: {
-        width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.brand.primaryTint,
-        alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md,
-    },
-    iconEmoji: { fontSize: 36 },
-    title: { fontSize: 26, fontWeight: '800', color: Colors.text.primary, textAlign: 'center' },
-    subtitle: { fontSize: 14, color: Colors.text.tertiary, textAlign: 'center', marginTop: Spacing.sm },
+    center: { alignItems: 'center' },
     errorText: { color: Colors.semantic.error, fontSize: 13, fontWeight: '600', textAlign: 'center' },
     stepRow: { flexDirection: 'row', gap: 8, marginBottom: Spacing.lg },
     stepDot: {

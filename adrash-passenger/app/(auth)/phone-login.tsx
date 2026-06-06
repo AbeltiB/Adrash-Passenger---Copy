@@ -23,8 +23,8 @@ import {
     TextInput,
     View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius } from '../../src/constants';
+import { AuthHero } from '../../src/features/auth/components/AuthHero';
 import {
     formatLocalPhone,
     isValidLocalPhone,
@@ -301,171 +301,130 @@ export default function PhoneLoginScreen() {
         const isPending = otpPending;
 
         return (
-            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-                <View style={styles.content}>
-                    <View style={styles.iconWrap}>
-                        <Text style={styles.iconEmoji}>📱</Text>
+            <AuthHero
+                title={t('auth.phone_login.title')}
+                subtitle={t('auth.phone_login.phone_subtitle')}
+            >
+                {/* Phone input */}
+                <Text style={styles.label}>Phone number</Text>
+                <View style={styles.inputRow}>
+                    <View style={styles.flagBox}>
+                        <Text style={styles.flag}>🇪🇹</Text>
+                        <Text style={styles.flagCode}>+251</Text>
                     </View>
-
-                    <Text style={styles.title}>{t('auth.phone_login.title')}</Text>
-                    <Text style={styles.subtitle}>{t('auth.phone_login.phone_subtitle')}</Text>
-
-                    {/* Phone input */}
-                    <View style={styles.inputRow}>
-                        <View style={styles.flagBox}>
-                            <Text style={styles.flag}>🇪🇹</Text>
-                            <Text style={styles.flagCode}>+251</Text>
-                        </View>
-                        <TextInput
-                            style={styles.input}
-                            keyboardType="phone-pad"
-                            placeholder="9XX XXX XXX"
-                            placeholderTextColor={Colors.text.disabled}
-                            value={displayPhone(rawPhone)}
-                            onChangeText={(t) => setRawPhone(sanitizeLocalPhone(t))}
-                            maxLength={11}
-                            returnKeyType="done"
-                            onSubmitEditing={handlePhoneContinue}
-                            editable={!isPending}
-                            autoFocus
-                        />
-                    </View>
-
-                    {errorMsg ? (
-                        <Text style={styles.errorText}>{errorMsg}</Text>
-                    ) : null}
-
-                    <Pressable
-                        style={[styles.cta, (!valid || isPending) && styles.ctaDisabled]}
-                        onPress={handlePhoneContinue}
-                        disabled={!valid || isPending}
-                    >
-                        {isPending ? (
-                            <ActivityIndicator color={Colors.neutral.white} />
-                        ) : (
-                            <Text style={styles.ctaText}>{t('common.continue')}</Text>
-                        )}
-                    </Pressable>
+                    <TextInput
+                        style={styles.input}
+                        keyboardType="phone-pad"
+                        placeholder="9XX XXX XXX"
+                        placeholderTextColor={Colors.text.disabled}
+                        value={displayPhone(rawPhone)}
+                        onChangeText={(t) => setRawPhone(sanitizeLocalPhone(t))}
+                        maxLength={11}
+                        returnKeyType="done"
+                        onSubmitEditing={handlePhoneContinue}
+                        editable={!isPending}
+                        autoFocus
+                    />
                 </View>
+
+                {errorMsg ? (
+                    <Text style={styles.errorText}>{errorMsg}</Text>
+                ) : null}
+
+                <Pressable
+                    style={[styles.cta, (!valid || isPending) && styles.ctaDisabled]}
+                    onPress={handlePhoneContinue}
+                    disabled={!valid || isPending}
+                >
+                    {isPending ? (
+                        <ActivityIndicator color={Colors.neutral.white} />
+                    ) : (
+                        <Text style={styles.ctaText}>{t('common.continue')}</Text>
+                    )}
+                </Pressable>
+
+                <View style={styles.spacer} />
 
                 <Pressable style={styles.switchBtn} onPress={handleSwitchAccount}>
                     <Text style={styles.switchText}>{t('auth.phone_login.switch_account')}</Text>
                 </Pressable>
-            </SafeAreaView>
+            </AuthHero>
         );
     }
 
     // ── Render: PIN pad step ──────────────────────────────────────────────
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-            <Pressable
-                style={styles.back}
-                onPress={() => { setStep('phone'); setPin(''); setErrorMsg(''); }}
-                disabled={pinPending}
-            >
-                <Text style={styles.backText}>← Back</Text>
-            </Pressable>
+        <AuthHero
+            title={displayName ? `${t('auth.phone_login.title')}, ${displayName}` : t('auth.phone_login.title')}
+            subtitle={normalisedPhone}
+            showBack
+            onBack={() => { setStep('phone'); setPin(''); setErrorMsg(''); }}
+        >
+            <Text style={styles.pinHint}>{t('auth.phone_login.pin_hint')}</Text>
 
-            <View style={styles.content}>
-                {/* Avatar */}
-                <View style={styles.avatarWrap}>
-                    <Text style={styles.avatarText}>
-                        {displayName ? displayName[0].toUpperCase() : '👤'}
-                    </Text>
-                </View>
+            {/* PIN dots */}
+            <Animated.View style={{ transform: [{ translateX: shakeAnim }], alignItems: 'center' }}>
+                <PinDots filled={pin.length} hasError={hasError} />
+            </Animated.View>
 
-                <Text style={styles.title}>
-                    {displayName ? `${t('auth.phone_login.title')}, ${displayName}` : t('auth.phone_login.title')}
+            {errorMsg ? (
+                <Text style={styles.errorText}>{errorMsg}</Text>
+            ) : null}
+            {attempts > 0 && attempts < 5 ? (
+                <Text style={styles.errorText}>
+                    {5 - attempts} attempt{5 - attempts !== 1 ? 's' : ''} remaining
                 </Text>
-                <Text style={styles.subtitle}>{normalisedPhone}</Text>
-                <Text style={styles.pinHint}>{t('auth.phone_login.pin_hint')}</Text>
+            ) : null}
 
-                {/* PIN dots */}
-                <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
-                    <PinDots filled={pin.length} hasError={hasError} />
-                </Animated.View>
+            {pinPending ? (
+                <View style={styles.loadingWrap}>
+                    <ActivityIndicator color={Colors.brand.primary} />
+                </View>
+            ) : (
+                <NumPad
+                    onPress={handlePinPress}
+                    onDelete={handlePinDelete}
+                    disabled={pinPending}
+                />
+            )}
 
-                {errorMsg ? (
-                    <Text style={styles.errorText}>{errorMsg}</Text>
-                ) : null}
-                {attempts > 0 && attempts < 5 ? (
-                    <Text style={styles.errorText}>
-                        {5 - attempts} attempt{5 - attempts !== 1 ? 's' : ''} remaining
-                    </Text>
-                ) : null}
-
-                {pinPending ? (
-                    <View style={styles.loadingWrap}>
-                        <ActivityIndicator color={Colors.brand.primary} />
-                    </View>
-                ) : (
-                    <NumPad
-                        onPress={handlePinPress}
-                        onDelete={handlePinDelete}
-                        disabled={pinPending}
-                    />
-                )}
-
-                {/* Forgot PIN / use OTP */}
-                <Pressable
-                    style={styles.otpLink}
-                    onPress={handleUseOtp}
-                    disabled={otpPending}
-                >
-                    <Text style={styles.otpLinkText}>
-                        {otpPending ? t('auth.phone_login.sending') : t('auth.phone_login.use_otp')}
-                    </Text>
-                </Pressable>
-            </View>
+            {/* Forgot PIN / use OTP */}
+            <Pressable
+                style={styles.otpLink}
+                onPress={handleUseOtp}
+                disabled={otpPending}
+            >
+                <Text style={styles.otpLinkText}>
+                    {otpPending ? t('auth.phone_login.sending') : t('auth.phone_login.use_otp')}
+                </Text>
+            </Pressable>
 
             <Pressable style={styles.switchBtn} onPress={handleSwitchAccount}>
                 <Text style={styles.switchText}>{t('auth.phone_login.switch_account_full')}</Text>
             </Pressable>
-        </SafeAreaView>
+        </AuthHero>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background.primary },
-    back: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing.sm },
-    backText: { color: Colors.text.secondary, fontSize: 16, fontWeight: '500' },
-    content: {
-        flex: 1, alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: Spacing.xl,
-        gap: Spacing.sm,
-    },
-    iconWrap: {
-        width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.brand.primaryTint,
-        alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md,
-    },
-    iconEmoji: { fontSize: 36 },
-    avatarWrap: {
-        width: 80, height: 80, borderRadius: 40,
-        backgroundColor: Colors.brand.primary,
-        alignItems: 'center', justifyContent: 'center',
-        marginBottom: Spacing.md,
-    },
-    avatarText: { color: Colors.neutral.white, fontSize: 32, fontWeight: '800' },
-    title:    { fontSize: 24, fontWeight: '800', color: Colors.text.primary, textAlign: 'center' },
-    subtitle: { fontSize: 14, color: Colors.text.tertiary, textAlign: 'center' },
-    pinHint:  { fontSize: 14, color: Colors.text.secondary, textAlign: 'center', marginTop: Spacing.xs },
+    pinHint:  { fontSize: 14, color: Colors.text.secondary, textAlign: 'center' },
 
     // Phone step
+    label: { fontSize: 12, fontWeight: '700', color: Colors.text.tertiary, letterSpacing: 0.4 },
     inputRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center', width: '100%' },
     flagBox: {
         flexDirection: 'row', alignItems: 'center', gap: 6,
         paddingHorizontal: Spacing.md, paddingVertical: 14,
-        borderWidth: 1, borderColor: Colors.border.medium,
+        borderWidth: 1.5, borderColor: Colors.border.medium,
         borderRadius: BorderRadius.lg, backgroundColor: Colors.background.secondary,
     },
     flag:     { fontSize: 18 },
-    flagCode: { fontWeight: '600', color: Colors.text.primary },
+    flagCode: { fontWeight: '700', color: Colors.text.primary },
     input: {
-        flex: 1, borderWidth: 1, borderColor: Colors.border.medium,
+        flex: 1, borderWidth: 1.5, borderColor: Colors.border.medium,
         borderRadius: BorderRadius.lg, paddingHorizontal: Spacing.md,
         paddingVertical: 14, fontSize: 18, fontWeight: '600', letterSpacing: 1,
-        backgroundColor: Colors.background.primary, color: Colors.text.primary,
+        backgroundColor: Colors.background.secondary, color: Colors.text.primary,
     },
     cta: {
         backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg,
@@ -474,6 +433,7 @@ const styles = StyleSheet.create({
     },
     ctaDisabled: { backgroundColor: Colors.neutral.gray300 },
     ctaText:     { color: Colors.neutral.white, fontWeight: '700', fontSize: 16 },
+    spacer: { flex: 1, minHeight: Spacing.lg },
 
     // PIN step
     loadingWrap: {
@@ -481,7 +441,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    otpLink: { marginTop: Spacing.lg, paddingVertical: Spacing.sm },
+    otpLink: { marginTop: Spacing.md, paddingVertical: Spacing.sm },
     otpLinkText: {
         color: Colors.brand.primary, fontWeight: '600', fontSize: 14, textAlign: 'center',
     },
@@ -493,8 +453,7 @@ const styles = StyleSheet.create({
     },
     switchBtn: {
         alignItems: 'center',
-        paddingVertical: Spacing.lg,
-        marginBottom: Spacing.md,
+        paddingVertical: Spacing.md,
     },
     switchText: { color: Colors.text.tertiary, fontSize: 14, fontWeight: '500' },
 });

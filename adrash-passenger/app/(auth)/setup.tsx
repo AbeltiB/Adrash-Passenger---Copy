@@ -11,10 +11,9 @@ import {
     StyleSheet,
     Text,
     TextInput,
-    View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius } from '../../src/constants';
+import { AuthHero } from '../../src/features/auth/components/AuthHero';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
 import { apiClient } from '../../src/api/client';
 import { ENDPOINTS } from '../../src/api/endpoints';
@@ -89,78 +88,61 @@ export default function SetupScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-            <View style={styles.content}>
-                <View style={styles.illust}>
-                    <Text style={styles.illustEmoji}>👋</Text>
-                </View>
-                <Text style={styles.title}>{t('auth.setup.title')}</Text>
-                <Text style={styles.subtitle}>{t('auth.setup.subtitle')}</Text>
+        <AuthHero title={t('auth.setup.title')} subtitle={t('auth.setup.subtitle')}>
+            <Text style={styles.label}>{t('auth.setup.first_name_label')}</Text>
+            <TextInput
+                style={styles.input}
+                placeholder={t('auth.setup.first_name_placeholder')}
+                placeholderTextColor={Colors.text.disabled}
+                value={first}
+                onChangeText={setFirst}
+                autoCapitalize="words"
+                returnKeyType="next"
+                editable={!loading}
+                autoFocus
+            />
 
-                <Text style={styles.label}>{t('auth.setup.first_name_label')}</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder={t('auth.setup.first_name_placeholder')}
-                    placeholderTextColor={Colors.text.disabled}
-                    value={first}
-                    onChangeText={setFirst}
-                    autoCapitalize="words"
-                    returnKeyType="next"
-                    editable={!loading}
-                />
+            <Text style={styles.label}>{t('auth.setup.last_name_label')}</Text>
+            <TextInput
+                style={styles.input}
+                placeholder={t('auth.setup.last_name_placeholder')}
+                placeholderTextColor={Colors.text.disabled}
+                value={last}
+                onChangeText={setLast}
+                autoCapitalize="words"
+                returnKeyType="done"
+                onSubmitEditing={finish}
+                editable={!loading}
+            />
 
-                <Text style={styles.label}>{t('auth.setup.last_name_label')}</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder={t('auth.setup.last_name_placeholder')}
-                    placeholderTextColor={Colors.text.disabled}
-                    value={last}
-                    onChangeText={setLast}
-                    autoCapitalize="words"
-                    returnKeyType="done"
-                    onSubmitEditing={finish}
-                    editable={!loading}
-                />
+            {error && <Text style={styles.error}>{error}</Text>}
 
-                {error && <Text style={styles.error}>{error}</Text>}
-
-                <Pressable
-                    style={[styles.cta, (!valid || loading) && styles.ctaDisabled]}
-                    onPress={finish}
-                    disabled={!valid || loading}
-                >
-                    {loading ? (
-                        <ActivityIndicator color={Colors.neutral.white} />
-                    ) : (
-                        <Text style={styles.ctaText}>{t('auth.setup.continue')}</Text>
-                    )}
-                </Pressable>
-            </View>
-        </SafeAreaView>
+            <Pressable
+                style={[styles.cta, (!valid || loading) && styles.ctaDisabled]}
+                onPress={finish}
+                disabled={!valid || loading}
+            >
+                {loading ? (
+                    <ActivityIndicator color={Colors.neutral.white} />
+                ) : (
+                    <Text style={styles.ctaText}>{t('auth.setup.continue')}</Text>
+                )}
+            </Pressable>
+        </AuthHero>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background.primary, padding: Spacing.xl },
-    content: { flex: 1, justifyContent: 'center', gap: Spacing.sm },
-    illust: {
-        width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.brand.primaryTint,
-        alignItems: 'center', justifyContent: 'center',
-        alignSelf: 'center', marginBottom: Spacing.md,
-    },
-    illustEmoji: { fontSize: 36 },
-    title: { fontSize: 26, fontWeight: '800', color: Colors.text.primary, textAlign: 'center' },
-    subtitle: { fontSize: 14, color: Colors.text.tertiary, textAlign: 'center', marginBottom: Spacing.lg },
-    label: { fontSize: 13, color: Colors.text.secondary, fontWeight: '600', marginTop: Spacing.sm },
+    label: { fontSize: 12, color: Colors.text.tertiary, fontWeight: '700', letterSpacing: 0.4, marginTop: Spacing.xs },
     input: {
-        borderWidth: 1, borderColor: Colors.border.medium, borderRadius: BorderRadius.lg,
+        borderWidth: 1.5, borderColor: Colors.border.medium, borderRadius: BorderRadius.lg,
         paddingHorizontal: Spacing.md, paddingVertical: 14, fontSize: 16,
-        backgroundColor: Colors.background.primary, color: Colors.text.primary,
+        backgroundColor: Colors.background.secondary, color: Colors.text.primary,
     },
     error: { color: Colors.semantic.error, fontSize: 13, fontWeight: '600', textAlign: 'center' },
     cta: {
         backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg,
-        paddingVertical: 16, alignItems: 'center', marginTop: Spacing.xl,
+        paddingVertical: 16, alignItems: 'center', marginTop: Spacing.lg,
     },
     ctaDisabled: { backgroundColor: Colors.neutral.gray300 },
     ctaText: { color: Colors.neutral.white, fontWeight: '700', fontSize: 16 },

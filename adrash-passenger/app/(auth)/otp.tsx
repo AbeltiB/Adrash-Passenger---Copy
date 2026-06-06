@@ -3,12 +3,12 @@
 //
 // Post-verification routing:
 //   isNewUser || needsSetup  → /(auth)/setup        (profile setup for brand new accounts)
-//   agreementRequired        → /(auth)/agreement    (terms changed)
-//   isNewUser === false       → /(auth)/pin-setup   (existing account on new device — offer PIN setup)
-//   skip / returning         → /(tabs)              (straight home)
+//   agreementRequired        → /(auth)/agreement    (terms changed) → pin-setup
+//   returning (new device)   → /(auth)/pin-setup    (register this device with a PIN)
 //
-// NOTE: "returning user on new device" lands here via phone-login → OTP.
-// We offer pin-setup so they can register this new device with a PIN.
+// Setting a PIN is mandatory on first login: new accounts reach pin-setup via
+// the setup screen, and returning users on a new device are routed there too.
+// There is no skip — every first login leaves with a device PIN.
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,8 +21,8 @@ import {
     TextInput,
     View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius } from '../../src/constants';
+import { AuthHero } from '../../src/features/auth/components/AuthHero';
 import { useOtpSend } from '../../src/features/auth/hooks/useOtpSend';
 import { useOtpVerify } from '../../src/features/auth/hooks/useOtpVerify';
 
@@ -109,9 +109,9 @@ export default function OtpScreen() {
                                 params: { reaccept: '1', next: 'pin-setup' },
                             });
                         } else {
-                            // Returning user — go straight home.
-                            // PIN can be set up from Profile → Security if needed.
-                            router.replace('/(tabs)');
+                            // Returning user on a new device — must register this
+                            // device with a PIN before reaching the app.
+                            router.replace('/(auth)/pin-setup');
                         }
                     }, 500);
                 },
@@ -187,77 +187,58 @@ export default function OtpScreen() {
     ];
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-            <Pressable style={styles.back} onPress={() => router.back()} disabled={verifying}>
-                <Text style={styles.backText}>← Back</Text>
+        <AuthHero
+            title={t('auth.otp.title')}
+            subtitle={t('auth.otp.subtitle', { phone: maskedPhone })}
+            showBack
+            onBack={() => !verifying && router.back()}
+        >
+            <Animated.View style={[styles.boxes, { transform: [{ translateX: shakeAnim }] }]}>
+                {digits.map((d, i) => (
+                    <TextInput
+                        key={i}
+                        ref={(r) => { inputRefs.current[i] = r; }}
+                        style={boxStyle(i)}
+                        value={d}
+                        onChangeText={(v) => handleDigit(i, v)}
+                        onKeyPress={({ nativeEvent }) => handleKeyPress(i, nativeEvent.key)}
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        selectTextOnFocus
+                        editable={!verifying && !verified}
+                        textContentType="oneTimeCode"
+                        autoComplete="sms-otp"
+                    />
+                ))}
+            </Animated.View>
+
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {verified ? <Text style={styles.successText}>{t('auth.otp.verified')}</Text> : null}
+
+            <Pressable
+                style={[styles.cta, (!allFilled || verifying || verified) && styles.ctaDisabled]}
+                onPress={() => verify(digits)}
+                disabled={!allFilled || verifying || verified}
+            >
+                <Text style={styles.ctaText}>
+                    {verifying ? t('auth.otp.verifying') : t('auth.otp.verify')}
+                </Text>
             </Pressable>
 
-            <View style={styles.content}>
-                <Text style={styles.title}>{t('auth.otp.title')}</Text>
-
-                <Pressable onPress={() => router.back()} disabled={verifying}>
-                    <Text style={styles.subtitle}>
-                        {t('auth.otp.subtitle', { phone: maskedPhone })}
-                        {'\n'}
-                        <Text style={styles.tapChange}>{t('auth.otp.tap_change')}</Text>
-                    </Text>
-                </Pressable>
-
-                <Animated.View style={[styles.boxes, { transform: [{ translateX: shakeAnim }] }]}>
-                    {digits.map((d, i) => (
-                        <TextInput
-                            key={i}
-                            ref={(r) => { inputRefs.current[i] = r; }}
-                            style={boxStyle(i)}
-                            value={d}
-                            onChangeText={(v) => handleDigit(i, v)}
-                            onKeyPress={({ nativeEvent }) => handleKeyPress(i, nativeEvent.key)}
-                            keyboardType="number-pad"
-                            maxLength={6}
-                            selectTextOnFocus
-                            editable={!verifying && !verified}
-                            textContentType="oneTimeCode"
-                            autoComplete="sms-otp"
-                        />
-                    ))}
-                </Animated.View>
-
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
-                {verified ? <Text style={styles.successText}>{t('auth.otp.verified')}</Text> : null}
-
-                <Pressable
-                    style={[styles.cta, (!allFilled || verifying || verified) && styles.ctaDisabled]}
-                    onPress={() => verify(digits)}
-                    disabled={!allFilled || verifying || verified}
-                >
-                    <Text style={styles.ctaText}>
-                        {verifying ? t('auth.otp.verifying') : verified ? t('auth.otp.verify') : t('auth.otp.verify')}
-                    </Text>
-                </Pressable>
-
-                <View style={styles.resendRow}>
-                    {seconds > 0 ? (
-                        <Text style={styles.timer}>{t('auth.otp.resend_in', { seconds: String(seconds).padStart(2, '0') })}</Text>
-                    ) : (
-                        <Pressable onPress={handleResend} disabled={resendOtp.isPending}>
-                            <Text style={styles.resend}>{resendOtp.isPending ? t('common.sending') : t('auth.otp.resend')}</Text>
-                        </Pressable>
-                    )}
-                </View>
+            <View style={styles.resendRow}>
+                {seconds > 0 ? (
+                    <Text style={styles.timer}>{t('auth.otp.resend_in', { seconds: String(seconds).padStart(2, '0') })}</Text>
+                ) : (
+                    <Pressable onPress={handleResend} disabled={resendOtp.isPending}>
+                        <Text style={styles.resend}>{resendOtp.isPending ? t('common.sending') : t('auth.otp.resend')}</Text>
+                    </Pressable>
+                )}
             </View>
-        </SafeAreaView>
+        </AuthHero>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background.primary, padding: Spacing.xl },
-    back: { paddingVertical: Spacing.sm },
-    backText: { color: Colors.text.secondary, fontSize: 16, fontWeight: '500' },
-    content: { flex: 1, justifyContent: 'center', gap: Spacing.md },
-    title: { fontSize: 26, fontWeight: '800', color: Colors.text.primary, textAlign: 'center' },
-    subtitle: { fontSize: 14, color: Colors.text.tertiary, textAlign: 'center', lineHeight: 22 },
-    phoneHighlight: { color: Colors.text.primary, fontWeight: '700' },
-    tapChange: { color: Colors.brand.primary, fontSize: 12, fontWeight: '600' },
     boxes: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: Spacing.md },
     box: {
         width: 48, height: 56, borderRadius: BorderRadius.lg, borderWidth: 1.5,

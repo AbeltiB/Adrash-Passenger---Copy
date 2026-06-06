@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
-import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Colors, Spacing, BorderRadius } from '../../src/constants';
+import { AuthHero } from '../../src/features/auth/components/AuthHero';
 import { useOtpSend } from '../../src/features/auth/hooks/useOtpSend';
 import {
   formatLocalPhone,
@@ -62,100 +62,85 @@ export default function PhoneScreen() {
   const networkHint = networkLabel(raw);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <Pressable style={styles.back} onPress={() => router.back()}>
-        <Text style={styles.backText}>← Back</Text>
+    <AuthHero
+      title={t('auth.phone.title')}
+      subtitle={t('auth.phone.subtitle')}
+      showBack
+    >
+      <Text style={styles.label}>Phone number</Text>
+      <View style={styles.inputRow}>
+        <View style={styles.flagBox}>
+          <Text style={styles.flag}>🇪🇹</Text>
+          <Text style={styles.flagCode}>+251</Text>
+        </View>
+
+        <TextInput
+          style={styles.input}
+          keyboardType="phone-pad"
+          placeholder="9XX XXX XXX"
+          placeholderTextColor={Colors.text.disabled}
+          value={formatLocalPhone(raw)}
+          onChangeText={handleChange}
+          maxLength={11}
+          returnKeyType="done"
+          onSubmitEditing={handleContinue}
+          editable={!sendOtp.isPending}
+          autoFocus
+        />
+      </View>
+
+      {networkHint && (
+        <Text style={styles.networkHint}>📶 {networkHint}</Text>
+      )}
+
+      {raw.length > 0 && !valid && (
+        <Text style={styles.error}>{t('auth.phone.invalid_phone')}</Text>
+      )}
+
+      {sendOtp.error ? <Text style={styles.error}>{getErrorMessage(sendOtp.error)}</Text> : null}
+
+      <Pressable
+        style={[styles.cta, (!valid || sendOtp.isPending) && styles.ctaDisabled]}
+        onPress={handleContinue}
+        disabled={!valid || sendOtp.isPending}
+      >
+        {sendOtp.isPending ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.ctaText}>{t('auth.phone.send_otp')}</Text>
+        )}
       </Pressable>
 
-      <View style={styles.content}>
-        <View style={styles.illust}>
-          <Text style={styles.illustEmoji}>📱</Text>
-        </View>
-        <Text style={styles.title}>{t('auth.phone.title')}</Text>
-        <Text style={styles.subtitle}>{t('auth.phone.subtitle')}</Text>
+      <View style={styles.spacer} />
 
-        <View style={styles.inputRow}>
-          <View style={styles.flagBox}>
-            <Text style={styles.flag}>🇪🇹</Text>
-            <Text style={styles.flagCode}>+251</Text>
-          </View>
-
-          <TextInput
-            style={styles.input}
-            keyboardType="phone-pad"
-            placeholder="9XX XXX XXX"
-            placeholderTextColor={Colors.text.disabled}
-            value={formatLocalPhone(raw)}
-            onChangeText={handleChange}
-            maxLength={11}
-            returnKeyType="done"
-            onSubmitEditing={handleContinue}
-            editable={!sendOtp.isPending}
-          />
-        </View>
-
-        {networkHint && (
-          <Text style={styles.networkHint}>📶 {networkHint}</Text>
-        )}
-
-        {raw.length > 0 && !valid && (
-          <Text style={styles.error}>{t('auth.phone.invalid_phone')}</Text>
-        )}
-
-        {sendOtp.error ? <Text style={styles.error}>{getErrorMessage(sendOtp.error)}</Text> : null}
-
-        <Pressable
-          style={[styles.cta, (!valid || sendOtp.isPending) && styles.ctaDisabled]}
-          onPress={handleContinue}
-          disabled={!valid || sendOtp.isPending}
-        >
-          <Text style={styles.ctaText}>{sendOtp.isPending ? t('auth.phone.sending') : t('auth.phone.send_otp')}</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.poweredBy}
-          onPress={() => Linking.openURL('https://bstechnologiesplc.com')}
-        >
-          <Text style={styles.poweredByText}>
-            Powered by <Text style={styles.poweredByLink}>BS Technologies</Text>
-          </Text>
-        </Pressable>
-      </View>
-    </SafeAreaView>
+      <Pressable
+        style={styles.poweredBy}
+        onPress={() => Linking.openURL('https://bstechnologiesplc.com')}
+      >
+        <Text style={styles.poweredByText}>
+          Powered by <Text style={styles.poweredByLink}>BS Technologies</Text>
+        </Text>
+      </Pressable>
+    </AuthHero>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-    padding: Spacing.xl,
-  },
-  back: { paddingVertical: Spacing.sm },
-  backText: { color: Colors.text.secondary, fontSize: 16, fontWeight: '500' },
-  content: { flex: 1, justifyContent: 'center', gap: Spacing.sm },
-  illust: {
-    width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.brand.primaryTint,
-    alignItems: 'center', justifyContent: 'center',
-    alignSelf: 'center', marginBottom: Spacing.md,
-  },
-  illustEmoji: { fontSize: 36 },
-  title: { fontSize: 26, fontWeight: '800', color: Colors.text.primary, textAlign: 'center' },
-  subtitle: { fontSize: 14, color: Colors.text.tertiary, textAlign: 'center', marginBottom: Spacing.lg },
+  label: { fontSize: 12, fontWeight: '700', color: Colors.text.tertiary, letterSpacing: 0.4 },
   inputRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
   flagBox: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: Spacing.md, paddingVertical: 14,
-    borderWidth: 1, borderColor: Colors.border.medium,
+    borderWidth: 1.5, borderColor: Colors.border.medium,
     borderRadius: BorderRadius.lg, backgroundColor: Colors.background.secondary,
   },
   flag: { fontSize: 18 },
-  flagCode: { fontWeight: '600', color: Colors.text.primary },
+  flagCode: { fontWeight: '700', color: Colors.text.primary },
   input: {
-    flex: 1, borderWidth: 1, borderColor: Colors.border.medium,
+    flex: 1, borderWidth: 1.5, borderColor: Colors.border.medium,
     borderRadius: BorderRadius.lg, paddingHorizontal: Spacing.md,
     paddingVertical: 14, fontSize: 18, fontWeight: '600', letterSpacing: 1,
-    backgroundColor: Colors.background.primary, color: Colors.text.primary,
+    backgroundColor: Colors.background.secondary, color: Colors.text.primary,
   },
   networkHint: { color: Colors.brand.primary, fontSize: 12, fontWeight: '600', marginTop: 2 },
   error: { color: Colors.semantic.error, fontSize: 13, marginTop: 2 },
@@ -165,6 +150,7 @@ const styles = StyleSheet.create({
   },
   ctaDisabled: { backgroundColor: Colors.neutral.gray300 },
   ctaText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  spacer: { flex: 1, minHeight: Spacing.xl },
   poweredBy: { alignItems: 'center', marginTop: Spacing.md },
   poweredByText: { textAlign: 'center', color: Colors.text.tertiary, fontSize: 12 },
   poweredByLink: { color: Colors.brand.primary, fontWeight: '600' },
