@@ -78,20 +78,24 @@ export default function TripDetailScreen() {
 
     if (query.isLoading) {
         return (
-            <SafeAreaView style={styles.centred} edges={['top']}>
+            <SafeAreaView style={styles.container} edges={['top']}>
+              <View style={styles.centred}>
                 <ActivityIndicator size="large" color={Colors.brand.primary} />
+              </View>
             </SafeAreaView>
         );
     }
 
     if (query.isError || !booking) {
         return (
-            <SafeAreaView style={styles.centred} edges={['top']}>
+            <SafeAreaView style={styles.container} edges={['top']}>
+              <View style={styles.centred}>
                 <Text style={styles.errorIcon}>⚠️</Text>
                 <Text style={styles.errorText}>Could not load ticket</Text>
                 <Pressable style={styles.retryBtn} onPress={() => void query.refetch()}>
                     <Text style={styles.retryText}>Retry</Text>
                 </Pressable>
+              </View>
             </SafeAreaView>
         );
     }
@@ -115,6 +119,7 @@ export default function TripDetailScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+          <View style={styles.inner}>
             <ScrollView contentContainerStyle={styles.content}>
                 {/* ── Header ── */}
                 <View style={styles.header}>
@@ -268,6 +273,7 @@ export default function TripDetailScreen() {
 
                 <View style={{ height: Spacing.xl }} />
             </ScrollView>
+          </View>
         </SafeAreaView>
     );
 }
@@ -275,10 +281,11 @@ export default function TripDetailScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background.secondary },
+    container: { flex: 1, backgroundColor: Colors.brand.primaryDark },
+    inner:     { flex: 1, backgroundColor: Colors.background.secondary },
     content:   { gap: Spacing.md, paddingBottom: Spacing['2xl'] },
 
-    centred:   { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
+    centred:   { flex: 1, backgroundColor: Colors.background.secondary, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
     errorIcon: { fontSize: 44 },
     errorText: { color: Colors.text.secondary, fontWeight: '600', fontSize: 15 },
     retryBtn:  { backgroundColor: Colors.brand.primary, paddingHorizontal: Spacing.xl, paddingVertical: 10, borderRadius: BorderRadius.lg },

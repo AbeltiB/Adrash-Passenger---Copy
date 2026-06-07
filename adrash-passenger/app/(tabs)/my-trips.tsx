@@ -171,6 +171,7 @@ export default function MyTripsTab() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+          <View style={styles.inner}>
             {/* ── Header ── */}
             <View style={styles.header}>
                 <Text style={styles.title}>{tFn('trips.title')}</Text>
@@ -251,6 +252,7 @@ export default function MyTripsTab() {
                     </>
                 )}
             </ScrollView>
+          </View>
         </SafeAreaView>
     );
 }
@@ -258,7 +260,8 @@ export default function MyTripsTab() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background.secondary },
+    container: { flex: 1, backgroundColor: Colors.brand.primaryDark },
+    inner:     { flex: 1, backgroundColor: Colors.background.secondary },
 
     header: {
         paddingHorizontal: Spacing.lg,

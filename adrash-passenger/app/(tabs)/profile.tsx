@@ -174,19 +174,23 @@ export default function ProfileTab() {
     // ── Loading / error ───────────────────────────────────────────────────────
     if (profileLoading) {
         return (
-            <SafeAreaView style={styles.centered} edges={['top']}>
+            <SafeAreaView style={styles.container} edges={['top']}>
+              <View style={styles.centered}>
                 <ActivityIndicator size="large" color={Colors.brand.primary} />
+              </View>
             </SafeAreaView>
         );
     }
 
     if (profileError || !profile) {
         return (
-            <SafeAreaView style={styles.centered} edges={['top']}>
+            <SafeAreaView style={styles.container} edges={['top']}>
+              <View style={styles.centered}>
                 <Text style={styles.errorText}>{t('profile.could_not_load')}</Text>
                 <Pressable style={styles.retryBtn} onPress={() => refetch()}>
                     <Text style={styles.retryText}>{t('common.retry')}</Text>
                 </Pressable>
+              </View>
             </SafeAreaView>
         );
     }
@@ -208,6 +212,7 @@ export default function ProfileTab() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+          <View style={styles.inner}>
             <ScrollView contentContainerStyle={styles.scroll}>
                 <Text style={styles.pageTitle}>{t('profile.title')}</Text>
 
@@ -391,6 +396,7 @@ export default function ProfileTab() {
 
                 <View style={{ height: Spacing.xl }} />
             </ScrollView>
+          </View>
 
             {/* ── Edit name bottom sheet ── */}
             <Modal
@@ -571,9 +577,10 @@ export default function ProfileTab() {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background.secondary },
+    container: { flex: 1, backgroundColor: Colors.brand.primaryDark },
+    inner:     { flex: 1, backgroundColor: Colors.background.secondary },
     scroll:    { padding: Spacing.lg, gap: Spacing.md },
-    centered:  { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
+    centered:  { flex: 1, backgroundColor: Colors.background.secondary, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
 
     pageTitle: { fontSize: 26, fontWeight: '800', color: Colors.text.primary },
     sectionTitle: {

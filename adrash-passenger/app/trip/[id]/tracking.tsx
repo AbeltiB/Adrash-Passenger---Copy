@@ -325,6 +325,7 @@ const styles = StyleSheet.create({
 
     headerOverlay: {
         position: 'absolute', top: 0, left: 0, right: 0,
+        backgroundColor: Colors.brand.primaryDark,
     },
     header: {
         flexDirection: 'row', alignItems: 'center',

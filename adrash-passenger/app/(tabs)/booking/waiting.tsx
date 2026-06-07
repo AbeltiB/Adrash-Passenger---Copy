@@ -138,6 +138,7 @@ export default function WaitingScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+          <View style={styles.inner}>
             <View style={styles.content}>
                 {/* Icon */}
                 <View style={[styles.iconRing, isFailed && styles.iconRingError]}>
@@ -210,12 +211,14 @@ export default function WaitingScreen() {
                     </Pressable>
                 )}
             </View>
+          </View>
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background.secondary },
+    container: { flex: 1, backgroundColor: Colors.brand.primaryDark },
+    inner:     { flex: 1, backgroundColor: Colors.background.secondary },
     content: {
         flex: 1, alignItems: 'center', justifyContent: 'center',
         padding: Spacing['2xl'], gap: Spacing.lg,

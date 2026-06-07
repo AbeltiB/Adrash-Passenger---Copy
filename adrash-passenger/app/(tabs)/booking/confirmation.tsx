@@ -74,6 +74,7 @@ export default function ConfirmationScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+          <View style={styles.inner}>
             <ScrollView contentContainerStyle={styles.content}>
 
                 {/* ── Success indicator ── */}
@@ -180,6 +181,7 @@ export default function ConfirmationScreen() {
 
                 <View style={{ height: Spacing.xl }} />
             </ScrollView>
+          </View>
         </SafeAreaView>
     );
 }
@@ -187,7 +189,8 @@ export default function ConfirmationScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background.secondary },
+    container: { flex: 1, backgroundColor: Colors.brand.primaryDark },
+    inner:     { flex: 1, backgroundColor: Colors.background.secondary },
     content:   { padding: Spacing.lg, gap: Spacing.md, alignItems: 'stretch' },
 
     successCircle: {

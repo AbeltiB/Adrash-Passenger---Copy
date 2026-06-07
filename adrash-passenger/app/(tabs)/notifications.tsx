@@ -104,6 +104,7 @@ export default function NotificationsScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+          <View style={styles.inner}>
             {/* ── Header ── */}
             <View style={styles.header}>
                 <Pressable
@@ -181,6 +182,7 @@ export default function NotificationsScreen() {
                     </>
                 )}
             </ScrollView>
+          </View>
         </SafeAreaView>
     );
 }
@@ -188,7 +190,8 @@ export default function NotificationsScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background.secondary },
+    container: { flex: 1, backgroundColor: Colors.brand.primaryDark },
+    inner:     { flex: 1, backgroundColor: Colors.background.secondary },
 
     header: {
         flexDirection: 'row',

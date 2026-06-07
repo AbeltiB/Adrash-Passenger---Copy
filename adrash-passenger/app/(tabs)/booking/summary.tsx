@@ -131,6 +131,7 @@ export default function SummaryScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+          <View style={styles.inner}>
             {/* Header */}
             <View style={styles.header}>
                 <Pressable onPress={() => router.back()} style={styles.backBtn}>
@@ -237,6 +238,7 @@ export default function SummaryScreen() {
 
                 <View style={{ height: Spacing.xl }} />
             </ScrollView>
+          </View>
         </SafeAreaView>
     );
 }
@@ -244,7 +246,8 @@ export default function SummaryScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    container:  { flex: 1, backgroundColor: Colors.background.secondary },
+    container:  { flex: 1, backgroundColor: Colors.brand.primaryDark },
+    inner:      { flex: 1, backgroundColor: Colors.background.secondary },
     header: {
         flexDirection: 'row',
         alignItems: 'center',

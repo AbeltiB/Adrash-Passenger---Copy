@@ -53,6 +53,7 @@ export default function RewardsTab() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+          <View style={styles.inner}>
             <ScrollView
                 contentContainerStyle={styles.scroll}
                 refreshControl={
@@ -210,6 +211,7 @@ export default function RewardsTab() {
 
                 <View style={{ height: Spacing.xl }} />
             </ScrollView>
+          </View>
         </SafeAreaView>
     );
 }
@@ -217,7 +219,8 @@ export default function RewardsTab() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    container:   { flex: 1, backgroundColor: Colors.background.secondary },
+    container:   { flex: 1, backgroundColor: Colors.brand.primaryDark },
+    inner:       { flex: 1, backgroundColor: Colors.background.secondary },
     scroll:      { padding: Spacing.lg, gap: Spacing.md },
     title:       { fontSize: 26, fontWeight: '800', color: Colors.text.primary },
 

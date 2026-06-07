@@ -149,6 +149,7 @@ export default function PickupScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+          <View style={styles.inner}>
             {/* ── Header ── */}
             <View style={styles.header}>
                 <Pressable onPress={() => router.back()} style={styles.backBtn}>
@@ -315,6 +316,7 @@ export default function PickupScreen() {
 
                 <View style={{ height: Spacing.lg }} />
             </ScrollView>
+          </View>
         </SafeAreaView>
     );
 }
@@ -322,7 +324,8 @@ export default function PickupScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background.secondary },
+    container: { flex: 1, backgroundColor: Colors.brand.primaryDark },
+    inner:     { flex: 1, backgroundColor: Colors.background.secondary },
 
     // ── Header ──
     header: {

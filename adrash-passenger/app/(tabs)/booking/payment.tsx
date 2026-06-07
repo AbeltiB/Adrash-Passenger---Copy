@@ -28,6 +28,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { useInitiatePayment } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
+import { uuidv4 } from '@/lib/id';
 import {
     SANTIMPAY_PARTNERS,
     type PartnerInfo,
@@ -75,7 +76,7 @@ export default function PaymentScreen() {
 
     // One idempotency key per screen mount: prevents charging twice on double-tap.
     // If the user navigates away and back they get a new key (which is correct).
-    const [idempotencyKey] = useState(() => crypto.randomUUID());
+    const [idempotencyKey] = useState(() => uuidv4());
 
     const [selectedPartner, setSelectedPartner] = useState<SantimPayPartner | null>(null);
     // Pre-fill with passenger phone, normalized to E.164 so SantimPay accepts it.
@@ -144,6 +145,7 @@ export default function PaymentScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+          <View style={styles.inner}>
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -258,6 +260,7 @@ export default function PaymentScreen() {
                     <View style={{ height: Spacing.xl }} />
                 </ScrollView>
             </KeyboardAvoidingView>
+          </View>
         </SafeAreaView>
     );
 }
@@ -265,7 +268,8 @@ export default function PaymentScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background.secondary },
+    container: { flex: 1, backgroundColor: Colors.brand.primaryDark },
+    inner:     { flex: 1, backgroundColor: Colors.background.secondary },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
