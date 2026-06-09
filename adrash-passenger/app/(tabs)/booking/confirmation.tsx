@@ -14,14 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { useBookingDetail } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
+import { QRCode } from '@/components/QRCode';
 
 // ─── QR ticket display ────────────────────────────────────────────────────────
-// react-native-qrcode-svg is not yet installed.
-// To enable real QR:
-//   1. npm install react-native-qrcode-svg react-native-svg
-//   2. Replace QRDisplay with:
-//      import QRCode from 'react-native-qrcode-svg';
-//      <QRCode value={data} size={180} />
 
 function QRDisplay({ data, bookingRef }: { data: string; bookingRef: string }) {
     return (
@@ -33,11 +28,7 @@ function QRDisplay({ data, bookingRef }: { data: string; bookingRef: string }) {
                 {/* Header */}
                 <Text style={styles.qrBrand}>አድራሽ  ·  ADRASH</Text>
 
-                {/* Visual QR placeholder — replace with <QRCode value={data} size={180} /> */}
-                <View style={styles.qrBox}>
-                    <Text style={styles.qrIcon}>▦</Text>
-                    <Text style={styles.qrDataText} numberOfLines={2}>{data}</Text>
-                </View>
+                <QRCode value={data} size={200} padding={12} />
 
                 <Text style={styles.qrPrompt}>Show this to your driver</Text>
 
@@ -222,16 +213,6 @@ const styles = StyleSheet.create({
         ...Shadow.md,
     },
     qrBrand:    { fontWeight: '900', fontSize: 13, color: Colors.brand.primary, letterSpacing: 1 },
-    qrBox: {
-        width: 180, height: 180,
-        backgroundColor: Colors.background.secondary,
-        borderRadius: BorderRadius.md,
-        alignItems: 'center', justifyContent: 'center',
-        gap: Spacing.sm,
-        borderWidth: 1, borderColor: Colors.border.light,
-    },
-    qrIcon:     { fontSize: 100, color: Colors.text.primary },
-    qrDataText: { fontFamily: 'monospace', fontSize: 9, color: Colors.text.tertiary, textAlign: 'center', paddingHorizontal: 8 },
     qrPrompt:   { color: Colors.text.secondary, fontSize: 13, fontWeight: '600' },
     qrDivider:  { width: '100%', height: 1, backgroundColor: Colors.border.light },
     qrRefLabel: { color: Colors.text.tertiary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },

@@ -18,6 +18,7 @@ import { router } from 'expo-router';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import type { BookingDTO, BookingStatusDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 import { useBookings } from '@/features/passenger-booking/hooks/usePassengerBooking';
+import { QRCode } from '@/components/QRCode';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,21 +29,6 @@ const TAB_STATUS: Record<Tab, BookingStatusDTO> = {
     active:   'CheckedIn',
     past:     'Completed',
 };
-
-// ─── QR ticket display ────────────────────────────────────────────────────────
-// react-native-qrcode-svg is not yet installed.
-// When added: replace this component with <QRCode value={data} size={86} />.
-
-function QRPlaceholder({ data }: { data: string }) {
-    return (
-        <View style={styles.qrBox}>
-            <View style={styles.qrInner}>
-                <Text style={styles.qrIcon}>▦</Text>
-                <Text style={styles.qrRef} numberOfLines={1}>{data.slice(0, 12)}</Text>
-            </View>
-        </View>
-    );
-}
 
 // ─── Status badge ──────────────────────────────────────────────────────────────
 
@@ -100,7 +86,7 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
             </Text>
 
             {/* QR code */}
-            {qrData ? <QRPlaceholder data={qrData} /> : null}
+            {qrData ? <QRCode value={qrData} size={100} padding={6} /> : null}
 
             {/* Refund status (cancelled/past) */}
             {booking.refundStatus ? (
@@ -307,18 +293,6 @@ const styles = StyleSheet.create({
         borderRadius: BorderRadius.full, flexShrink: 0,
     },
     badgeText: { fontSize: 11, fontWeight: '800' },
-
-    qrBox: {
-        alignSelf: 'flex-start',
-        backgroundColor: Colors.background.secondary,
-        borderRadius: BorderRadius.md,
-        padding: 8,
-        borderWidth: 1,
-        borderColor: Colors.border.light,
-    },
-    qrInner:  { alignItems: 'center', gap: 2 },
-    qrIcon:   { fontSize: 48, color: Colors.text.primary },
-    qrRef:    { fontFamily: 'monospace', fontSize: 9, color: Colors.text.tertiary, maxWidth: 80 },
 
     refundText: { color: Colors.semantic.info, fontWeight: '700', fontSize: 13 },
     reviewedText: { color: Colors.semantic.success, fontWeight: '700', fontSize: 13 },

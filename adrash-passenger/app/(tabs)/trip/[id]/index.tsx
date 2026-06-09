@@ -15,8 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { useBookingDetail } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import type { BookingStatusDTO } from '@/features/passenger-booking/dtos/bookingDtos';
+import { QRCode } from '@/components/QRCode';
 
-// ─── QR display (same pattern as confirmation screen) ────────────────────────
+// ─── QR display ────────────────────────────────────────────────────────────────
 
 function QRDisplay({ data, bookingRef }: { data: string; bookingRef: string }) {
     return (
@@ -24,10 +25,7 @@ function QRDisplay({ data, bookingRef }: { data: string; bookingRef: string }) {
             <View style={styles.perforation} />
             <View style={styles.qrCard}>
                 <Text style={styles.qrBrand}>አድራሽ  ·  ADRASH</Text>
-                <View style={styles.qrBox}>
-                    <Text style={styles.qrIcon}>▦</Text>
-                    <Text style={styles.qrDataText} numberOfLines={2}>{data}</Text>
-                </View>
+                <QRCode value={data} size={200} padding={12} />
                 <Text style={styles.qrPrompt}>Show this to your driver</Text>
                 <View style={styles.qrDivider} />
                 <Text style={styles.qrRefLabel}>BOOKING REFERENCE</Text>
@@ -332,14 +330,6 @@ const styles = StyleSheet.create({
     },
     qrCard:       { backgroundColor: Colors.background.primary, padding: Spacing.lg, alignItems: 'center', gap: Spacing.sm, ...Shadow.md },
     qrBrand:      { fontWeight: '900', fontSize: 13, color: Colors.brand.primary, letterSpacing: 1 },
-    qrBox: {
-        width: 160, height: 160,
-        backgroundColor: Colors.background.secondary,
-        borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center',
-        gap: Spacing.sm, borderWidth: 1, borderColor: Colors.border.light,
-    },
-    qrIcon:       { fontSize: 88, color: Colors.text.primary },
-    qrDataText:   { fontFamily: 'monospace', fontSize: 9, color: Colors.text.tertiary, textAlign: 'center', paddingHorizontal: 8 },
     qrPrompt:     { color: Colors.text.secondary, fontSize: 13, fontWeight: '600' },
     qrDivider:    { width: '100%', height: 1, backgroundColor: Colors.border.light },
     qrRefLabel:   { color: Colors.text.tertiary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
