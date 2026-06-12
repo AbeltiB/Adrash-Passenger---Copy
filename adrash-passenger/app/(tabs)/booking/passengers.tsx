@@ -1,4 +1,4 @@
-// app/(tabs)/booking/passengers.tsx
+﻿// app/(tabs)/booking/passengers.tsx
 // Collect each passenger's full name + phone. The emergency contact defaults to
 // the same person (collapsed) and can be expanded and overridden if needed.
 
@@ -256,7 +256,7 @@ export default function PassengersScreen() {
     );
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
           <View style={styles.inner}>
             <KeyboardAvoidingView
                 style={{ flex: 1 }}

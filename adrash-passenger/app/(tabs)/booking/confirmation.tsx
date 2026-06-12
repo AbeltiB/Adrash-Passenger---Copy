@@ -1,9 +1,10 @@
 // app/(tabs)/booking/confirmation.tsx
-// Booking confirmed — success animation, QR ticket, action buttons.
-// Called after payment polling returns status === 'Success'.
+// Booking confirmed — success animation, QR ticket, download (image + PDF), action buttons.
 
+import { useRef, useState } from 'react';
 import { router } from 'expo-router';
 import {
+    ActivityIndicator,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -15,29 +16,22 @@ import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { useBookingDetail } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
 import { QRCode } from '@/components/QRCode';
+import { saveTicketAsImage, saveTicketAsPDF } from '@/lib/ticketDownload';
 
 // ─── QR ticket display ────────────────────────────────────────────────────────
 
 function QRDisplay({ data, bookingRef }: { data: string; bookingRef: string }) {
     return (
         <View style={styles.qrWrapper}>
-            {/* Perforation effect */}
             <View style={styles.perforation} />
-
             <View style={styles.qrCard}>
-                {/* Header */}
                 <Text style={styles.qrBrand}>አድራሽ  ·  ADRASH</Text>
-
                 <QRCode value={data} size={200} padding={12} />
-
                 <Text style={styles.qrPrompt}>Show this to your driver</Text>
-
                 <View style={styles.qrDivider} />
-
                 <Text style={styles.qrRefLabel}>BOOKING REFERENCE</Text>
                 <Text style={styles.qrRef}>{bookingRef}</Text>
             </View>
-
             <View style={styles.perforation} />
         </View>
     );
@@ -48,23 +42,48 @@ function QRDisplay({ data, bookingRef }: { data: string; bookingRef: string }) {
 export default function ConfirmationScreen() {
     const flow = useBookingFlowStore();
     const storedBooking = flow.pendingBooking;
-
-    // Re-fetch the booking to get the confirmed state (QR code, Confirmed status).
-    // The waiting screen already updated pendingBooking, but this is a safety net
-    // in case of any race condition.
     const { data: liveBooking } = useBookingDetail(storedBooking?.id);
     const booking = liveBooking ?? storedBooking;
 
-    const qrData = booking?.qrCode ?? booking?.bookingReference ?? 'CONFIRMED';
+    const qrData    = booking?.qrCode ?? booking?.bookingReference ?? 'CONFIRMED';
     const bookingRef = booking?.bookingReference ?? '—';
+
+    const ticketRef = useRef<View>(null);
+    const [downloading, setDownloading] = useState<'image' | 'pdf' | null>(null);
 
     function done() {
         flow.resetFlow();
         router.replace('/(tabs)/my-trips');
     }
 
+    async function downloadImage() {
+        if (!ticketRef.current) return;
+        setDownloading('image');
+        try { await saveTicketAsImage(ticketRef); }
+        finally { setDownloading(null); }
+    }
+
+    async function downloadPDF() {
+        setDownloading('pdf');
+        try {
+            await saveTicketAsPDF({
+                qrData,
+                bookingRef,
+                origin:      flow.origin ?? '—',
+                destination: flow.destination ?? '—',
+                pickup:      flow.selectedPickup?.name,
+                seats:       flow.selectedSeats.join(', ') || '—',
+                totalFare:   booking?.totalFare ?? 0,
+                passengers:  flow.passengerDetails.map((p, i) => ({
+                    name: p.fullName,
+                    seat: flow.selectedSeats[i] ?? '—',
+                })),
+            });
+        } finally { setDownloading(null); }
+    }
+
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
           <View style={styles.inner}>
             <ScrollView contentContainerStyle={styles.content}>
 
@@ -78,8 +97,34 @@ export default function ConfirmationScreen() {
                     Your ticket is ready. Show the QR code to board your bus.
                 </Text>
 
-                {/* ── QR ticket ── */}
-                <QRDisplay data={qrData} bookingRef={bookingRef} />
+                {/* ── QR ticket (capturable) ── */}
+                <View ref={ticketRef} collapsable={false} style={styles.captureWrapper}>
+                    <QRDisplay data={qrData} bookingRef={bookingRef} />
+                </View>
+
+                {/* ── Download buttons ── */}
+                <View style={styles.downloadRow}>
+                    <Pressable
+                        style={[styles.dlBtn, downloading === 'image' && styles.dlBtnDisabled]}
+                        onPress={() => void downloadImage()}
+                        disabled={downloading !== null}
+                    >
+                        {downloading === 'image'
+                            ? <ActivityIndicator color={Colors.brand.primary} size="small" />
+                            : <Text style={styles.dlBtnText}>⬇ Save as Image</Text>
+                        }
+                    </Pressable>
+                    <Pressable
+                        style={[styles.dlBtn, downloading === 'pdf' && styles.dlBtnDisabled]}
+                        onPress={() => void downloadPDF()}
+                        disabled={downloading !== null}
+                    >
+                        {downloading === 'pdf'
+                            ? <ActivityIndicator color={Colors.brand.primary} size="small" />
+                            : <Text style={styles.dlBtnText}>⬇ Save as PDF</Text>
+                        }
+                    </Pressable>
+                </View>
 
                 {/* ── Trip summary ── */}
                 <View style={styles.summaryCard}>
@@ -195,6 +240,8 @@ const styles = StyleSheet.create({
     title:     { textAlign: 'center', fontSize: 26, fontWeight: '900', color: Colors.text.primary },
     subtitle:  { textAlign: 'center', color: Colors.text.tertiary, fontSize: 14 },
 
+    captureWrapper: { backgroundColor: Colors.background.secondary },
+
     // QR ticket
     qrWrapper: { gap: 0 },
     perforation: {
@@ -221,6 +268,22 @@ const styles = StyleSheet.create({
         fontSize: 22, fontWeight: '900',
         color: Colors.brand.primary, letterSpacing: 2,
     },
+
+    // Download
+    downloadRow: { flexDirection: 'row', gap: Spacing.sm },
+    dlBtn: {
+        flex: 1,
+        borderWidth: 1.5,
+        borderColor: Colors.brand.primary,
+        borderRadius: BorderRadius.lg,
+        paddingVertical: 11,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.brand.primaryTint,
+        minHeight: 44,
+    },
+    dlBtnDisabled: { opacity: 0.5 },
+    dlBtnText: { color: Colors.brand.primary, fontWeight: '700', fontSize: 13 },
 
     summaryCard: {
         backgroundColor: Colors.background.primary,

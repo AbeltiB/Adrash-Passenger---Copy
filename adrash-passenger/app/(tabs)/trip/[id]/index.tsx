@@ -2,6 +2,7 @@
 // Trip detail + ticket screen. Shown from My Trips → View ticket.
 // APIs: GET /bookings/{id} (booking + trip + passenger details)
 
+import { useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
     ActivityIndicator,
@@ -16,6 +17,7 @@ import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { useBookingDetail } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import type { BookingStatusDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 import { QRCode } from '@/components/QRCode';
+import { saveTicketAsImage, saveTicketAsPDF } from '@/lib/ticketDownload';
 
 // ─── QR display ────────────────────────────────────────────────────────────────
 
@@ -113,7 +115,35 @@ export default function TripDetailScreen() {
     const qrData    = booking.qrCode ?? booking.bookingReference;
     const isInProgress = trip?.status === 'InProgress';
     const isCompleted  = booking.status === 'Completed';
-    const canCancel    = booking.status === 'Confirmed';
+
+    const ticketRef = useRef<View>(null);
+    const [downloading, setDownloading] = useState<'image' | 'pdf' | null>(null);
+
+    async function downloadImage() {
+        if (!ticketRef.current) return;
+        setDownloading('image');
+        try { await saveTicketAsImage(ticketRef); }
+        finally { setDownloading(null); }
+    }
+
+    async function downloadPDF() {
+        setDownloading('pdf');
+        try {
+            await saveTicketAsPDF({
+                qrData:      qrData ?? '—',
+                bookingRef:  booking.bookingReference,
+                origin:      route?.originCity ?? '—',
+                destination: route?.destinationCity ?? '—',
+                seats:       booking.seatNumbers.join(', ') || '—',
+                totalFare:   booking.totalFare ?? 0,
+                departureTime: depTime !== '—' ? depTime : undefined,
+                passengers:  (booking.passengerDetails ?? []).map((p, i) => ({
+                    name: p.fullName,
+                    seat: booking.seatNumbers[i] ?? '—',
+                })),
+            });
+        } finally { setDownloading(null); }
+    }
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -133,8 +163,32 @@ export default function TripDetailScreen() {
                     <StatusBar status={booking.status} />
                 )}
 
-                {/* ── QR ticket ── */}
-                <QRDisplay data={qrData} bookingRef={booking.bookingReference} />
+                {/* ── QR ticket (capturable) ── */}
+                <View ref={ticketRef} collapsable={false} style={styles.captureWrapper}>
+                    <QRDisplay data={qrData} bookingRef={booking.bookingReference} />
+                </View>
+
+                {/* ── Download buttons ── */}
+                <View style={styles.downloadRow}>
+                    <Pressable
+                        style={[styles.dlBtn, downloading === 'image' && styles.dlBtnDisabled]}
+                        onPress={() => void downloadImage()}
+                        disabled={downloading !== null}
+                    >
+                        {downloading === 'image'
+                            ? <ActivityIndicator color={Colors.brand.primary} size="small" />
+                            : <Text style={styles.dlBtnText}>⬇ Save as Image</Text>}
+                    </Pressable>
+                    <Pressable
+                        style={[styles.dlBtn, downloading === 'pdf' && styles.dlBtnDisabled]}
+                        onPress={() => void downloadPDF()}
+                        disabled={downloading !== null}
+                    >
+                        {downloading === 'pdf'
+                            ? <ActivityIndicator color={Colors.brand.primary} size="small" />
+                            : <Text style={styles.dlBtnText}>⬇ Save as PDF</Text>}
+                    </Pressable>
+                </View>
 
                 {/* ── Route + time ── */}
                 <View style={styles.routeCard}>
@@ -259,14 +313,6 @@ export default function TripDetailScreen() {
                         </Pressable>
                     )}
 
-                    {canCancel && (
-                        <Pressable
-                            style={styles.cancelBtn}
-                            onPress={() => router.push(`/trips/${booking.id}/cancel`)}
-                        >
-                            <Text style={styles.cancelBtnText}>Cancel booking</Text>
-                        </Pressable>
-                    )}
                 </View>
 
                 <View style={{ height: Spacing.xl }} />
@@ -282,6 +328,17 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.brand.primaryDark },
     inner:     { flex: 1, backgroundColor: Colors.background.secondary },
     content:   { gap: Spacing.md, paddingBottom: Spacing['2xl'] },
+
+    captureWrapper: { backgroundColor: Colors.background.secondary },
+    downloadRow:    { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg },
+    dlBtn: {
+        flex: 1, borderWidth: 1.5, borderColor: Colors.brand.primary,
+        borderRadius: BorderRadius.lg, paddingVertical: 11,
+        alignItems: 'center', justifyContent: 'center',
+        backgroundColor: Colors.brand.primaryTint, minHeight: 44,
+    },
+    dlBtnDisabled: { opacity: 0.5 },
+    dlBtnText: { color: Colors.brand.primary, fontWeight: '700', fontSize: 13 },
 
     centred:   { flex: 1, backgroundColor: Colors.background.secondary, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
     errorIcon: { fontSize: 44 },
@@ -382,6 +439,4 @@ const styles = StyleSheet.create({
     trackBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
     reviewBtn: { backgroundColor: Colors.semantic.warningLight, borderRadius: BorderRadius.lg, paddingVertical: 15, alignItems: 'center' },
     reviewBtnText: { color: Colors.semantic.warning, fontWeight: '800', fontSize: 15 },
-    cancelBtn:     { borderWidth: 1, borderColor: Colors.semantic.error, borderRadius: BorderRadius.lg, paddingVertical: 14, alignItems: 'center' },
-    cancelBtnText: { color: Colors.semantic.error, fontWeight: '700', fontSize: 14 },
 });

@@ -21,6 +21,7 @@ import { useTrip, useTripLocation } from '@/features/passenger-booking/hooks/use
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
 import { startTracking, stopTracking } from '@/lib/signalr';
 import { getAccessToken } from '@/features/auth/utils/token';
+import { hasGoogleMaps } from '@/lib/maps';
 import type { TripLocationDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -180,6 +181,49 @@ export default function TrackingScreen() {
         : pickup
         ? { latitude: pickup.lat, longitude: pickup.lng, latitudeDelta: 0.12, longitudeDelta: 0.12 }
         : undefined;
+
+    if (!hasGoogleMaps) {
+        return (
+            <View style={[styles.container, styles.noMapContainer]}>
+                <SafeAreaView style={styles.headerOverlay} edges={['top']} pointerEvents="box-none">
+                    <View style={styles.header} pointerEvents="auto">
+                        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+                            <Text style={styles.back}>←</Text>
+                        </Pressable>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.headerRoute}>
+                                {trip?.route?.originCity ?? '…'}  →  {trip?.route?.destinationCity ?? '…'}
+                            </Text>
+                            <Text style={styles.headerStatus}>{trip?.status ?? 'Loading'}</Text>
+                        </View>
+                    </View>
+                </SafeAreaView>
+                <View style={styles.noMapContent}>
+                    <Text style={styles.noMapEmoji}>🚌</Text>
+                    <Text style={styles.noMapTitle}>Live tracking</Text>
+                    <Text style={styles.noMapSub}>
+                        Map requires a Google Maps API key.{'\n'}SignalR is still connected — location updates are live.
+                    </Text>
+                    {position && (
+                        <View style={styles.noMapCoords}>
+                            <Text style={styles.noMapCoordsText}>
+                                Bus at {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
+                                {'speed' in position ? `  ·  ${position.speed} km/h` : ''}
+                            </Text>
+                        </View>
+                    )}
+                    <ETACard
+                        eta={'eta' in (livePos ?? {}) ? (livePos as LivePosition).eta : null}
+                        nextStop={'nextStopName' in (livePos ?? {}) ? (livePos as LivePosition).nextStopName : null}
+                        connectionState={connectionState}
+                    />
+                    <Pressable style={styles.sosBtn} onPress={triggerSOS}>
+                        <Text style={styles.sosBtnText}>🛡  SOS</Text>
+                    </Pressable>
+                </View>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -387,13 +431,25 @@ const styles = StyleSheet.create({
     busMarkerText: { fontSize: 32 },
 
     loadingOverlay: {
-        position: 'absolute', inset: 0,
+        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
         backgroundColor: 'rgba(255,255,255,0.85)',
         alignItems: 'center', justifyContent: 'center', gap: Spacing.md,
     },
     loadingText: { color: Colors.text.secondary, fontWeight: '600' },
-});
 
-declare module 'react-native' {
-    interface ViewStyle { inset?: number }
-}
+    // No-map fallback
+    noMapContainer: { backgroundColor: Colors.background.secondary },
+    noMapContent: {
+        flex: 1, alignItems: 'center', justifyContent: 'center',
+        padding: Spacing.xl, gap: Spacing.md, marginTop: 80,
+    },
+    noMapEmoji:      { fontSize: 56 },
+    noMapTitle:      { fontSize: 20, fontWeight: '800', color: Colors.text.primary },
+    noMapSub:        { color: Colors.text.tertiary, fontSize: 13, textAlign: 'center', lineHeight: 20 },
+    noMapCoords: {
+        backgroundColor: Colors.brand.primaryTint,
+        borderRadius: BorderRadius.md,
+        padding: Spacing.md,
+    },
+    noMapCoordsText: { fontFamily: 'monospace', fontSize: 12, color: Colors.brand.primary },
+});

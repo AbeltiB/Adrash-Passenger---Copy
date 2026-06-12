@@ -95,12 +95,14 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
 
             {/* Action buttons */}
             <View style={styles.cardActions}>
-                {tab === 'active' && isInProgress && (
+                {tab === 'active' && (
                     <Pressable
                         style={styles.primaryBtn}
                         onPress={() => router.push(`/trip/${booking.tripId}/tracking`)}
                     >
-                        <Text style={styles.primaryBtnText}>Track trip  📍</Text>
+                        <Text style={styles.primaryBtnText}>
+                            {isInProgress ? 'Track live  📍' : 'Track trip  📍'}
+                        </Text>
                     </Pressable>
                 )}
 
@@ -119,19 +121,10 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
 
                 <Pressable
                     style={styles.ghostBtn}
-                    onPress={() => router.push(`/(tabs)/trip/${booking.tripId}/index`)}
+                    onPress={() => router.push(`/(tabs)/trip/${booking.id}/index`)}
                 >
                     <Text style={styles.ghostBtnText}>View ticket</Text>
                 </Pressable>
-
-                {tab === 'upcoming' && (
-                    <Pressable
-                        style={styles.cancelBtn}
-                        onPress={() => router.push(`/trips/${booking.id}/cancel`)}
-                    >
-                        <Text style={styles.cancelBtnText}>Cancel booking</Text>
-                    </Pressable>
-                )}
             </View>
         </View>
     );
@@ -314,14 +307,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     ghostBtnText: { color: Colors.text.primary, fontWeight: '700', fontSize: 13 },
-
-    cancelBtn: {
-        borderWidth: 1, borderColor: Colors.semantic.error,
-        borderRadius: BorderRadius.md,
-        paddingVertical: 11,
-        alignItems: 'center',
-    },
-    cancelBtnText: { color: Colors.semantic.error, fontWeight: '700', fontSize: 13 },
 
     centred:     { alignItems: 'center', justifyContent: 'center', padding: Spacing['2xl'], gap: Spacing.md },
     emptyIcon:   { fontSize: 44 },

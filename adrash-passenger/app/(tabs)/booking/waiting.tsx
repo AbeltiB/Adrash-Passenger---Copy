@@ -1,4 +1,4 @@
-// app/(tabs)/booking/waiting.tsx
+﻿// app/(tabs)/booking/waiting.tsx
 // Polls payment status every 4 s (up to 30 tries = 2 min).
 // Also listens for the deep-link callback from the payment provider:
 //   adrash://payment/callback?status=success&ref=<gatewayRef>
@@ -137,7 +137,7 @@ export default function WaitingScreen() {
     const instructions = (providerInstructions ?? '').trim();
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
           <View style={styles.inner}>
             <View style={styles.content}>
                 {/* Icon */}

@@ -35,13 +35,13 @@ export default function TabsLayout() {
                 tabBarActiveTintColor:   Colors.brand.primary,
                 tabBarInactiveTintColor: Colors.neutral.gray400,
                 tabBarStyle: {
-                    backgroundColor: Colors.background.primary,
-                    borderTopColor:  Colors.border.light,
+                    backgroundColor: Colors.neutral.gray50,
+                    borderTopColor:  Colors.border.medium,
                     borderTopWidth:  1,
                     height:          tabBarHeight,
                     paddingBottom:   insets.bottom || 8,
                     paddingTop:      6,
-                    elevation:       8,
+                    elevation:       10,
                 },
                 tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
             }}

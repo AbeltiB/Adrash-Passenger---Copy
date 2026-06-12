@@ -1,4 +1,4 @@
-// app/(tabs)/notifications.tsx
+﻿// app/(tabs)/notifications.tsx
 // Notifications screen — real API data, mark-read on tap, mark-all-read button.
 // APIs: GET /notifications (paginated), PATCH /notifications/{id}/read,
 //       PATCH /notifications/read-all
@@ -103,7 +103,7 @@ export default function NotificationsScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
           <View style={styles.inner}>
             {/* ── Header ── */}
             <View style={styles.header}>

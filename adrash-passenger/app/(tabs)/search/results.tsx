@@ -1,4 +1,4 @@
-// app/(tabs)/search/results.tsx
+﻿// app/(tabs)/search/results.tsx
 // Trip search results — filtered by origin/destination/date from bookingFlowStore.
 // Sort: earliest departure or most available seats.
 
@@ -233,7 +233,7 @@ export default function ResultsScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
           <View style={styles.inner}>
             {/* ── Header ── */}
             <View style={styles.header}>

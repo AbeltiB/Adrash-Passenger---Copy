@@ -1,4 +1,4 @@
-// app/(tabs)/booking/summary.tsx
+﻿// app/(tabs)/booking/summary.tsx
 // Final booking review: route details, fare breakdown, optional rewards redemption.
 // Creates the booking on the server and advances to payment.
 
@@ -130,7 +130,7 @@ export default function SummaryScreen() {
         : '—';
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
           <View style={styles.inner}>
             {/* Header */}
             <View style={styles.header}>

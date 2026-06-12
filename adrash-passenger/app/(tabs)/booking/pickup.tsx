@@ -1,4 +1,4 @@
-// app/(tabs)/booking/pickup.tsx
+﻿// app/(tabs)/booking/pickup.tsx
 //
 // Pickup selection — redesigned.
 //   • Dropoff is REMOVED from the UI — the terminal (last isDropoff stop) is
@@ -87,25 +87,28 @@ function RouteFallback({ stops, selectedPickupId }: { stops: StopDTO[]; selected
 
 export default function PickupScreen() {
     const f = useBookingFlowStore();
-    const q = useRouteBundle(f.selectedRoute?.id);
+
+    // Derive route ID from the selected trip — selectedRoute is not set by selectTrip()
+    const routeId = f.selectedTrip?.routeId ?? f.selectedTrip?.route?.id ?? f.selectedRoute?.id;
+    const q = useRouteBundle(routeId);
 
     const stops   = q.data?.stops   ?? [];
     const pickups = q.data?.pickups ?? [];
 
-    // Auto-select the terminal (last isDropoff stop after the chosen pickup).
-    // This removes the need for a separate dropoff selection screen.
+    // The destination terminal is always the last isDropoff stop on the route
+    // (the destination city the user searched for). It is fixed — not user-selectable.
+    const terminal = useMemo(
+        () => [...stops]
+            .filter((s) => s.isDropoff)
+            .sort((a, b) => b.sequenceOrder - a.sequenceOrder)[0] ?? null,
+        [stops],
+    );
+
+    // Keep selectedDropoff in sync with the terminal whenever stops load
     useEffect(() => {
-        if (!f.selectedPickup) {
-            f.selectDropoff(null);
-            return;
-        }
-        const terminal = [...stops]
-            .filter((s) => s.isDropoff && s.sequenceOrder > (f.selectedPickup?.sequenceOrder ?? -1))
-            .sort((a, b) => b.sequenceOrder - a.sequenceOrder)[0] ?? null;
         f.selectDropoff(terminal);
-    // Re-run only when the selected pickup ID or the stop list changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [f.selectedPickup?.id, stops.length]);
+    }, [terminal?.id]);
 
     // ── Map data ──────────────────────────────────────────────────────────────
     const stopCoords = useMemo(
@@ -130,14 +133,14 @@ export default function PickupScreen() {
     // ── Loading / error states ────────────────────────────────────────────────
     if (q.isLoading) {
         return (
-            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+            <SafeAreaView style={styles.container} edges={['top']}>
                 <StateView title="Loading route…" loading />
             </SafeAreaView>
         );
     }
     if (q.isError) {
         return (
-            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+            <SafeAreaView style={styles.container} edges={['top']}>
                 <StateView
                     title="Could not load stops"
                     actionLabel="Retry"
@@ -148,7 +151,7 @@ export default function PickupScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
           <View style={styles.inner}>
             {/* ── Header ── */}
             <View style={styles.header}>
@@ -286,18 +289,19 @@ export default function PickupScreen() {
                     })
                 )}
 
-                {/* ── Auto-selected destination info ── */}
-                {f.selectedDropoff && (
-                    <View style={styles.destinationBanner}>
-                        <View style={styles.destinationIcon}>
-                            <Text style={styles.destinationIconText}>🏁</Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.destinationLabel}>Your destination</Text>
-                            <Text style={styles.destinationName}>{f.selectedDropoff.name}</Text>
-                        </View>
+                {/* ── Fixed destination (always the destination city from search) ── */}
+                <View style={styles.destinationBanner}>
+                    <View style={styles.destinationIcon}>
+                        <Text style={styles.destinationIconText}>🏁</Text>
                     </View>
-                )}
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.destinationLabel}>Your destination (fixed)</Text>
+                        <Text style={styles.destinationName}>
+                            {f.selectedDropoff?.name ?? f.destination}
+                        </Text>
+                    </View>
+                    <Text style={styles.destinationLock}>🔒</Text>
+                </View>
 
                 {/* ── Continue button ── */}
                 <Pressable
@@ -464,6 +468,7 @@ const styles = StyleSheet.create({
     destinationIconText: { fontSize: 20 },
     destinationLabel:    { fontSize: 11, fontWeight: '700', color: Colors.text.tertiary, letterSpacing: 0.3 },
     destinationName:     { fontSize: 15, fontWeight: '800', color: Colors.text.primary, marginTop: 2 },
+    destinationLock:     { fontSize: 16, marginLeft: 8 },
 
     // ── Continue button ──
     continueBtn: {

@@ -1,4 +1,4 @@
-// app/(tabs)/booking/seats.tsx
+﻿// app/(tabs)/booking/seats.tsx
 // Seat map. Loads real booked/available data from GET /trips/{id}/seats.
 // If the API returns an empty array (e.g. newly scheduled trip with no seat
 // records yet), falls back to generating all seats from the bus capacity —
@@ -165,7 +165,7 @@ export default function SeatsScreen() {
     const canContinue = f.selectedSeats.length === f.passengersCount;
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
             {/* Header */}
             <View style={styles.header}>
                 <Pressable onPress={() => router.back()} style={styles.backBtn}>

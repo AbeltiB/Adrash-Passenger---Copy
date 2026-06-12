@@ -1,4 +1,4 @@
-// app/(tabs)/booking/payment.tsx
+﻿// app/(tabs)/booking/payment.tsx
 //
 // Payment is always routed through SantimPay (Ethiopian aggregator).
 // The user picks which downstream rail (Telebirr / CBE Birr / M-Pesa) via the
@@ -144,7 +144,7 @@ export default function PaymentScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
           <View style={styles.inner}>
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
