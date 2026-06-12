@@ -90,8 +90,9 @@
       "privacyPolicyUrl": "https://adrash.et/privacy",
       "router": {},
       "eas": {
-        "projectId": "fb5d2114-80b9-45ee-a562-16b6c6806946"
+        "projectId": "2b6f4698-5988-4b5e-b34f-fce75aae4f94"
       }
-    }
+    },
+    "owner": "abeltib"
   }
 }
