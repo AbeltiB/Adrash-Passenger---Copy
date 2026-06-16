@@ -56,15 +56,15 @@ function isValidAccountRef(raw: string): boolean {
 
 // ─── Error code helpers ───────────────────────────────────────────────────────
 
-function parsePaymentError(err: unknown): { code: string; existingTxnId?: string } {
+function parsePaymentError(err: unknown): { code: string; existingTxnId?: string | undefined } {
     if (!axios.isAxiosError(err)) return { code: 'unknown' };
 
     const data = err.response?.data as Record<string, unknown> | undefined;
     // The server wraps errors: { success: false, code?, data?: { existingTransactionId? } }
-    const code  = String(data?.code ?? data?.errors?.[0] ?? 'unknown');
+    const code  = String(data?.code ?? (data?.errors as unknown[] | undefined)?.[0] ?? 'unknown');
     const meta  = (data?.data ?? data?.meta ?? {}) as Record<string, unknown>;
     const existingTxnId = String(meta?.existingTransactionId ?? '').trim() || undefined;
-    return { code, existingTxnId };
+    return existingTxnId !== undefined ? { code, existingTxnId } : { code };
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────

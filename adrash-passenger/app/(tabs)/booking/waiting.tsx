@@ -43,7 +43,7 @@ export default function WaitingScreen() {
     const pending         = useBookingFlowStore((s) => s.pendingBooking);
     const setPending      = useBookingFlowStore((s) => s.setPendingBooking);
 
-    const [tries,     setTries]     = useState(0);
+    const triesRef    = useRef(0);
     const [timedOut,  setTimedOut]  = useState(false);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const navigatingRef = useRef(false); // guard: only navigate once
@@ -98,15 +98,13 @@ export default function WaitingScreen() {
         doVerify();
 
         intervalRef.current = setInterval(() => {
-            setTries((n) => {
-                if (n >= MAX_TRIES) {
-                    clearInterval(intervalRef.current!);
-                    setTimedOut(true);
-                    return n;
-                }
-                doVerify();
-                return n + 1;
-            });
+            triesRef.current += 1;
+            if (triesRef.current >= MAX_TRIES) {
+                clearInterval(intervalRef.current!);
+                setTimedOut(true);
+                return;
+            }
+            doVerify();
         }, POLL_INTERVAL_MS);
 
         return () => { if (intervalRef.current) clearInterval(intervalRef.current); };

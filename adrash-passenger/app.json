@@ -81,13 +81,14 @@
           "project": "react-native",
           "organization": "abelti"
         }
-      ]
+      ],
+      "@maplibre/maplibre-react-native"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "privacyPolicyUrl": "https://adrash.et/privacy",
+      "privacyPolicyUrl": "https://adrash.et/privacy-policy",
       "router": {},
       "eas": {
         "projectId": "2b6f4698-5988-4b5e-b34f-fce75aae4f94"

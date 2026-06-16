@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
     Alert,
+    Linking,
     Modal,
     Pressable,
     ScrollView,
@@ -27,7 +28,6 @@ import {
     useNotificationPreferences,
     useUpdateNotificationPreferences,
 } from '../../src/features/profile/hooks/useNotificationPreferences';
-import { useCurrentAgreement } from '../../src/features/agreements/hooks/useAgreements';
 import type { ApiLanguage, NotificationPreferenceDto } from '../../src/api/types';
 import { changeLanguage } from '../../src/lib/i18n';
 import { MMKVKeys } from '../../src/constants/mmkvKeys';
@@ -73,7 +73,6 @@ export default function ProfileTab() {
     const { data: balance,    isLoading: balanceLoading  } = useRewardsBalance();
     const { data: referral,   isLoading: referralLoading } = useReferral();
     const { data: notifPrefs, isLoading: prefsLoading    } = useNotificationPreferences();
-    const { data: agreement,  isLoading: agreementLoading } = useCurrentAgreement();
 
     const { mutate: updateProfile, isPending: saving     } = useUpdateProfile();
     const { mutate: updatePrefs                          } = useUpdateNotificationPreferences();
@@ -93,7 +92,9 @@ export default function ProfileTab() {
 
     // ── Other UI ──────────────────────────────────────────────────────────────
     const [langPickerOpen, setLangPickerOpen] = useState(false);
-    const [termsOpen,      setTermsOpen]      = useState(false);
+
+    const PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ?? 'https://adrash.et/privacy-policy';
+    const TERMS_URL   = process.env.EXPO_PUBLIC_TERMS_URL           ?? 'https://adrash.et/privacy-policy';
 
     // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -354,12 +355,23 @@ export default function ProfileTab() {
                     </View>
                     <Pressable
                         style={[styles.rowItem, styles.rowDivider]}
-                        onPress={() => setTermsOpen(true)}
+                        onPress={() => void Linking.openURL(TERMS_URL)}
                     >
                         <Text style={styles.rowIcon}>📋</Text>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.rowLabel}>{t('profile.terms_conditions')}</Text>
                             <Text style={styles.rowSub}>{t('profile.terms_conditions_sub')}</Text>
+                        </View>
+                        <Text style={styles.rowChev}>›</Text>
+                    </Pressable>
+                    <Pressable
+                        style={styles.rowItem}
+                        onPress={() => void Linking.openURL(PRIVACY_URL)}
+                    >
+                        <Text style={styles.rowIcon}>🔏</Text>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.rowLabel}>Privacy Policy</Text>
+                            <Text style={styles.rowSub}>How we handle your data</Text>
                         </View>
                         <Text style={styles.rowChev}>›</Text>
                     </Pressable>
@@ -485,7 +497,7 @@ export default function ProfileTab() {
 
                         {/* Step indicator */}
                         <View style={styles.pinSteps}>
-                            {(['current', 'new', 'confirm'] as const).map((phase, i) => (
+                            {(['current', 'new', 'confirm'] as const).map((phase) => (
                                 <View key={phase} style={[styles.pinStep, pinPhase === phase && styles.pinStepActive]} />
                             ))}
                         </View>
@@ -533,43 +545,6 @@ export default function ProfileTab() {
                 </View>
             )}
 
-            {/* ── Terms & Conditions modal ── */}
-            <Modal
-                visible={termsOpen}
-                transparent
-                animationType="slide"
-                onRequestClose={() => setTermsOpen(false)}
-            >
-                <View style={styles.termsBackdrop}>
-                    <View style={styles.termsSheet}>
-                        <View style={styles.termsHeader}>
-                            <Text style={styles.termsTitle} numberOfLines={2}>
-                                {agreement?.title ?? t('profile.terms_conditions')}
-                            </Text>
-                            <Pressable onPress={() => setTermsOpen(false)} style={styles.modalClose}>
-                                <Text style={styles.modalCloseText}>✕</Text>
-                            </Pressable>
-                        </View>
-                        {agreement?.version ? (
-                            <Text style={styles.termsVersion}>v{agreement.version}</Text>
-                        ) : null}
-                        {agreementLoading ? (
-                            <ActivityIndicator color={Colors.brand.primary} style={{ marginTop: Spacing.xl }} />
-                        ) : (
-                            <ScrollView
-                                style={styles.termsScroll}
-                                showsVerticalScrollIndicator={false}
-                                contentContainerStyle={{ paddingBottom: Spacing.xl }}
-                            >
-                                <Text style={styles.termsContent}>{agreement?.content ?? ''}</Text>
-                            </ScrollView>
-                        )}
-                        <Pressable style={styles.termsCloseBtn} onPress={() => setTermsOpen(false)}>
-                            <Text style={styles.termsCloseBtnText}>{t('common.close')}</Text>
-                        </Pressable>
-                    </View>
-                </View>
-            </Modal>
         </SafeAreaView>
     );
 }
@@ -704,6 +679,11 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.background.primary,
         borderRadius: BorderRadius.xl, padding: Spacing.xl, gap: Spacing.lg, ...Shadow.lg,
     },
+    modalOverlay: {
+        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center', alignItems: 'center', padding: Spacing.xl,
+    },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     modalTitle:     { fontSize: 20, fontWeight: '900', color: Colors.text.primary },
     modalClose:     { padding: 6 },
@@ -744,22 +724,4 @@ const styles = StyleSheet.create({
     pinInput: { fontSize: 22, fontWeight: '700', letterSpacing: 8, textAlign: 'center' },
     pinError: { color: Colors.semantic.error, fontSize: 12, fontWeight: '600', marginTop: 4 },
 
-    // ── Terms ──────────────────────────────────────────────────────────────────
-    termsBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    termsSheet: {
-        backgroundColor: Colors.background.primary,
-        borderTopLeftRadius: BorderRadius['2xl'], borderTopRightRadius: BorderRadius['2xl'],
-        padding: Spacing.xl, paddingBottom: Spacing['2xl'], maxHeight: '90%',
-        gap: Spacing.md, ...Shadow.lg,
-    },
-    termsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: Spacing.md },
-    termsTitle:   { flex: 1, fontSize: 20, fontWeight: '900', color: Colors.text.primary },
-    termsVersion: { fontSize: 12, color: Colors.text.tertiary, marginTop: -Spacing.xs },
-    termsScroll:  { flex: 1, maxHeight: 420 },
-    termsContent: { fontSize: 14, color: Colors.text.secondary, lineHeight: 22 },
-    termsCloseBtn: {
-        backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg,
-        paddingVertical: 14, alignItems: 'center',
-    },
-    termsCloseBtnText: { color: Colors.neutral.white, fontWeight: '700', fontSize: 16 },
 });

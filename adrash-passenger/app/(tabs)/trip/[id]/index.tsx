@@ -127,6 +127,7 @@ export default function TripDetailScreen() {
     }
 
     async function downloadPDF() {
+        if (!booking) return;
         setDownloading('pdf');
         try {
             await saveTicketAsPDF({
@@ -139,7 +140,7 @@ export default function TripDetailScreen() {
                 departureTime: depTime !== '—' ? depTime : undefined,
                 passengers:  (booking.passengerDetails ?? []).map((p, i) => ({
                     name: p.fullName,
-                    seat: booking.seatNumbers[i] ?? '—',
+                    seat: String(booking.seatNumbers[i] ?? '—'),
                 })),
             });
         } finally { setDownloading(null); }

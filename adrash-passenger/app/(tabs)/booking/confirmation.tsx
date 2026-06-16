@@ -76,7 +76,7 @@ export default function ConfirmationScreen() {
                 totalFare:   booking?.totalFare ?? 0,
                 passengers:  flow.passengerDetails.map((p, i) => ({
                     name: p.fullName,
-                    seat: flow.selectedSeats[i] ?? '—',
+                    seat: String(flow.selectedSeats[i] ?? '—'),
                 })),
             });
         } finally { setDownloading(null); }

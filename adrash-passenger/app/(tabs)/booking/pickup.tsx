@@ -17,38 +17,17 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import MapLibreGL from '@maplibre/maplibre-react-native';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
-import { hasGoogleMaps } from '@/lib/maps';
+import { MAP_STYLE_URL } from '@/lib/maps';
 import { StateView } from '@/features/passenger-booking/components/BookingUi';
 import { useRouteBundle } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
 import type { StopDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 
-// ─── Map region helper ────────────────────────────────────────────────────────
+// ─── Route timeline ───────────────────────────────────────────────────────────
 
-interface LatLng { lat: number; lng: number; }
-
-function calcRegion(coords: LatLng[]) {
-    const valid = coords.filter((c) => (c.lat !== 0 || c.lng !== 0) && c.lat && c.lng);
-    if (valid.length === 0) return null;
-    const lats = valid.map((c) => c.lat);
-    const lngs = valid.map((c) => c.lng);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    return {
-        latitude:        (minLat + maxLat) / 2,
-        longitude:       (minLng + maxLng) / 2,
-        latitudeDelta:   Math.max((maxLat - minLat) * 1.8, 0.01),
-        longitudeDelta:  Math.max((maxLng - minLng) * 1.8, 0.01),
-    };
-}
-
-// ─── Route timeline (fallback when no map coordinates) ───────────────────────
-
-function RouteFallback({ stops, selectedPickupId }: { stops: StopDTO[]; selectedPickupId?: string }) {
+function RouteFallback({ stops, selectedPickupId }: { stops: StopDTO[]; selectedPickupId?: string | undefined }) {
     const sorted = [...stops].sort((a, b) => a.sequenceOrder - b.sequenceOrder);
     return (
         <View style={styles.timelineCard}>
@@ -110,23 +89,36 @@ export default function PickupScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [terminal?.id]);
 
-    // ── Map data ──────────────────────────────────────────────────────────────
-    const stopCoords = useMemo(
-        () => stops.map((s) => ({ lat: s.lat, lng: s.lng })),
+    // ── Map data (MapLibre — no API key required) ─────────────────────────────
+    const validStops = useMemo(
+        () => stops.filter((s) => s.lat && s.lng && (s.lat !== 0 || s.lng !== 0)),
         [stops],
     );
-    const mapRegion = useMemo(() => calcRegion(stopCoords), [stopCoords]);
-    // Only render the native map when coordinates exist AND a Google Maps key is
-    // configured — otherwise MapView crashes on Android.
-    const hasMap    = mapRegion !== null && hasGoogleMaps;
+    const hasMap = validStops.length > 0;
 
-    const polylineCoords = useMemo(
-        () => [...stops]
+    // GeoJSON for the route polyline
+    const polylineGeoJSON = useMemo(() => {
+        const coords = [...validStops]
             .sort((a, b) => a.sequenceOrder - b.sequenceOrder)
-            .filter((s) => s.lat && s.lng)
-            .map((s) => ({ latitude: s.lat, longitude: s.lng })),
-        [stops],
-    );
+            .map((s) => [s.lng, s.lat] as [number, number]);
+        if (coords.length < 2) return null;
+        return {
+            type: 'Feature' as const,
+            geometry: { type: 'LineString' as const, coordinates: coords },
+            properties: {},
+        };
+    }, [validStops]);
+
+    // Camera bounds to fit all stops
+    const mapBounds = useMemo(() => {
+        if (validStops.length === 0) return null;
+        const lats = validStops.map((s) => s.lat);
+        const lngs = validStops.map((s) => s.lng);
+        return {
+            ne: [Math.max(...lngs), Math.max(...lats)] as [number, number],
+            sw: [Math.min(...lngs), Math.min(...lats)] as [number, number],
+        };
+    }, [validStops]);
 
     const canContinue = Boolean(f.selectedPickup && f.selectedDropoff);
 
@@ -170,50 +162,66 @@ export default function PickupScreen() {
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
             >
-                {/* ── Map or fallback timeline ── */}
+                {/* ── Route map (MapLibre — no API key needed) ── */}
                 {hasMap ? (
                     <View style={styles.mapCard}>
-                        <MapView
+                        <MapLibreGL.MapView
                             style={styles.map}
-                            initialRegion={mapRegion}
+                            styleURL={MAP_STYLE_URL}
                             scrollEnabled={false}
                             zoomEnabled={false}
                             rotateEnabled={false}
                             pitchEnabled={false}
+                            attributionEnabled={false}
+                            logoEnabled={false}
                         >
-                            {/* Polyline connecting stops in sequence */}
-                            {polylineCoords.length >= 2 && (
-                                <Polyline
-                                    coordinates={polylineCoords}
-                                    strokeColor={Colors.brand.primary}
-                                    strokeWidth={3}
-                                    lineDashPattern={[8, 4]}
+                            {mapBounds && (
+                                <MapLibreGL.Camera
+                                    bounds={{
+                                        ne: mapBounds.ne,
+                                        sw: mapBounds.sw,
+                                        paddingTop: 30,
+                                        paddingBottom: 30,
+                                        paddingLeft: 20,
+                                        paddingRight: 20,
+                                    }}
+                                    animationMode="moveTo"
+                                    animationDuration={0}
                                 />
                             )}
 
-                            {/* Markers for each stop */}
-                            {stops
-                                .filter((s) => s.lat && s.lng)
-                                .map((stop) => {
-                                    const isSelected = f.selectedPickup?.id === stop.id;
-                                    const isTerminal = stop.isDropoff;
-                                    return (
-                                        <Marker
-                                            key={stop.id}
-                                            coordinate={{ latitude: stop.lat, longitude: stop.lng }}
-                                            title={stop.name}
-                                            description={isTerminal ? 'Terminal' : 'Boarding point'}
-                                            pinColor={
-                                                isSelected   ? Colors.brand.primary
-                                                : isTerminal ? Colors.semantic.error
-                                                : Colors.semantic.success
-                                            }
-                                        />
-                                    );
-                                })}
-                        </MapView>
+                            {polylineGeoJSON && (
+                                <MapLibreGL.ShapeSource id="route-src" shape={polylineGeoJSON}>
+                                    <MapLibreGL.LineLayer
+                                        id="route-line"
+                                        style={{
+                                            lineColor: Colors.brand.primary,
+                                            lineWidth: 3,
+                                            lineDasharray: [3, 2],
+                                        }}
+                                    />
+                                </MapLibreGL.ShapeSource>
+                            )}
 
-                        {/* Map legend */}
+                            {validStops.map((stop) => {
+                                const isSelected = f.selectedPickup?.id === stop.id;
+                                const isTerminal = stop.isDropoff;
+                                const emoji = isSelected ? '📌' : isTerminal ? '🏁' : '🟢';
+                                return (
+                                    <MapLibreGL.PointAnnotation
+                                        key={stop.id}
+                                        id={`stop-${stop.id}`}
+                                        coordinate={[stop.lng, stop.lat]}
+                                        title={stop.name}
+                                    >
+                                        <View style={styles.stopPin}>
+                                            <Text style={styles.stopPinText}>{emoji}</Text>
+                                        </View>
+                                    </MapLibreGL.PointAnnotation>
+                                );
+                            })}
+                        </MapLibreGL.MapView>
+
                         <View style={styles.mapLegend}>
                             <View style={styles.legendItem}>
                                 <View style={[styles.legendDot, { backgroundColor: Colors.semantic.success }]} />
@@ -231,20 +239,13 @@ export default function PickupScreen() {
                             )}
                         </View>
                     </View>
-                ) : (
-                    <RouteFallback
-                        stops={stops}
-                        selectedPickupId={f.selectedPickup?.id}
-                    />
-                )}
+                ) : null}
 
-                {/* ── Stop list timeline (always shown below map) ── */}
-                {hasMap && stops.length > 0 && (
-                    <RouteFallback
-                        stops={stops}
-                        selectedPickupId={f.selectedPickup?.id}
-                    />
-                )}
+                {/* Route timeline (always visible below map, or as sole fallback) */}
+                <RouteFallback
+                    stops={stops}
+                    selectedPickupId={f.selectedPickup?.id}
+                />
 
                 {/* ── Boarding point selection ── */}
                 <Text style={styles.sectionLabel}>Select your boarding point</Text>
@@ -368,6 +369,8 @@ const styles = StyleSheet.create({
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     legendDot:  { width: 8, height: 8, borderRadius: 4 },
     legendText: { fontSize: 11, color: Colors.text.tertiary, fontWeight: '600' },
+    stopPin:     { alignItems: 'center', justifyContent: 'center' },
+    stopPinText: { fontSize: 20 },
 
     // ── Route timeline card ──
     timelineCard: {

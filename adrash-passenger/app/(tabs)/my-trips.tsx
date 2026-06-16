@@ -121,7 +121,7 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
 
                 <Pressable
                     style={styles.ghostBtn}
-                    onPress={() => router.push(`/(tabs)/trip/${booking.id}/index`)}
+                    onPress={() => router.push(`/(tabs)/trip/${booking.id}`)}
                 >
                     <Text style={styles.ghostBtnText}>View ticket</Text>
                 </Pressable>

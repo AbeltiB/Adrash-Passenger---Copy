@@ -28,9 +28,9 @@ export interface TicketParams {
     destination: string;
     seats: string;
     totalFare: number;
-    departureTime?: string;
-    pickup?: string;
-    passengers?: { name: string; seat: string }[];
+    departureTime?: string | undefined;
+    pickup?: string | undefined;
+    passengers?: { name: string; seat: string }[] | undefined;
 }
 
 export function buildTicketHTML(p: TicketParams): string {
