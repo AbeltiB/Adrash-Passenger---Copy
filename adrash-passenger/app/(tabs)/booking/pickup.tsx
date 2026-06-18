@@ -83,11 +83,14 @@ export default function PickupScreen() {
         [stops],
     );
 
-    // Keep selectedDropoff in sync with the terminal whenever stops load
+    // Keep selectedDropoff in sync with the terminal whenever stops load or pickup changes.
+    // The terminal is fixed (the last isDropoff stop), so it must stay set even after
+    // selectPickup is called. Adding f.selectedPickup?.id ensures the effect re-runs
+    // when the user picks a boarding point so the dropoff is always confirmed.
     useEffect(() => {
-        f.selectDropoff(terminal);
+        if (terminal) f.selectDropoff(terminal);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [terminal?.id]);
+    }, [terminal?.id, f.selectedPickup?.id]);
 
     // ── Map data (MapLibre — no API key required) ─────────────────────────────
     const validStops = useMemo(
