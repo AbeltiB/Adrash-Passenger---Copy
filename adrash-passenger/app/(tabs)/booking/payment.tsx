@@ -42,16 +42,16 @@ import type { SantimPayPartner } from '@/features/passenger-booking/dtos/booking
 // Payment.ProviderError, which auto-cancels the booking.
 
 function toE164(raw: string): string {
-    const s = raw.replace(/[\s\-()+]/g, '');
-    if (/^\+251[79]\d{8}$/.test(raw.trim())) return raw.trim();
-    if (/^251[79]\d{8}$/.test(s))  return `+${s}`;
-    if (/^0[79]\d{8}$/.test(s))    return `+251${s.slice(1)}`;
-    if (/^[79]\d{8}$/.test(s))     return `+251${s}`;
-    return raw.trim();
+    let digits = raw.replace(/\D/g, '');
+    if (digits.startsWith('251')) digits = digits.slice(3);
+    else if (digits.startsWith('0')) digits = digits.slice(1);
+    const local = digits.slice(0, 9);
+    return local.length > 0 ? `+251${local}` : raw.trim();
 }
 
 function isValidAccountRef(raw: string): boolean {
-    return /^\+251[79]\d{8}$/.test(toE164(raw.trim()));
+    const e164 = toE164(raw.trim());
+    return /^\+251[79]\d{8}$/.test(e164);
 }
 
 // ─── Error code helpers ───────────────────────────────────────────────────────
@@ -89,8 +89,7 @@ export default function PaymentScreen() {
 
     const selectedInfo   = SANTIMPAY_PARTNERS.find((p) => p.partner === selectedPartner);
     const totalEtb       = flow.pendingBooking?.totalFare ?? 0;
-    const phoneValid     = isValidAccountRef(accountRef);
-    const canPay         = Boolean(selectedPartner) && phoneValid && !initiate.isPending;
+    const canPay         = Boolean(selectedPartner) && accountRef.trim().length > 0 && !initiate.isPending;
 
     async function handlePay() {
         if (!flow.pendingBooking || !selectedPartner) return;
@@ -212,7 +211,7 @@ export default function PaymentScreen() {
                                     {t('booking.payment.account_ref_label', { provider: selectedInfo.label })}
                                 </Text>
                                 <TextInput
-                                    style={[styles.accountInput, accountRef.length > 3 && !phoneValid && styles.accountInputError]}
+                                    style={styles.accountInput}
                                     value={accountRef}
                                     onChangeText={(v) => { setAccountRef(v); setError(''); }}
                                     keyboardType="phone-pad"
@@ -221,11 +220,6 @@ export default function PaymentScreen() {
                                     maxLength={15}
                                     accessibilityLabel="Payment account phone number"
                                 />
-                                {accountRef.length > 3 && !phoneValid ? (
-                                    <Text style={styles.phoneHint}>
-                                        Enter your Ethiopian number: +251 9XX XXX XXX or 09XX XXX XXX
-                                    </Text>
-                                ) : null}
                             </View>
 
                             <View style={styles.instructionCard}>
@@ -359,15 +353,6 @@ const styles = StyleSheet.create({
         color: Colors.text.primary,
         backgroundColor: Colors.background.secondary,
     },
-    accountInputError: {
-        borderColor: Colors.semantic.error,
-    },
-    phoneHint: {
-        fontSize: 11,
-        color: Colors.semantic.error,
-        marginTop: 2,
-    },
-
     instructionCard: {
         backgroundColor: Colors.semantic.infoLight,
         borderRadius: BorderRadius.lg,

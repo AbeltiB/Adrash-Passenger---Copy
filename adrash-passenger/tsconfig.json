@@ -2,7 +2,8 @@
   "extends": "./node_modules/expo/tsconfig.base.json",
   "compilerOptions": {
     "strict": true,
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
+    "allowSyntheticDefaultImports": true,
     "baseUrl": "./",
     "paths": {
       "@/*": [

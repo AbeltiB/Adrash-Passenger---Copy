@@ -6,6 +6,7 @@ import { useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
     ActivityIndicator,
+    Linking,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -238,7 +239,12 @@ export default function TripDetailScreen() {
                                 )}
                             </View>
                             {driver.phone && (
-                                <Pressable style={styles.callBtn}>
+                                <Pressable
+                                    style={styles.callBtn}
+                                    onPress={() => void Linking.openURL(`tel:${driver.phone}`)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Call driver ${driver.fullName ?? driver.name ?? ''}`}
+                                >
                                     <Text style={styles.callBtnText}>📞  Call</Text>
                                 </Pressable>
                             )}

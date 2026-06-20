@@ -17,9 +17,10 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+// @ts-ignore — maplibre-react-native v11 has no default export; using legacy import for API compat
 import MapLibreGL from '@maplibre/maplibre-react-native';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
-import { MAP_STYLE_URL } from '@/lib/maps';
+import { MAP_STYLE_URL, MAP_AVAILABLE } from '@/lib/maps';
 import { StateView } from '@/features/passenger-booking/components/BookingUi';
 import { useRouteBundle } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
@@ -97,7 +98,7 @@ export default function PickupScreen() {
         () => stops.filter((s) => s.lat && s.lng && (s.lat !== 0 || s.lng !== 0)),
         [stops],
     );
-    const hasMap = validStops.length > 0;
+    const hasMap = MAP_AVAILABLE && validStops.length > 0;
 
     // GeoJSON for the route polyline
     const polylineGeoJSON = useMemo(() => {

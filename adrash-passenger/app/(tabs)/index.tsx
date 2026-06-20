@@ -4,7 +4,7 @@
 // StatusBar is explicitly set to "light" so the white clock/battery icons are
 // visible on the dark-blue hero background.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -192,6 +192,17 @@ export default function HomeTab() {
         () => routeService.filter(routes, origin, destination).slice(0, 8),
         [routes, origin, destination],
     );
+
+    // Reset date/time to "now" on every mount.
+    // MMKV persists the store, so the date freezes at first install and never
+    // auto-advances. This ensures the search form always starts from today.
+    useEffect(() => {
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        setSearch({ date: todayStr, time: currentTime });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const search = () => {
         try {

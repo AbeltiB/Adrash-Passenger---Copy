@@ -12,6 +12,7 @@ import {
     Text,
     View,
 } from 'react-native';
+// @ts-ignore — maplibre-react-native v11 has no default export; using legacy import for API compat
 import MapLibreGL from '@maplibre/maplibre-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
@@ -19,7 +20,7 @@ import { useTrip, useTripLocation } from '@/features/passenger-booking/hooks/use
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
 import { startTracking, stopTracking } from '@/lib/signalr';
 import { getAccessToken } from '@/features/auth/utils/token';
-import { MAP_STYLE_URL } from '@/lib/maps';
+import { MAP_STYLE_URL, MAP_AVAILABLE } from '@/lib/maps';
 import type { TripLocationDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -221,70 +222,74 @@ export default function TrackingScreen() {
     return (
         <View style={styles.container}>
             {/* ── Map ── */}
-            <MapLibreGL.MapView
-                style={styles.map}
-                styleURL={MAP_STYLE_URL}
-                compassEnabled
-                attributionEnabled={false}
-                logoEnabled={false}
-            >
-                <MapLibreGL.Camera
-                    ref={cameraRef}
-                    zoomLevel={13}
-                    centerCoordinate={initialCoord}
-                    animationMode="moveTo"
-                    animationDuration={0}
-                />
+            {MAP_AVAILABLE ? (
+                <MapLibreGL.MapView
+                    style={styles.map}
+                    styleURL={MAP_STYLE_URL}
+                    compassEnabled
+                    attributionEnabled={false}
+                    logoEnabled={false}
+                >
+                    <MapLibreGL.Camera
+                        ref={cameraRef}
+                        zoomLevel={13}
+                        centerCoordinate={initialCoord}
+                        animationMode="moveTo"
+                        animationDuration={0}
+                    />
 
-                {/* Route polyline */}
-                {routeGeoJSON && (
-                    <MapLibreGL.ShapeSource id="route-src" shape={routeGeoJSON}>
-                        <MapLibreGL.LineLayer
-                            id="route-line"
-                            style={{ lineColor: Colors.brand.primary, lineWidth: 4, lineOpacity: 0.85 }}
-                        />
-                    </MapLibreGL.ShapeSource>
-                )}
+                    {/* Route polyline */}
+                    {routeGeoJSON && (
+                        <MapLibreGL.ShapeSource id="route-src" shape={routeGeoJSON}>
+                            <MapLibreGL.LineLayer
+                                id="route-line"
+                                style={{ lineColor: Colors.brand.primary, lineWidth: 4, lineOpacity: 0.85 }}
+                            />
+                        </MapLibreGL.ShapeSource>
+                    )}
 
-                {/* Pickup marker */}
-                {pickup && (
-                    <MapLibreGL.PointAnnotation
-                        id="pickup"
-                        coordinate={[pickup.lng, pickup.lat]}
-                        title={pickup.name}
-                    >
-                        <View style={styles.pinOuter}>
-                            <Text style={styles.pinEmoji}>📍</Text>
-                        </View>
-                    </MapLibreGL.PointAnnotation>
-                )}
+                    {/* Pickup marker */}
+                    {pickup && (
+                        <MapLibreGL.PointAnnotation
+                            id="pickup"
+                            coordinate={[pickup.lng, pickup.lat]}
+                            title={pickup.name}
+                        >
+                            <View style={styles.pinOuter}>
+                                <Text style={styles.pinEmoji}>📍</Text>
+                            </View>
+                        </MapLibreGL.PointAnnotation>
+                    )}
 
-                {/* Destination marker */}
-                {dropoff && (
-                    <MapLibreGL.PointAnnotation
-                        id="dropoff"
-                        coordinate={[dropoff.lng, dropoff.lat]}
-                        title={dropoff.name}
-                    >
-                        <View style={styles.pinOuter}>
-                            <Text style={styles.pinEmoji}>🏁</Text>
-                        </View>
-                    </MapLibreGL.PointAnnotation>
-                )}
+                    {/* Destination marker */}
+                    {dropoff && (
+                        <MapLibreGL.PointAnnotation
+                            id="dropoff"
+                            coordinate={[dropoff.lng, dropoff.lat]}
+                            title={dropoff.name}
+                        >
+                            <View style={styles.pinOuter}>
+                                <Text style={styles.pinEmoji}>🏁</Text>
+                            </View>
+                        </MapLibreGL.PointAnnotation>
+                    )}
 
-                {/* Live bus */}
-                {position && (
-                    <MapLibreGL.PointAnnotation
-                        id="bus"
-                        coordinate={[position.lng, position.lat]}
-                        title="Your bus"
-                    >
-                        <View style={styles.busMarker}>
-                            <Text style={styles.busMarkerText}>🚌</Text>
-                        </View>
-                    </MapLibreGL.PointAnnotation>
-                )}
-            </MapLibreGL.MapView>
+                    {/* Live bus */}
+                    {position && (
+                        <MapLibreGL.PointAnnotation
+                            id="bus"
+                            coordinate={[position.lng, position.lat]}
+                            title="Your bus"
+                        >
+                            <View style={styles.busMarker}>
+                                <Text style={styles.busMarkerText}>🚌</Text>
+                            </View>
+                        </MapLibreGL.PointAnnotation>
+                    )}
+                </MapLibreGL.MapView>
+            ) : (
+                <View style={[styles.map, styles.mapUnavailable]} />
+            )}
 
             {/* ── Header overlay ── */}
             <SafeAreaView style={styles.headerOverlay} edges={['top']} pointerEvents="box-none">
@@ -335,8 +340,9 @@ export default function TrackingScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background.secondary },
-    map:       { flex: 1 },
+    container:      { flex: 1, backgroundColor: Colors.background.secondary },
+    map:            { flex: 1 },
+    mapUnavailable: { backgroundColor: Colors.background.secondary },
 
     headerOverlay: {
         position: 'absolute', top: 0, left: 0, right: 0,

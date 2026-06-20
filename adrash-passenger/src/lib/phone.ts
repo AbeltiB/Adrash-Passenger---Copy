@@ -1,22 +1,23 @@
 // Canonical Ethiopian phone-number handling.
 //
-// The +251 country code is always implied (prefilled in the UI). A subscriber
-// number is exactly 9 digits and starts with 9 (Ethio Telecom) or 7 (Safaricom).
-// A leading 0 is NOT accepted anywhere — it is stripped on input so the user
-// only ever enters the 9-digit local part (e.g. 911XXXXXX or 711XXXXXX).
+// Users may enter a phone in any of the common Ethiopian formats:
+//   +251986990019  (E.164 with country code)
+//   251986990019   (country code without +)
+//   0986990019     (local with leading 0)
+//   986990019      (bare 9-digit local)
+// sanitizeLocalPhone normalises all of them to the bare 9-digit local part.
 
 export const PHONE_LOCAL_LENGTH = 9;
 
 /**
- * Reduce arbitrary input to a clean local number: digits only, any leading
- * zeros removed, capped at 9 digits. Use this in onChangeText so a typed/pasted
- * "0" or "09…" collapses to the bare local number.
+ * Extract the 9-digit local number from any Ethiopian phone format.
+ * Strips the +251 / 251 country code or the leading 0 before slicing to 9 digits.
  */
 export function sanitizeLocalPhone(input: string): string {
-    return input
-        .replace(/\D/g, '')
-        .replace(/^0+/, '')
-        .slice(0, PHONE_LOCAL_LENGTH);
+    let digits = input.replace(/\D/g, '');
+    if (digits.startsWith('251')) digits = digits.slice(3);
+    else if (digits.startsWith('0')) digits = digits.slice(1);
+    return digits.slice(0, PHONE_LOCAL_LENGTH);
 }
 
 /** True when the local part is exactly 9 digits starting with 9 or 7. */
@@ -32,7 +33,7 @@ export function formatLocalPhone(digits: string): string {
     return `${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6, 9)}`;
 }
 
-/** Convert a local number to E.164 (+2519XXXXXXXX) for the API. */
+/** Convert a local number (any format) to E.164 (+2519XXXXXXXX) for the API. */
 export function toE164(localDigits: string): string {
     return `+251${sanitizeLocalPhone(localDigits)}`;
 }
