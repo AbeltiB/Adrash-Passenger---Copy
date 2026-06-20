@@ -1,19 +1,17 @@
-// Map configuration for MapLibre (no API key required).
-// Set EXPO_PUBLIC_MAP_STYLE_URL in .env to override the default tile provider.
-
-// @ts-ignore — maplibre-react-native v11 has no default export; using legacy import for API compat
-import MapLibreGL from '@maplibre/maplibre-react-native';
+// Map configuration for MapLibre (no API key required — MapLibre is open-source).
+import { TurboModuleRegistry } from 'react-native';
 
 // MAP_AVAILABLE is false until the native module is confirmed present.
-// It stays false when running an old build that doesn't yet include the
-// MapLibre native module — screens guard their map renders on this flag.
+// In EAS production/preview builds it will be true (the plugin compiles it in).
+// In Expo Go it stays false and screens fall back to a plain grey placeholder.
 export let MAP_AVAILABLE = false;
 try {
-    MapLibreGL.setAccessToken(null);
-    MAP_AVAILABLE = true;
+    // MLRNMapViewModule is the Turbo Module registered by @maplibre/maplibre-react-native
+    // when the native layer is compiled in. get() returns null when absent (unlike
+    // getEnforcing which throws).
+    MAP_AVAILABLE = TurboModuleRegistry.get('MLRNMapViewModule') != null;
 } catch {
-    // Native module not compiled in this build.
-    // Run: eas build --platform android --profile development
+    // Turbo Module registry not available (very old React Native / test env).
 }
 
 export const MAP_STYLE_URL: string =

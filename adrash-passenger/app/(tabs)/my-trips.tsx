@@ -98,7 +98,14 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
                 {tab === 'active' && (
                     <Pressable
                         style={styles.primaryBtn}
-                        onPress={() => router.push(`/trip/${booking.tripId}/tracking`)}
+                        onPress={() => router.push({
+                            pathname: '/trip/[id]/tracking',
+                            params: {
+                                id: booking.tripId,
+                                originCity: route?.originCity ?? '',
+                                destinationCity: route?.destinationCity ?? '',
+                            },
+                        })}
                     >
                         <Text style={styles.primaryBtnText}>
                             {isInProgress ? 'Track live  📍' : 'Track trip  📍'}

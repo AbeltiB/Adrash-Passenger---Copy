@@ -17,8 +17,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-// @ts-ignore — maplibre-react-native v11 has no default export; using legacy import for API compat
-import MapLibreGL from '@maplibre/maplibre-react-native';
+import * as MapLibreGL from '@maplibre/maplibre-react-native';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { MAP_STYLE_URL, MAP_AVAILABLE } from '@/lib/maps';
 import { StateView } from '@/features/passenger-booking/components/BookingUi';
@@ -169,42 +168,34 @@ export default function PickupScreen() {
                 {/* ── Route map (MapLibre — no API key needed) ── */}
                 {hasMap ? (
                     <View style={styles.mapCard}>
-                        <MapLibreGL.MapView
+                        <MapLibreGL.Map
                             style={styles.map}
-                            styleURL={MAP_STYLE_URL}
-                            scrollEnabled={false}
-                            zoomEnabled={false}
-                            rotateEnabled={false}
-                            pitchEnabled={false}
-                            attributionEnabled={false}
-                            logoEnabled={false}
+                            mapStyle={MAP_STYLE_URL}
+                            logo={false}
                         >
                             {mapBounds && (
                                 <MapLibreGL.Camera
-                                    bounds={{
-                                        ne: mapBounds.ne,
-                                        sw: mapBounds.sw,
-                                        paddingTop: 30,
-                                        paddingBottom: 30,
-                                        paddingLeft: 20,
-                                        paddingRight: 20,
-                                    }}
-                                    animationMode="moveTo"
-                                    animationDuration={0}
+                                    bounds={[
+                                        mapBounds.sw[0], mapBounds.sw[1],
+                                        mapBounds.ne[0], mapBounds.ne[1],
+                                    ]}
+                                    padding={{ top: 30, bottom: 30, left: 20, right: 20 }}
+                                    duration={0}
                                 />
                             )}
 
                             {polylineGeoJSON && (
-                                <MapLibreGL.ShapeSource id="route-src" shape={polylineGeoJSON}>
-                                    <MapLibreGL.LineLayer
+                                <MapLibreGL.GeoJSONSource id="route-src" data={polylineGeoJSON}>
+                                    <MapLibreGL.Layer
                                         id="route-line"
-                                        style={{
-                                            lineColor: Colors.brand.primary,
-                                            lineWidth: 3,
-                                            lineDasharray: [3, 2],
+                                        type="line"
+                                        paint={{
+                                            'line-color': Colors.brand.primary,
+                                            'line-width': 3,
+                                            'line-dasharray': [3, 2],
                                         }}
                                     />
-                                </MapLibreGL.ShapeSource>
+                                </MapLibreGL.GeoJSONSource>
                             )}
 
                             {validStops.map((stop) => {
@@ -212,19 +203,18 @@ export default function PickupScreen() {
                                 const isTerminal = stop.isDropoff;
                                 const emoji = isSelected ? '📌' : isTerminal ? '🏁' : '🟢';
                                 return (
-                                    <MapLibreGL.PointAnnotation
+                                    <MapLibreGL.Marker
                                         key={stop.id}
                                         id={`stop-${stop.id}`}
-                                        coordinate={[stop.lng, stop.lat]}
-                                        title={stop.name}
+                                        lngLat={[stop.lng, stop.lat]}
                                     >
                                         <View style={styles.stopPin}>
                                             <Text style={styles.stopPinText}>{emoji}</Text>
                                         </View>
-                                    </MapLibreGL.PointAnnotation>
+                                    </MapLibreGL.Marker>
                                 );
                             })}
-                        </MapLibreGL.MapView>
+                        </MapLibreGL.Map>
 
                         <View style={styles.mapLegend}>
                             <View style={styles.legendItem}>

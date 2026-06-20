@@ -305,7 +305,14 @@ export default function TripDetailScreen() {
                     {isInProgress && (
                         <Pressable
                             style={styles.trackBtn}
-                            onPress={() => router.push(`/trip/${booking.tripId}/tracking`)}
+                            onPress={() => router.push({
+                                pathname: '/trip/[id]/tracking',
+                                params: {
+                                    id: booking.tripId,
+                                    originCity: route?.originCity ?? '',
+                                    destinationCity: route?.destinationCity ?? '',
+                                },
+                            })}
                         >
                             <Text style={styles.trackBtnText}>📍  Track my bus  (Live)</Text>
                         </Pressable>

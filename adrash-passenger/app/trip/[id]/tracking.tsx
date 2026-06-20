@@ -12,8 +12,7 @@ import {
     Text,
     View,
 } from 'react-native';
-// @ts-ignore — maplibre-react-native v11 has no default export; using legacy import for API compat
-import MapLibreGL from '@maplibre/maplibre-react-native';
+import * as MapLibreGL from '@maplibre/maplibre-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { useTrip, useTripLocation } from '@/features/passenger-booking/hooks/usePassengerBooking';
@@ -111,14 +110,18 @@ function decodePolyline(encoded: string): [number, number][] {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function TrackingScreen() {
-    const { id } = useLocalSearchParams<{ id: string }>();
+    const { id, originCity, destinationCity } = useLocalSearchParams<{
+        id: string;
+        originCity?: string;
+        destinationCity?: string;
+    }>();
     const tripQuery = useTrip(id);
     const locQuery  = useTripLocation(id);
     const flow      = useBookingFlowStore();
 
     const [livePos, setLivePos]               = useState<LivePosition | null>(null);
     const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
-    const cameraRef = useRef<MapLibreGL.Camera>(null);
+    const cameraRef = useRef<MapLibreGL.CameraRef>(null);
 
     // ── SignalR setup ──────────────────────────────────────────────────────────
     useEffect(() => {
@@ -166,10 +169,10 @@ export default function TrackingScreen() {
     // ── Animate camera to bus position on each live update ────────────────────
     useEffect(() => {
         if (!livePos) return;
-        cameraRef.current?.setCamera({
-            centerCoordinate: [livePos.lng, livePos.lat],
-            zoomLevel: 14,
-            animationDuration: 800,
+        cameraRef.current?.flyTo({
+            center: [livePos.lng, livePos.lat],
+            zoom: 14,
+            duration: 800,
         });
     }, [livePos]);
 
@@ -223,70 +226,64 @@ export default function TrackingScreen() {
         <View style={styles.container}>
             {/* ── Map ── */}
             {MAP_AVAILABLE ? (
-                <MapLibreGL.MapView
+                <MapLibreGL.Map
                     style={styles.map}
-                    styleURL={MAP_STYLE_URL}
-                    compassEnabled
-                    attributionEnabled={false}
-                    logoEnabled={false}
+                    mapStyle={MAP_STYLE_URL}
+                    compass={true}
+                    logo={false}
                 >
                     <MapLibreGL.Camera
                         ref={cameraRef}
-                        zoomLevel={13}
-                        centerCoordinate={initialCoord}
-                        animationMode="moveTo"
-                        animationDuration={0}
+                        initialViewState={{ center: initialCoord, zoom: 13 }}
                     />
 
                     {/* Route polyline */}
                     {routeGeoJSON && (
-                        <MapLibreGL.ShapeSource id="route-src" shape={routeGeoJSON}>
-                            <MapLibreGL.LineLayer
+                        <MapLibreGL.GeoJSONSource id="route-src" data={routeGeoJSON}>
+                            <MapLibreGL.Layer
                                 id="route-line"
-                                style={{ lineColor: Colors.brand.primary, lineWidth: 4, lineOpacity: 0.85 }}
+                                type="line"
+                                paint={{ 'line-color': Colors.brand.primary, 'line-width': 4, 'line-opacity': 0.85 }}
                             />
-                        </MapLibreGL.ShapeSource>
+                        </MapLibreGL.GeoJSONSource>
                     )}
 
                     {/* Pickup marker */}
                     {pickup && (
-                        <MapLibreGL.PointAnnotation
+                        <MapLibreGL.Marker
                             id="pickup"
-                            coordinate={[pickup.lng, pickup.lat]}
-                            title={pickup.name}
+                            lngLat={[pickup.lng, pickup.lat]}
                         >
                             <View style={styles.pinOuter}>
                                 <Text style={styles.pinEmoji}>📍</Text>
                             </View>
-                        </MapLibreGL.PointAnnotation>
+                        </MapLibreGL.Marker>
                     )}
 
                     {/* Destination marker */}
                     {dropoff && (
-                        <MapLibreGL.PointAnnotation
+                        <MapLibreGL.Marker
                             id="dropoff"
-                            coordinate={[dropoff.lng, dropoff.lat]}
-                            title={dropoff.name}
+                            lngLat={[dropoff.lng, dropoff.lat]}
                         >
                             <View style={styles.pinOuter}>
                                 <Text style={styles.pinEmoji}>🏁</Text>
                             </View>
-                        </MapLibreGL.PointAnnotation>
+                        </MapLibreGL.Marker>
                     )}
 
                     {/* Live bus */}
                     {position && (
-                        <MapLibreGL.PointAnnotation
+                        <MapLibreGL.Marker
                             id="bus"
-                            coordinate={[position.lng, position.lat]}
-                            title="Your bus"
+                            lngLat={[position.lng, position.lat]}
                         >
                             <View style={styles.busMarker}>
                                 <Text style={styles.busMarkerText}>🚌</Text>
                             </View>
-                        </MapLibreGL.PointAnnotation>
+                        </MapLibreGL.Marker>
                     )}
-                </MapLibreGL.MapView>
+                </MapLibreGL.Map>
             ) : (
                 <View style={[styles.map, styles.mapUnavailable]} />
             )}
@@ -299,7 +296,7 @@ export default function TrackingScreen() {
                     </Pressable>
                     <View style={{ flex: 1 }}>
                         <Text style={styles.headerRoute}>
-                            {trip?.route?.originCity ?? '…'}  →  {trip?.route?.destinationCity ?? '…'}
+                            {trip?.route?.originCity ?? originCity ?? '…'}  →  {trip?.route?.destinationCity ?? destinationCity ?? '…'}
                         </Text>
                         <Text style={styles.headerStatus}>{trip?.status ?? 'Loading…'}</Text>
                     </View>
