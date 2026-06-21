@@ -4,21 +4,19 @@
 // stays visible; they are hidden from the tab strip via href: null.
 
 import { Tabs, Redirect } from 'expo-router';
-import { Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
 import { Colors } from '../../src/constants';
 
-function TabIcon({ emoji, color }: { emoji: string; color: string }) {
-    return <Text style={{ fontSize: 22, color }}>{emoji}</Text>;
-}
+type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
-const tabIcon = (emoji: string) => {
-    function RenderTabIcon({ color }: { color: string }) {
-        return <TabIcon emoji={emoji} color={color} />;
+function tabIcon(active: IconName, inactive: IconName) {
+    function RenderTabIcon({ color, size, focused }: { color: string; size: number; focused: boolean }) {
+        return <Ionicons name={focused ? active : inactive} size={size} color={color} />;
     }
     return RenderTabIcon;
-};
+}
 
 export default function TabsLayout() {
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -26,7 +24,7 @@ export default function TabsLayout() {
 
     if (!isAuthenticated) return <Redirect href="/(auth)" />;
 
-    const tabBarHeight = 56 + insets.bottom;
+    const tabBarHeight = 60 + insets.bottom;
 
     return (
         <Tabs
@@ -35,33 +33,45 @@ export default function TabsLayout() {
                 tabBarActiveTintColor:   Colors.brand.primary,
                 tabBarInactiveTintColor: Colors.neutral.gray400,
                 tabBarStyle: {
-                    backgroundColor: Colors.neutral.gray50,
-                    borderTopColor:  Colors.border.medium,
+                    backgroundColor: Colors.background.primary,
+                    borderTopColor:  Colors.border.light,
                     borderTopWidth:  1,
                     height:          tabBarHeight,
                     paddingBottom:   insets.bottom || 8,
-                    paddingTop:      6,
-                    elevation:       10,
+                    paddingTop:      8,
+                    elevation:       12,
                 },
-                tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+                tabBarLabelStyle: { fontSize: 11, fontWeight: '700', marginTop: 2 },
             }}
         >
             {/* ── The four visible tab items ─────────────────────────────── */}
             <Tabs.Screen
                 name="index"
-                options={{ title: 'Home', tabBarIcon: tabIcon('🏠') }}
+                options={{
+                    title: 'Home',
+                    tabBarIcon: tabIcon('home', 'home-outline'),
+                }}
             />
             <Tabs.Screen
                 name="my-trips"
-                options={{ title: 'Trips', tabBarIcon: tabIcon('🎫') }}
+                options={{
+                    title: 'Trips',
+                    tabBarIcon: tabIcon('ticket', 'ticket-outline'),
+                }}
             />
             <Tabs.Screen
                 name="rewards"
-                options={{ title: 'Rewards', tabBarIcon: tabIcon('🎁') }}
+                options={{
+                    title: 'Rewards',
+                    tabBarIcon: tabIcon('trophy', 'trophy-outline'),
+                }}
             />
             <Tabs.Screen
                 name="profile"
-                options={{ title: 'Profile', tabBarIcon: tabIcon('👤') }}
+                options={{
+                    title: 'Profile',
+                    tabBarIcon: tabIcon('person-circle', 'person-circle-outline'),
+                }}
             />
 
             {/* ── Screens with NO tab button ────────────────────────────── */}

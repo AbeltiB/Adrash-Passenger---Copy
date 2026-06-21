@@ -108,7 +108,7 @@ export default function PinSetupScreen() {
     const [mismatch, setMismatch] = useState(false);
     const shakeAnim = useRef(new Animated.Value(0)).current;
 
-    const { mutate: setupPin, isPending, error: apiError } = usePinSetup();
+    const { mutate: setupPin, isPending, error: apiError, reset: resetMutation } = usePinSetup();
 
     const shake = useCallback(() => {
         shakeAnim.setValue(0);
@@ -150,6 +150,15 @@ export default function PinSetupScreen() {
                     { newPin: pin, currentPin: null },
                     {
                         onSuccess: () => router.replace('/(tabs)'),
+                        onError: () => {
+                            // API failed — reset so the user can try again from scratch
+                            setTimeout(() => {
+                                resetMutation();
+                                setStep('enter');
+                                setPin('');
+                                setConfirmPin('');
+                            }, 1500);
+                        },
                     },
                 );
             }
@@ -166,6 +175,7 @@ export default function PinSetupScreen() {
 
     const handleBack = () => {
         if (step === 'confirm') {
+            resetMutation();
             setStep('enter');
             setConfirmPin('');
             setMismatch(false);

@@ -1,9 +1,10 @@
 // app/(tabs)/profile.tsx
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
     Alert,
+    Keyboard,
     Linking,
     Modal,
     Pressable,
@@ -58,6 +59,69 @@ function SectionTitle({ label }: { label: string }) {
 function Card({ children, style }: { children: React.ReactNode; style?: object }) {
     return <View style={[styles.card, style]}>{children}</View>;
 }
+
+// ─── 6-digit PIN box input ────────────────────────────────────────────────────
+
+const PIN_LENGTH = 6;
+
+function PinBoxInput({
+    value,
+    onChangeText,
+    hasError,
+    autoFocus,
+}: {
+    value: string;
+    onChangeText: (v: string) => void;
+    hasError: boolean;
+    autoFocus?: boolean;
+}) {
+    const inputRef = useRef<TextInput>(null);
+    return (
+        <Pressable onPress={() => inputRef.current?.focus()} style={pinBoxStyles.wrapper}>
+            <View style={pinBoxStyles.row}>
+                {Array.from({ length: PIN_LENGTH }).map((_, i) => (
+                    <View
+                        key={i}
+                        style={[
+                            pinBoxStyles.box,
+                            i < value.length && (hasError ? pinBoxStyles.boxError : pinBoxStyles.boxFilled),
+                        ]}
+                    >
+                        {i < value.length && (
+                            <View style={[pinBoxStyles.dot, hasError && pinBoxStyles.dotError]} />
+                        )}
+                    </View>
+                ))}
+            </View>
+            <TextInput
+                ref={inputRef}
+                value={value}
+                onChangeText={onChangeText}
+                keyboardType="number-pad"
+                maxLength={PIN_LENGTH}
+                secureTextEntry
+                autoFocus={autoFocus}
+                style={pinBoxStyles.hiddenInput}
+            />
+        </Pressable>
+    );
+}
+
+const pinBoxStyles = StyleSheet.create({
+    wrapper:     { alignItems: 'center' },
+    row:         { flexDirection: 'row', gap: 10, justifyContent: 'center' },
+    box: {
+        width: 44, height: 54, borderRadius: 10,
+        borderWidth: 2, borderColor: Colors.border.medium,
+        backgroundColor: Colors.background.secondary,
+        alignItems: 'center', justifyContent: 'center',
+    },
+    boxFilled:   { borderColor: Colors.brand.primary, backgroundColor: Colors.brand.primaryTint },
+    boxError:    { borderColor: Colors.semantic.error, backgroundColor: Colors.semantic.errorLight },
+    dot:         { width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.brand.primary },
+    dotError:    { backgroundColor: Colors.semantic.error },
+    hiddenInput: { position: 'absolute', width: 1, height: 1, opacity: 0 },
+});
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -119,11 +183,13 @@ export default function ProfileTab() {
     function handlePinNext() {
         setPinError(null);
         if (pinPhase === 'current') {
-            if (pinCurrent.length < 4) { setPinError('Enter your current PIN.'); return; }
+            if (pinCurrent.length < PIN_LENGTH) { setPinError('Enter your 6-digit PIN.'); return; }
             setPinPhase('new');
+            setPinNew('');
         } else if (pinPhase === 'new') {
-            if (pinNew.length < 4) { setPinError('PIN must be at least 4 digits.'); return; }
+            if (pinNew.length < PIN_LENGTH) { setPinError('PIN must be 6 digits.'); return; }
             setPinPhase('confirm');
+            setPinConfirm('');
         } else {
             if (pinConfirm !== pinNew) { setPinError(t('auth.pin_setup.mismatch')); return; }
             changePin(
@@ -288,7 +354,11 @@ export default function ProfileTab() {
                     {prefsLoading ? (
                         <ActivityIndicator color={Colors.brand.primary} />
                     ) : !notifPrefs || notifPrefs.length === 0 ? (
-                        <Text style={styles.emptyPrefs}>No preferences found.</Text>
+                        <View style={styles.emptyPrefsBox}>
+                            <Text style={styles.emptyPrefsIcon}>🔔</Text>
+                            <Text style={styles.emptyPrefsTitle}>No preferences configured</Text>
+                            <Text style={styles.emptyPrefsSub}>Your notification settings will appear here once the server has configured your preferences.</Text>
+                        </View>
                     ) : (
                         notifPrefs.map((pref, i) => (
                             <View
@@ -484,13 +554,16 @@ export default function ProfileTab() {
                 </Pressable>
             </Modal>
 
-            {/* ── PIN change overlay ── */}
+            {/* ── PIN change bottom sheet ── */}
             {pinOpen && (
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modal}>
+                <Pressable style={styles.pinSheetBackdrop} onPress={() => { if (!savingPin) { Keyboard.dismiss(); setPinOpen(false); } }}>
+                    <Pressable style={styles.pinSheet} onPress={(e) => e.stopPropagation()}>
+                        {/* Drag handle */}
+                        <View style={styles.editHandle} />
+
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>{t('profile.change_pin')}</Text>
-                            <Pressable onPress={() => setPinOpen(false)} style={styles.modalClose} disabled={savingPin}>
+                            <Pressable onPress={() => { Keyboard.dismiss(); setPinOpen(false); }} style={styles.modalClose} disabled={savingPin}>
                                 <Text style={styles.modalCloseText}>✕</Text>
                             </Pressable>
                         </View>
@@ -502,37 +575,38 @@ export default function ProfileTab() {
                             ))}
                         </View>
 
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>{pinPhaseLabel}</Text>
-                            <TextInput
-                                style={[styles.input, styles.pinInput]}
-                                value={pinPhaseValue}
-                                onChangeText={(v) => { pinPhaseSet(v.replace(/\D/g, '').slice(0, 6)); setPinError(null); }}
-                                placeholder="• • • • • •"
-                                placeholderTextColor={Colors.text.disabled}
-                                keyboardType="number-pad"
-                                maxLength={6}
-                                secureTextEntry
-                                textAlign="center"
-                            />
-                            {pinError ? <Text style={styles.pinError}>{pinError}</Text> : null}
-                        </View>
+                        <Text style={styles.pinPhaseLabel}>{pinPhaseLabel}</Text>
+
+                        {/* 6-box input — key resets+refocuses on phase change */}
+                        <PinBoxInput
+                            key={pinPhase}
+                            value={pinPhaseValue}
+                            onChangeText={(v) => {
+                                const digits = v.replace(/\D/g, '').slice(0, PIN_LENGTH);
+                                pinPhaseSet(digits);
+                                setPinError(null);
+                            }}
+                            hasError={!!pinError}
+                            autoFocus
+                        />
+
+                        {pinError ? <Text style={styles.pinError}>{pinError}</Text> : null}
 
                         <View style={styles.modalBtns}>
                             <Pressable
                                 style={styles.modalCancel}
                                 onPress={() => {
-                                    if (pinPhase === 'current') { setPinOpen(false); }
-                                    else setPinPhase(pinPhase === 'confirm' ? 'new' : 'current');
+                                    if (pinPhase === 'current') { Keyboard.dismiss(); setPinOpen(false); }
+                                    else { setPinPhase(pinPhase === 'confirm' ? 'new' : 'current'); }
                                 }}
                                 disabled={savingPin}
                             >
                                 <Text style={styles.modalCancelText}>{t('common.back')}</Text>
                             </Pressable>
                             <Pressable
-                                style={[styles.modalSave, savingPin && styles.modalSaveDisabled]}
+                                style={[styles.modalSave, (savingPin || pinPhaseValue.length < PIN_LENGTH) && styles.modalSaveDisabled]}
                                 onPress={handlePinNext}
-                                disabled={savingPin || pinPhaseValue.length < 4}
+                                disabled={savingPin || pinPhaseValue.length < PIN_LENGTH}
                             >
                                 {savingPin
                                     ? <ActivityIndicator color={Colors.neutral.white} />
@@ -541,8 +615,8 @@ export default function ProfileTab() {
                                     </Text>}
                             </Pressable>
                         </View>
-                    </View>
-                </View>
+                    </Pressable>
+                </Pressable>
             )}
 
         </SafeAreaView>
@@ -608,7 +682,10 @@ const styles = StyleSheet.create({
     prefDivider: { borderTopWidth: 1, borderTopColor: Colors.border.light },
     prefLabel:   { color: Colors.text.primary, fontWeight: '600', fontSize: 14 },
     prefChannel: { color: Colors.text.tertiary, fontWeight: '400', fontSize: 12 },
-    emptyPrefs:  { color: Colors.text.tertiary, fontSize: 13 },
+    emptyPrefsBox:   { alignItems: 'center', paddingVertical: Spacing.lg, gap: Spacing.sm },
+    emptyPrefsIcon:  { fontSize: 32 },
+    emptyPrefsTitle: { fontWeight: '700', color: Colors.text.primary, fontSize: 15 },
+    emptyPrefsSub:   { color: Colors.text.tertiary, fontSize: 12, textAlign: 'center' },
 
     rowItem:    { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.sm },
     rowDivider: { borderTopWidth: 1, borderTopColor: Colors.border.light },
@@ -714,14 +791,27 @@ const styles = StyleSheet.create({
     modalSaveDisabled: { opacity: 0.5 },
     modalSaveText: { color: Colors.neutral.white, fontWeight: '700' },
 
-    // ── PIN ────────────────────────────────────────────────────────────────────
+    // ── PIN bottom sheet ──────────────────────────────────────────────────────
+    pinSheetBackdrop: {
+        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',
+    },
+    pinSheet: {
+        backgroundColor: Colors.background.primary,
+        borderTopLeftRadius: BorderRadius['2xl'], borderTopRightRadius: BorderRadius['2xl'],
+        paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: 40,
+        gap: Spacing.lg, ...Shadow.lg,
+    },
+    pinPhaseLabel: {
+        fontSize: 15, fontWeight: '700', color: Colors.text.secondary,
+        textAlign: 'center', marginBottom: -Spacing.sm,
+    },
     pinSteps: { flexDirection: 'row', gap: Spacing.sm, justifyContent: 'center' },
     pinStep: {
         flex: 1, height: 4, borderRadius: 2,
         backgroundColor: Colors.border.light, maxWidth: 60,
     },
     pinStepActive: { backgroundColor: Colors.brand.primary },
-    pinInput: { fontSize: 22, fontWeight: '700', letterSpacing: 8, textAlign: 'center' },
-    pinError: { color: Colors.semantic.error, fontSize: 12, fontWeight: '600', marginTop: 4 },
+    pinError: { color: Colors.semantic.error, fontSize: 12, fontWeight: '600', textAlign: 'center', marginTop: -Spacing.sm },
 
 });

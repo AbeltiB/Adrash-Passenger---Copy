@@ -168,6 +168,7 @@ function CityInput({ label, icon, value, placeholder, allCities, onChangeText, o
 
 export default function HomeTab() {
     const { t } = useTranslation();
+    const user = useAuthStore((s) => s.user);
     const {
         origin, destination, date, time, passengersCount,
         selectedRoute, recentSearches, setSearch, swap, rememberSearch, selectRoute, selectPickup,
@@ -193,6 +194,17 @@ export default function HomeTab() {
         [routes, origin, destination],
     );
 
+    // Only show matching routes when the user has typed something
+    const hasQuery = Boolean(origin.trim() || destination.trim());
+
+    // Only show recent searches belonging to the current user
+    const currentUserId = user?.phoneNumber ?? '';
+    const userSearches = useMemo(
+        () => (Array.isArray(recentSearches) ? recentSearches : [])
+            .filter((r) => !r.userId || r.userId === currentUserId),
+        [recentSearches, currentUserId],
+    );
+
     // Reset date/time to "now" on every mount.
     // MMKV persists the store, so the date freezes at first install and never
     // auto-advances. This ensures the search form always starts from today.
@@ -206,7 +218,7 @@ export default function HomeTab() {
 
     const search = () => {
         try {
-            rememberSearch();
+            rememberSearch(currentUserId || undefined);
             if (!selectedRoute && filteredRoutes.length > 0) {
                 selectRoute(filteredRoutes[0]);
             }
@@ -350,57 +362,61 @@ export default function HomeTab() {
                     </Pressable>
                 </View>
 
-                {/* ── Matching routes ── */}
-                <Text style={styles.sectionTitle}>{t('home.matching_routes')}</Text>
-                {routesQuery.isLoading ? (
-                    <StateView title={t('home.loading_routes')} loading />
-                ) : routesQuery.isError ? (
-                    <StateView
-                        title={t('home.could_not_load')}
-                        subtitle={t('home.check_connection')}
-                        actionLabel={t('common.retry')}
-                        onAction={() => void routesQuery.refetch()}
-                    />
-                ) : filteredRoutes.length === 0 ? (
-                    <StateView title={t('home.no_results')} subtitle={t('home.no_results_sub')} />
-                ) : (
-                    filteredRoutes.map((r) => (
-                        <Pressable
-                            key={r.id}
-                            style={styles.routeCard}
-                            onPress={() => {
-                                selectRoute(r);
-                                setSearch({ origin: r.originCity, destination: r.destinationCity });
-                                router.push('/(tabs)/search/results');
-                            }}
-                        >
-                            <View style={styles.routeCardAccent} />
-                            <View style={styles.routeCardBody}>
-                                <View style={styles.routeCardLeft}>
-                                    <Text style={styles.routeCardTitle}>
-                                        {r.originCity}  →  {r.destinationCity}
-                                    </Text>
-                                    <Text style={styles.routeCardSub}>
-                                        {r.distanceKm} km  ·  {Math.floor(r.estimatedDurationMin / 60)}h{' '}
-                                        {r.estimatedDurationMin % 60 > 0 ? `${r.estimatedDurationMin % 60}m` : ''}
-                                    </Text>
-                                </View>
-                                <Text style={styles.routeCardChev}>›</Text>
-                            </View>
-                        </Pressable>
-                    ))
+                {/* ── Matching routes — only shown when user has typed origin or destination ── */}
+                {hasQuery && (
+                    <>
+                        <Text style={styles.sectionTitle}>{t('home.matching_routes')}</Text>
+                        {routesQuery.isLoading ? (
+                            <StateView title={t('home.loading_routes')} loading />
+                        ) : routesQuery.isError ? (
+                            <StateView
+                                title={t('home.could_not_load')}
+                                subtitle={t('home.check_connection')}
+                                actionLabel={t('common.retry')}
+                                onAction={() => void routesQuery.refetch()}
+                            />
+                        ) : filteredRoutes.length === 0 ? (
+                            <StateView title={t('home.no_results')} subtitle={t('home.no_results_sub')} />
+                        ) : (
+                            filteredRoutes.map((r) => (
+                                <Pressable
+                                    key={r.id}
+                                    style={styles.routeCard}
+                                    onPress={() => {
+                                        selectRoute(r);
+                                        setSearch({ origin: r.originCity, destination: r.destinationCity });
+                                        router.push('/(tabs)/search/results');
+                                    }}
+                                >
+                                    <View style={styles.routeCardAccent} />
+                                    <View style={styles.routeCardBody}>
+                                        <View style={styles.routeCardLeft}>
+                                            <Text style={styles.routeCardTitle}>
+                                                {r.originCity}  →  {r.destinationCity}
+                                            </Text>
+                                            <Text style={styles.routeCardSub}>
+                                                {r.distanceKm} km  ·  {Math.floor(r.estimatedDurationMin / 60)}h{' '}
+                                                {r.estimatedDurationMin % 60 > 0 ? `${r.estimatedDurationMin % 60}m` : ''}
+                                            </Text>
+                                        </View>
+                                        <Text style={styles.routeCardChev}>›</Text>
+                                    </View>
+                                </Pressable>
+                            ))
+                        )}
+                    </>
                 )}
 
-                {/* ── Recent searches — same full-width card design ── */}
-                {(Array.isArray(recentSearches) ? recentSearches : []).length > 0 && (
+                {/* ── Recent searches (per-user, same full-width card design) ── */}
+                {userSearches.length > 0 && (
                     <>
                         <Text style={styles.sectionTitle}>{t('home.recent_searches')}</Text>
-                        {(Array.isArray(recentSearches) ? recentSearches : []).map((r, i) => (
+                        {userSearches.map((r, i) => (
                             <Pressable
                                 key={`${r.origin}-${r.destination}-${i}`}
                                 style={styles.routeCard}
                                 onPress={() => {
-                                    try { setSearch(r); } catch { /* guard against corrupt saved search */ }
+                                    try { setSearch({ origin: r.origin, destination: r.destination, date: r.date }); } catch { /* guard against corrupt saved search */ }
                                     router.push('/(tabs)/search/results');
                                 }}
                             >
