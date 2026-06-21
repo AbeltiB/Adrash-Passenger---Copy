@@ -109,6 +109,23 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
                 </View>
             )}
 
+            {/* Pickup + drop-off */}
+            <View style={styles.boardingSection}>
+                <View style={styles.boardingRow}>
+                    <Text style={styles.boardingLabel}>Pickup</Text>
+                    <Text style={styles.boardingValue} numberOfLines={1}>
+                        {booking.pickupLocation?.name ?? '—'}
+                    </Text>
+                </View>
+                <View style={styles.boardingDivider} />
+                <View style={styles.boardingRow}>
+                    <Text style={styles.boardingLabel}>Drop-off</Text>
+                    <Text style={styles.boardingValue} numberOfLines={1}>
+                        {booking.dropoffStop?.name ?? '—'}
+                    </Text>
+                </View>
+            </View>
+
             {/* QR code */}
             {qrData ? <QRCode value={qrData} size={100} padding={6} /> : null}
 
@@ -352,6 +369,20 @@ const styles = StyleSheet.create({
 
     loadMore:     { alignItems: 'center', padding: Spacing.lg },
     loadMoreText: { color: Colors.brand.primary, fontWeight: '700' },
+
+    boardingSection: {
+        backgroundColor: Colors.background.secondary,
+        borderRadius: BorderRadius.md,
+        paddingVertical: 6, paddingHorizontal: 10,
+        gap: 0,
+    },
+    boardingRow: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        paddingVertical: 5,
+    },
+    boardingDivider: { height: 1, backgroundColor: Colors.border.light },
+    boardingLabel:   { fontSize: 12, color: Colors.text.tertiary, fontWeight: '600', flexShrink: 0, marginRight: 8 },
+    boardingValue:   { fontSize: 12, color: Colors.text.primary, fontWeight: '700', textAlign: 'right', flex: 1 },
 
     vehicleRow: {
         flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: 2,

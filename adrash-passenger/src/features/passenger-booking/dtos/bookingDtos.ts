@@ -9,7 +9,7 @@ export interface SeatDTO { seatNumber: number; isBooked: boolean; }
 export interface PassengerDetailDTO { fullName: string; phone: string; nextOfKinName: string; nextOfKinPhone: string; }
 export interface CreateBookingDTO { tripId: string; seatNumbers: number[]; pickupLocationId: string; dropoffStopId: string; pointsToRedeem: number; passengerDetails: PassengerDetailDTO[]; }
 export type BookingStatusDTO = 'Pending' | 'Confirmed' | 'CheckedIn' | 'Completed' | 'Cancelled' | 'NoShow';
-export interface BookingDTO { id: string; bookingReference: string; tripId: string; status: BookingStatusDTO; seatNumbers: number[]; pickupLocationId?: string; dropoffStopId?: string; totalFare: number; serviceFee?: number; rewardsDiscount?: number; qrCode?: string; expiresAt?: string; createdAt: string; updatedAt?: string; trip?: TripDTO | null; passengerDetails?: PassengerDetailDTO[]; refundStatus?: string | null; hasReview?: boolean; }
+export interface BookingDTO { id: string; bookingReference: string; tripId: string; status: BookingStatusDTO; seatNumbers: number[]; pickupLocationId?: string; dropoffStopId?: string; pickupLocation?: { id: string; name: string; description?: string } | null; dropoffStop?: { id: string; name: string } | null; totalFare: number; serviceFee?: number; rewardsDiscount?: number; qrCode?: string; expiresAt?: string; createdAt: string; updatedAt?: string; trip?: TripDTO | null; passengerDetails?: PassengerDetailDTO[]; refundStatus?: string | null; hasReview?: boolean; }
 // SantimPay is the only live aggregator. ADC is a skeleton and non-functional.
 // santimPayPartner picks the downstream rail that SantimPay routes through.
 export type PaymentMethodDTO  = 'SantimPay' | 'ADC';

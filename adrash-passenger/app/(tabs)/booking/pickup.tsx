@@ -175,6 +175,7 @@ export default function PickupScreen() {
                         >
                             {mapBounds && (
                                 <MapLibreGL.Camera
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                     bounds={{
                                         ne: mapBounds.ne,
                                         sw: mapBounds.sw,
@@ -182,8 +183,8 @@ export default function PickupScreen() {
                                         paddingBottom: 30,
                                         paddingLeft: 20,
                                         paddingRight: 20,
-                                    }}
-                                    animationDuration={0}
+                                    } as any}
+                                    duration={0}
                                 />
                             )}
 

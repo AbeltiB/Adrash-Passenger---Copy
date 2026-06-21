@@ -171,7 +171,7 @@ export default function HomeTab() {
     const user = useAuthStore((s) => s.user);
     const {
         origin, destination, date, time, passengersCount,
-        selectedRoute, recentSearches, setSearch, swap, rememberSearch, selectRoute, selectPickup,
+        recentSearches, setSearch, swap, rememberSearch, selectRoute, selectPickup,
     } = useBookingFlowStore();
 
     const [passengerErr, setPassengerErr] = useState<string | null>(null);

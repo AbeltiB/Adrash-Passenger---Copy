@@ -20,6 +20,7 @@ import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingF
 import { bookingService, normalizePhone } from '@/features/passenger-booking/services/bookingService';
 import { toAppError } from '@/features/passenger-booking/utils/errors';
 import { useRewardsBalance } from '../../../src/features/profile/hooks/useRewardsBalance';
+import { formatDateTime, formatTime, formatDuration } from '@/utils/date';
 
 // ── Booking error → user-friendly message ─────────────────────────────────────
 
@@ -66,6 +67,31 @@ function Row({ label, value, bold }: { label: string; value: string; bold?: bool
             <Text style={[styles.fareValue, bold && styles.fareValueBold]}>{value}</Text>
         </View>
     );
+}
+
+function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
+    if (!value) return null;
+    return (
+        <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>{label}</Text>
+            <Text style={styles.detailValue}>{value}</Text>
+        </View>
+    );
+}
+
+function safeFormatDateTime(iso?: string | null): string {
+    if (!iso) return '—';
+    try { return formatDateTime(iso); } catch { return iso; }
+}
+
+function safeFormatTime(iso?: string | null): string {
+    if (!iso) return '—';
+    try { return formatTime(iso); } catch { return iso; }
+}
+
+function safeFormatDuration(minutes?: number | null): string {
+    if (!minutes || minutes <= 0) return '';
+    try { return formatDuration(minutes); } catch { return ''; }
 }
 
 export default function SummaryScreen() {
@@ -125,9 +151,19 @@ export default function SummaryScreen() {
         }
     }
 
-    const departureDate = f.selectedTrip?.departureTime
-        ? new Date(f.selectedTrip.departureTime).toLocaleString()
-        : '—';
+    const trip   = f.selectedTrip;
+    const driver = trip?.driver;
+    const bus    = trip?.bus;
+
+    const departureDate   = safeFormatDateTime(trip?.departureTime);
+    const arrivalTime     = safeFormatTime(trip?.arrivalEstimate);
+    const tripDuration    = safeFormatDuration(trip?.route?.estimatedDurationMin);
+    const driverName      = driver?.fullName ?? driver?.name ?? null;
+    const vehicleInfo     = bus
+        ? [bus.model, bus.plateNumber].filter(Boolean).join('  ·  ') || null
+        : null;
+
+    const arrivalDisplay = [arrivalTime, tripDuration].filter(Boolean).join('  ·  ');
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -142,25 +178,51 @@ export default function SummaryScreen() {
 
             <ScrollView contentContainerStyle={styles.content}>
 
-                {/* ── Trip details ── */}
+                {/* ── Trip & vehicle ── */}
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>
-                        {f.origin} → {f.destination}
+                        {f.origin}  →  {f.destination}
                     </Text>
-                    <Text style={styles.cardSub}>{departureDate}</Text>
-                    <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>{t('booking.summary.seats')}</Text>
-                        <Text style={styles.detailValue}>{f.selectedSeats.join(', ')}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>{t('booking.pickup.title')}</Text>
-                        <Text style={styles.detailValue}>{f.selectedPickup?.name ?? '—'}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Drop-off</Text>
-                        <Text style={styles.detailValue}>{f.selectedDropoff?.name ?? '—'}</Text>
-                    </View>
+                    <View style={styles.cardDivider} />
+                    <DetailRow label="Departure"        value={departureDate} />
+                    {arrivalDisplay ? <DetailRow label="Arrival (est.)" value={arrivalDisplay} /> : null}
+                    <DetailRow label="Driver"           value={driverName} />
+                    <DetailRow label="Vehicle"          value={vehicleInfo} />
                 </View>
+
+                {/* ── Boarding ── */}
+                <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Boarding</Text>
+                    <View style={styles.cardDivider} />
+                    <DetailRow label="Pickup point" value={f.selectedPickup?.name ?? '—'} />
+                    <DetailRow label="Drop-off"     value={f.selectedDropoff?.name ?? '—'} />
+                    <DetailRow
+                        label={f.selectedSeats.length > 1 ? 'Seats' : 'Seat'}
+                        value={f.selectedSeats.join(', ') || '—'}
+                    />
+                </View>
+
+                {/* ── Passengers ── */}
+                {f.passengerDetails.length > 0 && (
+                    <View style={styles.card}>
+                        <Text style={styles.cardTitle}>
+                            Passengers ({f.passengerDetails.length})
+                        </Text>
+                        <View style={styles.cardDivider} />
+                        {f.passengerDetails.map((p, i) => (
+                            <View key={i} style={[styles.paxRow, i > 0 && styles.paxDivider]}>
+                                <Text style={styles.paxName}>
+                                    {i + 1}.  {p.fullName}
+                                </Text>
+                                <View style={styles.seatChip}>
+                                    <Text style={styles.seatChipText}>
+                                        Seat {f.selectedSeats[i] ?? '—'}
+                                    </Text>
+                                </View>
+                            </View>
+                        ))}
+                    </View>
+                )}
 
                 {/* ── Rewards ── */}
                 {maxEtbDiscount > 0 ? (
@@ -270,11 +332,21 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
         ...Shadow.sm,
     },
-    cardTitle: { fontSize: 16, fontWeight: '800', color: Colors.text.primary },
-    cardSub:   { fontSize: 13, color: Colors.text.tertiary, marginTop: -Spacing.xs },
-    detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    cardTitle:   { fontSize: 16, fontWeight: '800', color: Colors.text.primary },
+    cardDivider: { height: 1, backgroundColor: Colors.border.light },
+    detailRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
     detailLabel: { fontSize: 13, color: Colors.text.tertiary, flex: 1 },
-    detailValue: { fontSize: 13, color: Colors.text.primary, fontWeight: '600', textAlign: 'right', flex: 1 },
+    detailValue: { fontSize: 13, color: Colors.text.primary, fontWeight: '600', textAlign: 'right', flex: 1.2 },
+
+    paxRow:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+                  paddingVertical: 5 },
+    paxDivider: { borderTopWidth: 1, borderTopColor: Colors.border.light },
+    paxName:    { color: Colors.text.primary, fontWeight: '600', fontSize: 14, flex: 1 },
+    seatChip: {
+        backgroundColor: Colors.brand.primaryTint,
+        borderRadius: 6, paddingVertical: 2, paddingHorizontal: 8,
+    },
+    seatChipText: { color: Colors.brand.primary, fontWeight: '700', fontSize: 12 },
 
     // Rewards toggle card
     rewardsCard: {

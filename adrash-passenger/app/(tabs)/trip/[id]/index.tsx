@@ -18,7 +18,8 @@ import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { useBookingDetail } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import type { BookingStatusDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 import { QRCode } from '@/components/QRCode';
-import { saveTicketAsImage, saveTicketAsPDF } from '@/lib/ticketDownload';
+import { saveTicketAsImage, saveTicketAsPDF, type TicketData } from '@/lib/ticketDownload';
+import { formatDateTime, formatTime, formatDuration } from '@/utils/date';
 
 // ─── QR display ────────────────────────────────────────────────────────────────
 
@@ -106,14 +107,26 @@ export default function TripDetailScreen() {
     const driver = trip?.driver;
     const bus    = trip?.bus;
 
-    const depTime = trip?.departureTime
-        ? new Date(trip.departureTime).toLocaleString('en-ET', {
-              weekday: 'long', year: 'numeric', month: 'long',
-              day: 'numeric', hour: '2-digit', minute: '2-digit',
-          })
-        : '—';
+    function safeFmt(iso?: string | null, fn: (s: string) => string = formatDateTime): string {
+        if (!iso) return '—';
+        try { return fn(iso); } catch { return iso; }
+    }
 
-    const qrData    = booking.qrCode ?? booking.bookingReference;
+    const origin      = route?.originCity ?? '—';
+    const destination = route?.destinationCity ?? '—';
+    const depTime     = safeFmt(trip?.departureTime);
+    const driverName  = driver?.fullName ?? driver?.name ?? null;
+    const busLabel    = bus
+        ? [bus.model, bus.plateNumber].filter(Boolean).join('  ·  ') || null
+        : null;
+    const seatsArr = booking.seatNumbers ?? [];
+    const duration = (() => {
+        const m = trip?.route?.estimatedDurationMin;
+        if (!m || m <= 0) return '';
+        try { return formatDuration(m); } catch { return ''; }
+    })();
+
+    const qrData       = booking.qrCode ?? booking.bookingReference;
     const isInProgress = trip?.status === 'InProgress';
     const isCompleted  = booking.status === 'Completed';
 
@@ -123,28 +136,40 @@ export default function TripDetailScreen() {
     async function downloadImage() {
         if (!ticketRef.current) return;
         setDownloading('image');
-        try { await saveTicketAsImage(ticketRef); }
+        try { await saveTicketAsImage(ticketRef, origin, destination); }
         finally { setDownloading(null); }
     }
 
     async function downloadPDF() {
         if (!booking) return;
         setDownloading('pdf');
-        try {
-            await saveTicketAsPDF({
-                qrData:      qrData ?? '—',
-                bookingRef:  booking.bookingReference,
-                origin:      route?.originCity ?? '—',
-                destination: route?.destinationCity ?? '—',
-                seats:       booking.seatNumbers.join(', ') || '—',
-                totalFare:   booking.totalFare ?? 0,
-                departureTime: depTime !== '—' ? depTime : undefined,
-                passengers:  (booking.passengerDetails ?? []).map((p, i) => ({
-                    name: p.fullName,
-                    seat: String(booking.seatNumbers[i] ?? '—'),
-                })),
-            });
-        } finally { setDownloading(null); }
+        const bk = booking;
+        const data: TicketData = {
+            bookingRef:      bk.bookingReference,
+            origin,
+            destination,
+            departureTime:   depTime,
+            arrivalEstimate: safeFmt(trip?.arrivalEstimate, formatTime),
+            duration,
+            driverName,
+            busLabel,
+            pickup:          bk.pickupLocation?.name ?? '—',
+            dropoff:         bk.dropoffStop?.name ?? '—',
+            seats:           seatsArr.join(', ') || '—',
+            subtotal:        Math.max(0, (bk.totalFare ?? 0) - (bk.serviceFee ?? 0) + (bk.rewardsDiscount ?? 0)),
+            serviceFee:      bk.serviceFee ?? 0,
+            rewardsDiscount: bk.rewardsDiscount ?? 0,
+            totalFare:       bk.totalFare ?? 0,
+            passengers:      (bk.passengerDetails ?? []).map((p, i) => ({
+                name:  p.fullName,
+                phone: p.phone ?? '',
+                seat:  String(seatsArr[i] ?? '—'),
+            })),
+            paymentMethod:   'Mobile Payment',
+            purchasedAt:     safeFmt(bk.createdAt),
+        };
+        try { await saveTicketAsPDF(data); }
+        finally { setDownloading(null); }
     }
 
     return (
