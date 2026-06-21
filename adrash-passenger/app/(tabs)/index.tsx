@@ -219,9 +219,9 @@ export default function HomeTab() {
     const search = () => {
         try {
             rememberSearch(currentUserId || undefined);
-            if (!selectedRoute && filteredRoutes.length > 0) {
-                selectRoute(filteredRoutes[0]);
-            }
+            // Always sync selectedRoute to match the current search inputs so a
+            // stale persisted route from a previous session never bleeds through.
+            selectRoute(filteredRoutes.length > 0 ? filteredRoutes[0] : null);
         } catch {
             // guard: errors must not block navigation
         }
@@ -416,7 +416,10 @@ export default function HomeTab() {
                                 key={`${r.origin}-${r.destination}-${i}`}
                                 style={styles.routeCard}
                                 onPress={() => {
-                                    try { setSearch({ origin: r.origin, destination: r.destination, date: r.date }); } catch { /* guard against corrupt saved search */ }
+                                    try {
+                                        setSearch({ origin: r.origin, destination: r.destination, date: r.date });
+                                        selectRoute(null);
+                                    } catch { /* guard against corrupt saved search */ }
                                     router.push('/(tabs)/search/results');
                                 }}
                             >

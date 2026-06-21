@@ -212,17 +212,30 @@ export default function ResultsScreen() {
 
     const trips = useMemo(() => {
         const all = query.data?.pages.flatMap((p) => p.items) ?? [];
-        // Client-side: remove trips that departed more than 30 min ago
-        // (handles cases where the server returns more than requested).
         const graceCutoff = Date.now() - 10 * 60 * 1000;
-        const visible = all.filter((t) => new Date(t.departureTime).getTime() >= graceCutoff);
+        let visible = all.filter((t) => new Date(t.departureTime).getTime() >= graceCutoff);
+
+        // When the server couldn't resolve a routeId filter (no matching local route),
+        // filter client-side so an unrelated route's trips don't bleed in.
+        if (!flow.selectedRoute && (flow.origin || flow.destination)) {
+            const oLower = flow.origin.toLowerCase();
+            const dLower = flow.destination.toLowerCase();
+            visible = visible.filter((t) => {
+                const ro = (t.route?.originCity ?? '').toLowerCase();
+                const rd = (t.route?.destinationCity ?? '').toLowerCase();
+                return (
+                    (!flow.origin || ro.includes(oLower)) &&
+                    (!flow.destination || rd.includes(dLower))
+                );
+            });
+        }
+
         return [...visible].sort((a, b) => {
             if (sort === 'earliest') return +new Date(a.departureTime) - +new Date(b.departureTime);
             if (sort === 'cheapest') return (a.fare ?? 999999) - (b.fare ?? 999999);
-            // Treat null/undefined as "high" so they sort above explicitly sold-out trips
             return (b.availableSeats ?? 999) - (a.availableSeats ?? 999);
         });
-    }, [query.data, sort]);
+    }, [query.data, sort, flow.selectedRoute, flow.origin, flow.destination]);
 
     function selectTrip(trip: TripDTO) {
         // Only block on an explicit zero — null/undefined means the API didn't return

@@ -175,12 +175,15 @@ export default function PickupScreen() {
                         >
                             {mapBounds && (
                                 <MapLibreGL.Camera
-                                    bounds={[
-                                        mapBounds.sw[0], mapBounds.sw[1],
-                                        mapBounds.ne[0], mapBounds.ne[1],
-                                    ]}
-                                    padding={{ top: 30, bottom: 30, left: 20, right: 20 }}
-                                    duration={0}
+                                    bounds={{
+                                        ne: mapBounds.ne,
+                                        sw: mapBounds.sw,
+                                        paddingTop: 30,
+                                        paddingBottom: 30,
+                                        paddingLeft: 20,
+                                        paddingRight: 20,
+                                    }}
+                                    animationDuration={0}
                                 />
                             )}
 
