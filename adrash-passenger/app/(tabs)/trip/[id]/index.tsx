@@ -78,6 +78,9 @@ export default function TripDetailScreen() {
     const query = useBookingDetail(id);
     const booking = query.data;
 
+    const ticketRef = useRef<View>(null);
+    const [downloading, setDownloading] = useState<'image' | 'pdf' | null>(null);
+
     if (query.isLoading) {
         return (
             <SafeAreaView style={styles.container} edges={['top']}>
@@ -129,9 +132,6 @@ export default function TripDetailScreen() {
     const qrData       = booking.qrCode ?? booking.bookingReference;
     const isInProgress = trip?.status === 'InProgress';
     const isCompleted  = booking.status === 'Completed';
-
-    const ticketRef = useRef<View>(null);
-    const [downloading, setDownloading] = useState<'image' | 'pdf' | null>(null);
 
     async function downloadImage() {
         if (!ticketRef.current) return;

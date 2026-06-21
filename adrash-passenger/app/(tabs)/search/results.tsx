@@ -217,12 +217,16 @@ export default function ResultsScreen() {
 
         // When the server couldn't resolve a routeId filter (no matching local route),
         // filter client-side so an unrelated route's trips don't bleed in.
+        // Only filter trips that have embedded route data — trips without it pass through
+        // (the server already applied its own date/status filters; we can't client-filter
+        // what we can't see, and hiding everything is worse than showing a few extras).
         if (!flow.selectedRoute && (flow.origin || flow.destination)) {
             const oLower = flow.origin.toLowerCase();
             const dLower = flow.destination.toLowerCase();
             visible = visible.filter((t) => {
-                const ro = (t.route?.originCity ?? '').toLowerCase();
-                const rd = (t.route?.destinationCity ?? '').toLowerCase();
+                if (!t.route) return true;
+                const ro = t.route.originCity.toLowerCase();
+                const rd = t.route.destinationCity.toLowerCase();
                 return (
                     (!flow.origin || ro.includes(oLower)) &&
                     (!flow.destination || rd.includes(dLower))
