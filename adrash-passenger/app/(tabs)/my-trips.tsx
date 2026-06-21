@@ -52,13 +52,19 @@ function StatusBadge({ status }: { status: BookingStatusDTO }) {
 // ─── Booking card ──────────────────────────────────────────────────────────────
 
 function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
-    const route = booking.trip?.route;
+    const route  = booking.trip?.route;
+    const driver = booking.trip?.driver;
+    const bus    = booking.trip?.bus;
     const depTime = booking.trip?.departureTime
         ? new Date(booking.trip.departureTime).toLocaleString('en-ET', {
               weekday: 'short', month: 'short', day: 'numeric',
               hour: '2-digit', minute: '2-digit',
           })
         : '—';
+
+    const driverName  = driver?.fullName ?? driver?.name ?? null;
+    const busLabel    = [bus?.model, bus?.plateNumber].filter(Boolean).join('  ·  ') || null;
+    const hasVehicleInfo = Boolean(driverName ?? busLabel);
 
     const isInProgress = booking.trip?.status === 'InProgress';
     const qrData = booking.qrCode ?? booking.bookingReference;
@@ -84,6 +90,24 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
             <Text style={styles.fareText}>
                 ETB {(booking.totalFare ?? 0).toFixed(2)}
             </Text>
+
+            {/* Driver + vehicle info */}
+            {hasVehicleInfo && (
+                <View style={styles.vehicleRow}>
+                    {driverName && (
+                        <View style={styles.vehicleChip}>
+                            <Text style={styles.vehicleChipIcon}>👤</Text>
+                            <Text style={styles.vehicleChipText} numberOfLines={1}>{driverName}</Text>
+                        </View>
+                    )}
+                    {busLabel && (
+                        <View style={styles.vehicleChip}>
+                            <Text style={styles.vehicleChipIcon}>🚌</Text>
+                            <Text style={styles.vehicleChipText} numberOfLines={1}>{busLabel}</Text>
+                        </View>
+                    )}
+                </View>
+            )}
 
             {/* QR code */}
             {qrData ? <QRCode value={qrData} size={100} padding={6} /> : null}
@@ -328,4 +352,17 @@ const styles = StyleSheet.create({
 
     loadMore:     { alignItems: 'center', padding: Spacing.lg },
     loadMoreText: { color: Colors.brand.primary, fontWeight: '700' },
+
+    vehicleRow: {
+        flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: 2,
+    },
+    vehicleChip: {
+        flexDirection: 'row', alignItems: 'center', gap: 5,
+        backgroundColor: Colors.background.secondary,
+        borderRadius: BorderRadius.full,
+        paddingHorizontal: Spacing.sm, paddingVertical: 5,
+        flexShrink: 1,
+    },
+    vehicleChipIcon: { fontSize: 13 },
+    vehicleChipText: { fontSize: 12, fontWeight: '600', color: Colors.text.secondary, flexShrink: 1 },
 });
