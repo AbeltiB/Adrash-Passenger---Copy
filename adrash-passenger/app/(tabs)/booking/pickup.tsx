@@ -7,7 +7,7 @@
 //     Falls back to a visual timeline when coordinates are unavailable.
 //   • Single-selection card list for boarding points.
 
-import { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { router } from 'expo-router';
 import {
     Pressable,
@@ -24,6 +24,20 @@ import { StateView } from '@/features/passenger-booking/components/BookingUi';
 import { useRouteBundle } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
 import type { StopDTO } from '@/features/passenger-booking/dtos/bookingDtos';
+
+// ─── Map error boundary (silently hides map on any MapLibre render error) ────
+
+class MapBoundary extends React.Component<
+    { children: React.ReactNode },
+    { failed: boolean }
+> {
+    state = { failed: false };
+    static getDerivedStateFromError() { return { failed: true }; }
+    render() {
+        if (this.state.failed) return null;
+        return this.props.children;
+    }
+}
 
 // ─── Route timeline ───────────────────────────────────────────────────────────
 
@@ -167,6 +181,7 @@ export default function PickupScreen() {
             >
                 {/* ── Route map (MapLibre — no API key needed) ── */}
                 {hasMap ? (
+                    <MapBoundary>
                     <View style={styles.mapCard}>
                         <MapLibreGL.Map
                             style={styles.map}
@@ -237,6 +252,7 @@ export default function PickupScreen() {
                             )}
                         </View>
                     </View>
+                    </MapBoundary>
                 ) : null}
 
                 {/* Route timeline (always visible below map, or as sole fallback) */}

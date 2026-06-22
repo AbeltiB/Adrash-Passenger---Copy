@@ -557,8 +557,8 @@ export default function ProfileTab() {
             </Modal>
 
             {/* ── PIN change bottom sheet (keyboard-aware) ── */}
-            <Modal
-                visible={pinOpen}
+            {pinOpen && <Modal
+                visible
                 transparent
                 animationType="slide"
                 onRequestClose={() => { if (!savingPin) { Keyboard.dismiss(); setPinOpen(false); } }}
@@ -629,7 +629,7 @@ export default function ProfileTab() {
                     </Pressable>
                 </Pressable>
                 </KeyboardAvoidingView>
-            </Modal>
+            </Modal>}
 
         </SafeAreaView>
     );
