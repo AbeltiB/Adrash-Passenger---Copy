@@ -225,8 +225,8 @@ export default function ResultsScreen() {
             const dLower = flow.destination.toLowerCase();
             visible = visible.filter((t) => {
                 if (!t.route) return true;
-                const ro = t.route.originCity.toLowerCase();
-                const rd = t.route.destinationCity.toLowerCase();
+                const ro = (t.route.originCity ?? '').toLowerCase();
+                const rd = (t.route.destinationCity ?? '').toLowerCase();
                 return (
                     (!flow.origin || ro.includes(oLower)) &&
                     (!flow.destination || rd.includes(dLower))

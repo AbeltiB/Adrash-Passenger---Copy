@@ -5,8 +5,10 @@ import {
     ActivityIndicator,
     Alert,
     Keyboard,
+    KeyboardAvoidingView,
     Linking,
     Modal,
+    Platform,
     Pressable,
     ScrollView,
     Share,
@@ -554,8 +556,17 @@ export default function ProfileTab() {
                 </Pressable>
             </Modal>
 
-            {/* ── PIN change bottom sheet ── */}
-            {pinOpen && (
+            {/* ── PIN change bottom sheet (keyboard-aware) ── */}
+            <Modal
+                visible={pinOpen}
+                transparent
+                animationType="slide"
+                onRequestClose={() => { if (!savingPin) { Keyboard.dismiss(); setPinOpen(false); } }}
+            >
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={styles.pinModalKav}
+                >
                 <Pressable style={styles.pinSheetBackdrop} onPress={() => { if (!savingPin) { Keyboard.dismiss(); setPinOpen(false); } }}>
                     <Pressable style={styles.pinSheet} onPress={(e) => e.stopPropagation()}>
                         {/* Drag handle */}
@@ -617,7 +628,8 @@ export default function ProfileTab() {
                         </View>
                     </Pressable>
                 </Pressable>
-            )}
+                </KeyboardAvoidingView>
+            </Modal>
 
         </SafeAreaView>
     );
@@ -792,8 +804,11 @@ const styles = StyleSheet.create({
     modalSaveText: { color: Colors.neutral.white, fontWeight: '700' },
 
     // ── PIN bottom sheet ──────────────────────────────────────────────────────
+    pinModalKav: {
+        flex: 1, justifyContent: 'flex-end',
+    },
     pinSheetBackdrop: {
-        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+        flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',
     },
     pinSheet: {
