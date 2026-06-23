@@ -3,12 +3,10 @@
 //
 // Post-verification routing:
 //   isNewUser || needsSetup  → /(auth)/setup        (profile setup for brand new accounts)
-//   agreementRequired        → /(auth)/agreement    (terms changed)
-//   isNewUser === false       → /(auth)/pin-setup   (existing account on new device — offer PIN setup)
-//   skip / returning         → /(tabs)              (straight home)
+//   agreementRequired        → /(auth)/agreement    (terms changed, then go home)
+//   returning                → /(tabs)              (straight home)
 //
-// NOTE: "returning user on new device" lands here via phone-login → OTP.
-// We offer pin-setup so they can register this new device with a PIN.
+// PIN setup is optional and done from Profile → Security after login.
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -103,10 +101,10 @@ export default function OtpScreen() {
                             // Brand new account → profile setup
                             router.replace('/(auth)/setup');
                         } else if (result.agreementRequired) {
-                            // Terms changed after OTP — re-accept, then offer PIN setup
+                            // Terms changed after OTP — re-accept, then go home
                             router.replace({
                                 pathname: '/(auth)/agreement',
-                                params: { reaccept: '1', next: 'pin-setup' },
+                                params: { reaccept: '1', next: 'tabs' },
                             });
                         } else {
                             // Returning user — go straight home.

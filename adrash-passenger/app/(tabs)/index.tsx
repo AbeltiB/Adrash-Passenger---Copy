@@ -30,6 +30,8 @@ import { routeService } from '@/features/passenger-booking/services/routeService
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useLogout } from '@/features/auth/hooks/useLogout';
 import { useProfile } from '@/features/profile/hooks/useProfile';
+import { MMKVKeys } from '@/constants/mmkvKeys';
+import { readBoolean } from '@/lib/storage';
 
 // ─── Avatar menu ──────────────────────────────────────────────────────────────
 
@@ -175,6 +177,8 @@ export default function HomeTab() {
     } = useBookingFlowStore();
 
     const [passengerErr, setPassengerErr] = useState<string | null>(null);
+    const [pinBannerVisible, setPinBannerVisible] = useState(() => readBoolean(MMKVKeys.PIN_HAS_BEEN_SET) !== true);
+
     const routesQuery = useRoutes();
     const routes = useMemo(
         () => routesQuery.data?.pages.flatMap((p) => p.items) ?? [],
@@ -254,6 +258,21 @@ export default function HomeTab() {
                 <Text style={styles.heroTitle}>{t('home.greeting')}</Text>
                 <Text style={styles.heroSub}>{t('home.greeting_sub')}</Text>
             </View>
+
+            {/* ── PIN reminder banner (shown until user sets a PIN) ── */}
+            {pinBannerVisible && (
+                <View style={styles.pinBanner}>
+                    <Text style={styles.pinBannerText}>🔒 {t('profile.pin_reminder')}</Text>
+                    <View style={styles.pinBannerActions}>
+                        <Pressable onPress={() => router.push('/(tabs)/profile')} style={styles.pinBannerBtn}>
+                            <Text style={styles.pinBannerBtnText}>{t('profile.set_pin')} →</Text>
+                        </Pressable>
+                        <Pressable onPress={() => setPinBannerVisible(false)} style={styles.pinBannerDismiss}>
+                            <Text style={styles.pinBannerDismissText}>✕</Text>
+                        </Pressable>
+                    </View>
+                </View>
+            )}
 
             {/* ── Scrollable light content ── */}
             <ScrollView
@@ -635,4 +654,21 @@ const styles = StyleSheet.create({
     // Recent search label row
     recentTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     recentIcon:     { fontSize: 13 },
+
+    // ── PIN reminder banner ──
+    pinBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: Colors.brand.primaryTint ?? '#EBF3FF',
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 10,
+        gap: Spacing.sm,
+    },
+    pinBannerText:        { flex: 1, fontSize: 13, color: Colors.brand.primaryDark ?? Colors.text.primary },
+    pinBannerActions:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    pinBannerBtn:         { paddingVertical: 4, paddingHorizontal: 8 },
+    pinBannerBtnText:     { fontSize: 13, fontWeight: '700', color: Colors.brand.primary },
+    pinBannerDismiss:     { padding: 4 },
+    pinBannerDismissText: { fontSize: 14, color: Colors.text.secondary },
 });

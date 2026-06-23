@@ -76,10 +76,10 @@ export default function SetupScreen() {
             if (agreementRequired) {
                 router.replace({
                     pathname: '/(auth)/agreement',
-                    params: { reaccept: '1', next: 'pin-setup' },
+                    params: { reaccept: '1', next: 'tabs' },
                 });
             } else {
-                router.replace('/(auth)/pin-setup');
+                router.replace('/(tabs)');
             }
         } catch (e: unknown) {
             setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');

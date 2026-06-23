@@ -22,6 +22,9 @@ export const MMKVKeys = {
 
     // Biometric login preference — stored as a boolean
     BIOMETRIC_ENABLED: 'biometric_enabled',
+
+    // Whether the user has set a PIN at least once (boolean)
+    PIN_HAS_BEEN_SET: 'pin_has_been_set',
 } as const;
 
 export type MMKVKey = (typeof MMKVKeys)[keyof typeof MMKVKeys];

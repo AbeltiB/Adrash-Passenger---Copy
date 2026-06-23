@@ -34,7 +34,7 @@ import {
 import type { ApiLanguage, NotificationPreferenceDto } from '../../src/api/types';
 import { changeLanguage } from '../../src/lib/i18n';
 import { MMKVKeys } from '../../src/constants/mmkvKeys';
-import { writeString } from '../../src/lib/storage';
+import { writeString, readBoolean, writeBoolean } from '../../src/lib/storage';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -149,6 +149,7 @@ export default function ProfileTab() {
     const [editLastName,  setEditLastName]  = useState('');
 
     // ── PIN change modal ──────────────────────────────────────────────────────
+    const [pinHasBeenSet, setPinHasBeenSetLocal] = useState(() => readBoolean(MMKVKeys.PIN_HAS_BEEN_SET) === true);
     const [pinOpen,    setPinOpen]    = useState(false);
     const [pinPhase,   setPinPhase]   = useState<'current' | 'new' | 'confirm'>('current');
     const [pinCurrent, setPinCurrent] = useState('');
@@ -178,7 +179,9 @@ export default function ProfileTab() {
 
     function openPinChange() {
         setPinCurrent(''); setPinNew(''); setPinConfirm('');
-        setPinError(null); setPinPhase('current');
+        setPinError(null);
+        // Skip the "current PIN" step for first-time PIN setup
+        setPinPhase(pinHasBeenSet ? 'current' : 'new');
         setPinOpen(true);
     }
 
@@ -194,11 +197,22 @@ export default function ProfileTab() {
             setPinConfirm('');
         } else {
             if (pinConfirm !== pinNew) { setPinError(t('auth.pin_setup.mismatch')); return; }
+            const isFirstTime = !pinHasBeenSet;
             changePin(
-                { newPin: pinNew, currentPin: pinCurrent },
+                { newPin: pinNew, currentPin: isFirstTime ? null : pinCurrent },
                 {
-                    onSuccess: () => { setPinOpen(false); Alert.alert(t('profile.pin_changed')); },
-                    onError:   () => { setPinError(t('profile.pin_wrong')); setPinPhase('current'); },
+                    onSuccess: () => {
+                        if (isFirstTime) {
+                            writeBoolean(MMKVKeys.PIN_HAS_BEEN_SET, true);
+                            setPinHasBeenSetLocal(true);
+                        }
+                        setPinOpen(false);
+                        Alert.alert(isFirstTime ? t('profile.pin_set') : t('profile.pin_changed'));
+                    },
+                    onError: () => {
+                        setPinError(t('profile.pin_wrong'));
+                        if (pinHasBeenSet) setPinPhase('current');
+                    },
                 },
             );
         }
@@ -455,8 +469,8 @@ export default function ProfileTab() {
                     <Pressable style={styles.rowItem} onPress={openPinChange}>
                         <Text style={styles.rowIcon}>🔑</Text>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.rowLabel}>{t('profile.change_pin')}</Text>
-                            <Text style={styles.rowSub}>{t('profile.change_pin_sub')}</Text>
+                            <Text style={styles.rowLabel}>{pinHasBeenSet ? t('profile.change_pin') : t('profile.set_pin')}</Text>
+                            <Text style={styles.rowSub}>{pinHasBeenSet ? t('profile.change_pin_sub') : t('profile.set_pin_sub')}</Text>
                         </View>
                         <Text style={styles.rowChev}>›</Text>
                     </Pressable>
@@ -573,15 +587,18 @@ export default function ProfileTab() {
                         <View style={styles.editHandle} />
 
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>{t('profile.change_pin')}</Text>
+                            <Text style={styles.modalTitle}>{pinHasBeenSet ? t('profile.change_pin') : t('profile.set_pin')}</Text>
                             <Pressable onPress={() => { Keyboard.dismiss(); setPinOpen(false); }} style={styles.modalClose} disabled={savingPin}>
                                 <Text style={styles.modalCloseText}>✕</Text>
                             </Pressable>
                         </View>
 
-                        {/* Step indicator */}
+                        {/* Step indicator — 2 steps for first-time setup, 3 for change */}
                         <View style={styles.pinSteps}>
-                            {(['current', 'new', 'confirm'] as const).map((phase) => (
+                            {(pinHasBeenSet
+                                ? (['current', 'new', 'confirm'] as const)
+                                : (['new', 'confirm'] as const)
+                            ).map((phase) => (
                                 <View key={phase} style={[styles.pinStep, pinPhase === phase && styles.pinStepActive]} />
                             ))}
                         </View>
@@ -608,6 +625,7 @@ export default function ProfileTab() {
                                 style={styles.modalCancel}
                                 onPress={() => {
                                     if (pinPhase === 'current') { Keyboard.dismiss(); setPinOpen(false); }
+                                    else if (pinPhase === 'new' && !pinHasBeenSet) { Keyboard.dismiss(); setPinOpen(false); }
                                     else { setPinPhase(pinPhase === 'confirm' ? 'new' : 'current'); }
                                 }}
                                 disabled={savingPin}
