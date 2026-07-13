@@ -33,7 +33,6 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.adrash.passenger",
       "versionCode": 2,
-      "targetSdkVersion": 35,
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",

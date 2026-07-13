@@ -86,6 +86,10 @@ export default function PickupScreen() {
     const f = useBookingFlowStore();
     const [assigning, setAssigning] = useState(false);
     const [seatError, setSeatError] = useState<string | null>(null);
+    // True only when the trip is fully booked (0 seats free) — the actionable
+    // fix is picking a different trip, not reducing passenger count, so the
+    // error gets a direct "back to results" button instead of just text.
+    const [tripFullyBooked, setTripFullyBooked] = useState(false);
 
     // Derive route ID from the selected trip — selectedRoute is not set by selectTrip()
     const routeId = f.selectedTrip?.routeId ?? f.selectedTrip?.route?.id ?? f.selectedRoute?.id;
@@ -111,6 +115,16 @@ export default function PickupScreen() {
         if (terminal) f.selectDropoff(terminal);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [terminal?.id, f.selectedPickup?.id]);
+
+    // When there's only one boarding point, requiring a tap to "select" it is
+    // pure friction — pick it automatically. Still shown as a selected radio
+    // card, not hidden, so it's visible what boarding point was chosen.
+    useEffect(() => {
+        if (pickups.length === 1 && !f.selectedPickup) {
+            f.selectPickup(pickups[0] ?? null);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pickups.length, f.selectedPickup?.id]);
 
     // ── Map data (MapLibre — no API key required) ─────────────────────────────
     const validStops = useMemo(
@@ -156,6 +170,7 @@ export default function PickupScreen() {
         if (!tripId) return;
 
         setSeatError(null);
+        setTripFullyBooked(false);
         setAssigning(true);
         try {
             const seats = await assignSequentialSeats(tripId, f.passengersCount);
@@ -164,6 +179,7 @@ export default function PickupScreen() {
         } catch (e) {
             if (e instanceof NotEnoughSeatsError) {
                 setSeatError(t('booking.pickup.not_enough_seats', { count: e.available }));
+                setTripFullyBooked(e.available === 0);
             } else {
                 setSeatError(t('booking.pickup.seat_check_failed'));
             }
@@ -353,6 +369,15 @@ export default function PickupScreen() {
 
                 {/* ── Seat-assignment error ── */}
                 {seatError ? <Text style={styles.seatErrorText}>{seatError}</Text> : null}
+                {tripFullyBooked && (
+                    <Pressable
+                        style={styles.changeTripBtn}
+                        onPress={() => router.push('/(tabs)/search/results')}
+                        accessibilityRole="button"
+                    >
+                        <Text style={styles.changeTripBtnText}>← Choose another trip</Text>
+                    </Pressable>
+                )}
 
                 {/* ── Continue button ── */}
                 <Pressable
@@ -544,6 +569,16 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '600',
         textAlign: 'center',
+    },
+    changeTripBtn: {
+        alignSelf: 'center',
+        paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+    },
+    changeTripBtnText: {
+        color: Colors.brand.primary,
+        fontWeight: '700',
+        fontSize: 14,
     },
 
     emptyState: { padding: Spacing.lg, alignItems: 'center' },
