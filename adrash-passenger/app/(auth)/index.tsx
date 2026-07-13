@@ -4,10 +4,15 @@
 // Routing logic on mount:
 //   1. Read saved language → initialise i18n
 //   2. Check SecureStore for access token + device token
-//      a. Token valid + agreement current  → /(tabs)                [straight to home]
-//      b. Token valid + new agreement      → /(auth)/agreement      [re-accept]
-//      c. Token expired + deviceToken      → /(auth)/phone-login    [phone → PIN login]
-//      d. No token / no device token       → show language selector → agreement → phone → OTP
+//      a. Token valid + agreement current        → /(tabs)                [straight to home]
+//      b. Token valid + new agreement             → /(auth)/agreement      [re-accept]
+//      c. Token expired + refresh succeeds        → same as (a)/(b) above  [silent session resume]
+//      d. Token/refresh both invalid + deviceToken → /(auth)/phone-login   [phone → OTP]
+//      e. No token / no device token               → show language selector → agreement → phone → OTP
+//
+// (c) matters because access tokens are short-lived but refresh tokens are
+// valid up to 90 days server-side — without this step, every user would be
+// bounced to a fresh phone/OTP login as often as the access token expires.
 
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -27,9 +32,10 @@ import { MMKVKeys } from '../../src/constants/mmkvKeys';
 import { changeLanguage } from '../../src/lib/i18n';
 import { writeString } from '../../src/lib/storage';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
-import { apiClient } from '../../src/api/client';
+import { apiClient, refreshAccessToken } from '../../src/api/client';
 import { ENDPOINTS } from '../../src/api/endpoints';
 import {
+    clearTokens,
     getAccessToken,
     getDeviceToken,
     isTokenExpired,
@@ -60,6 +66,70 @@ export default function SplashScreen() {
     const setAuthInitialized   = useAuthStore((s) => s.setAuthInitialized);
     const setLanguage          = useAuthStore((s) => s.setLanguage);
 
+    // Token is valid (or was just silently refreshed) → check the legal
+    // agreement and land the user in the app. Shared by both the "access
+    // token still valid" path and the "silent refresh succeeded" path below.
+    const proceedAuthenticated = useCallback(async () => {
+        // Set this immediately so the (tabs)/_layout.tsx guard doesn't redirect
+        // the user back out while the agreement check below is in flight.
+        setAuthenticated(true);
+
+        // ── Agreement check ──────────────────────────────────────────────
+        // Fast path: user has never accepted on this device → go to
+        // agreement without a network round-trip.
+        if (!hasAcceptedAgreement) {
+            router.replace({
+                pathname: '/(auth)/agreement',
+                params: { reaccept: '1', next: 'tabs' },
+            });
+            return;
+        }
+
+        // Slow path: ask the server if the current version is signed.
+        // isSigned = false means a new agreement was published since
+        // the user last accepted. On any network error let them in —
+        // the 403 interceptor will catch it on the next request.
+        try {
+            const lang = AGREEMENT_LANG[preferredLanguage] ?? 'En';
+            const res  = await apiClient.get<unknown>(
+                ENDPOINTS.AGREEMENTS.CURRENT,
+                { params: { type: 'Passenger', lang } },
+            );
+            const raw  = res.data as Record<string, unknown>;
+            const data = (raw?.data as Record<string, unknown>) ?? raw;
+
+            // isSigned is the server's authoritative flag.
+            // false → the user hasn't signed the CURRENT version.
+            const isSigned =
+                data?.isSigned === true || data?.accepted === true;
+
+            // Short-circuit: if the locally stored acceptance version
+            // matches the server's current version, trust the local
+            // record — this prevents a re-accept loop caused by server
+            // propagation lag or a stale isSigned flag.
+            const serverVersion = data?.version as string | undefined;
+            const alreadyAcceptedCurrentVersion =
+                hasAcceptedAgreement &&
+                agreementVersion != null &&
+                serverVersion != null &&
+                serverVersion === agreementVersion;
+
+            if (!isSigned && !alreadyAcceptedCurrentVersion) {
+                router.replace({
+                    pathname: '/(auth)/agreement',
+                    params: { reaccept: '1', next: 'tabs' },
+                });
+                return;
+            }
+        } catch {
+            // Network / parse error — let the user in, the
+            // 403 interceptor will handle it on the next request.
+        }
+
+        router.replace('/(tabs)');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hasAcceptedAgreement, agreementVersion, preferredLanguage]);
+
     // ── On mount: decide where to send the user ───────────────────────────
     useEffect(() => {
         (async () => {
@@ -73,68 +143,27 @@ export default function SplashScreen() {
                 const hasValidToken = token !== null && !expired;
 
                 if (hasValidToken) {
-                    // Token is valid → user is authenticated. Set this immediately
-                    // so the (tabs)/_layout.tsx guard doesn't redirect them back.
-                    setAuthenticated(true);
-
-                    // ── Agreement check ──────────────────────────────────────
-                    // Fast path: user has never accepted on this device → go to
-                    // agreement without a network round-trip.
-                    if (!hasAcceptedAgreement) {
-                        router.replace({
-                            pathname: '/(auth)/agreement',
-                            params: { reaccept: '1', next: 'tabs' },
-                        });
-                        return;
-                    }
-
-                    // Slow path: ask the server if the current version is signed.
-                    // isSigned = false means a new agreement was published since
-                    // the user last accepted. On any network error let them in —
-                    // the 403 interceptor will catch it on the next request.
-                    try {
-                        const lang = AGREEMENT_LANG[preferredLanguage] ?? 'En';
-                        const res  = await apiClient.get<unknown>(
-                            ENDPOINTS.AGREEMENTS.CURRENT,
-                            { params: { type: 'Passenger', lang } },
-                        );
-                        const raw  = res.data as Record<string, unknown>;
-                        const data = (raw?.data as Record<string, unknown>) ?? raw;
-
-                        // isSigned is the server's authoritative flag.
-                        // false → the user hasn't signed the CURRENT version.
-                        const isSigned =
-                            data?.isSigned === true || data?.accepted === true;
-
-                        // Short-circuit: if the locally stored acceptance version
-                        // matches the server's current version, trust the local
-                        // record — this prevents a re-accept loop caused by server
-                        // propagation lag or a stale isSigned flag.
-                        const serverVersion = data?.version as string | undefined;
-                        const alreadyAcceptedCurrentVersion =
-                            hasAcceptedAgreement &&
-                            agreementVersion != null &&
-                            serverVersion != null &&
-                            serverVersion === agreementVersion;
-
-                        if (!isSigned && !alreadyAcceptedCurrentVersion) {
-                            router.replace({
-                                pathname: '/(auth)/agreement',
-                                params: { reaccept: '1', next: 'tabs' },
-                            });
-                            return;
-                        }
-                    } catch {
-                        // Network / parse error — let the user in, the
-                        // 403 interceptor will handle it on the next request.
-                    }
-
-                    router.replace('/(tabs)');
+                    await proceedAuthenticated();
                     return;
                 }
 
-                // Token expired/missing but this device has been registered before →
-                // send to phone-login (phone number + PIN).
+                // Access token is missing or has aged out — before treating this
+                // as "logged out", try a silent refresh. Refresh tokens rotate on
+                // every use and stay valid up to 90 days server-side, so a user
+                // who simply hasn't opened the app in a while should not be
+                // bounced to phone/OTP just because the short-lived access token
+                // expired; only a genuinely invalid/expired/revoked refresh token
+                // should force that.
+                try {
+                    await refreshAccessToken();
+                    await proceedAuthenticated();
+                    return;
+                } catch {
+                    await clearTokens();
+                }
+
+                // Refresh token is gone/invalid too — this device has been
+                // registered before → send to phone-login (phone number, OTP).
                 if (deviceToken) {
                     router.replace('/(auth)/phone-login');
                     return;

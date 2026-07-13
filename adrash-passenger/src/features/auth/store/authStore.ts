@@ -71,12 +71,20 @@ export const useAuthStore = create<AuthState>()(
 
             logout: () =>
                 set({
-                    user:            null,
-                    isAuthenticated: false,
-                    accessToken:     null,
-                    refreshToken:    null,
-                    // Keep agreementVersion so if they log back in with the
-                    // same phone they don't have to re-read the whole doc.
+                    user:                 null,
+                    isAuthenticated:      false,
+                    accessToken:          null,
+                    refreshToken:         null,
+                    // Reset device-global flags on every logout, not just
+                    // "switch account". The device token/phone are cleared
+                    // alongside this (see useLogout.ts / useDeleteAccount.ts),
+                    // so the next sign-in on this device — same person or a
+                    // different one on a shared device — always goes through
+                    // a fresh OTP login and takes the agreement/PIN state
+                    // from that response rather than a stale local cache.
+                    hasAcceptedAgreement: false,
+                    agreementVersion:     null,
+                    isBiometricEnabled:   false,
                 }),
         }),
         {

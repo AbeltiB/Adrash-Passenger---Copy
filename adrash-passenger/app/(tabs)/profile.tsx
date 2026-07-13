@@ -22,6 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../src/constants';
 import { useLogout } from '../../src/features/auth/hooks/useLogout';
 import { usePinSetup } from '../../src/features/auth/hooks/usePinSetup';
+import { PIN_LOGIN_ENABLED } from '../../src/features/auth/config';
 import { useProfile } from '../../src/features/profile/hooks/useProfile';
 import { useUpdateProfile } from '../../src/features/profile/hooks/useUpdateProfile';
 import { useDeleteAccount } from '../../src/features/profile/hooks/useDeleteAccount';
@@ -235,7 +236,9 @@ export default function ProfileTab() {
                 ? { ...p, isEnabled: !p.isEnabled }
                 : p,
         );
-        updatePrefs(next);
+        // The switch flips immediately (optimistic update in the hook) and
+        // snaps back on failure — this alert is the explicit "why" for that.
+        updatePrefs(next, { onError: () => Alert.alert(t('profile.notif_pref_error')) });
     }
 
     async function shareReferral() {
@@ -249,7 +252,13 @@ export default function ProfileTab() {
             t('profile.delete_confirm_body'),
             [
                 { text: t('common.cancel'), style: 'cancel' },
-                { text: t('profile.delete'), style: 'destructive', onPress: () => deleteAccount() },
+                {
+                    text: t('profile.delete'),
+                    style: 'destructive',
+                    onPress: () => deleteAccount(undefined, {
+                        onError: () => Alert.alert(t('profile.delete_confirm_title'), t('profile.delete_error')),
+                    }),
+                },
             ],
         );
     }
@@ -464,17 +473,23 @@ export default function ProfileTab() {
                 </Card>
 
                 {/* ── Security ── */}
-                <SectionTitle label={t('profile.security')} />
-                <Card>
-                    <Pressable style={styles.rowItem} onPress={openPinChange}>
-                        <Text style={styles.rowIcon}>🔑</Text>
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.rowLabel}>{pinHasBeenSet ? t('profile.change_pin') : t('profile.set_pin')}</Text>
-                            <Text style={styles.rowSub}>{pinHasBeenSet ? t('profile.change_pin_sub') : t('profile.set_pin_sub')}</Text>
-                        </View>
-                        <Text style={styles.rowChev}>›</Text>
-                    </Pressable>
-                </Card>
+                {/* PIN sign-in is switched off app-wide right now (see auth/config.ts),
+                    so this entry is hidden rather than offering a setting with no effect. */}
+                {PIN_LOGIN_ENABLED && (
+                    <>
+                        <SectionTitle label={t('profile.security')} />
+                        <Card>
+                            <Pressable style={styles.rowItem} onPress={openPinChange}>
+                                <Text style={styles.rowIcon}>🔑</Text>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.rowLabel}>{pinHasBeenSet ? t('profile.change_pin') : t('profile.set_pin')}</Text>
+                                    <Text style={styles.rowSub}>{pinHasBeenSet ? t('profile.change_pin_sub') : t('profile.set_pin_sub')}</Text>
+                                </View>
+                                <Text style={styles.rowChev}>›</Text>
+                            </Pressable>
+                        </Card>
+                    </>
+                )}
 
                 {/* ── Danger zone ── */}
                 <SectionTitle label={t('profile.danger_zone')} />

@@ -1,0 +1,1970 @@
+{
+  "info": {
+    "_postman_id": "adrash-api-stage1-v1",
+    "name": "Adrash API (Stage 1)",
+    "description": "## አድራሽ (Adrash) — Stage 1 API\n\nEthiopian intercity passenger transport platform. This collection covers every endpoint exposed by `Adrash.API` on the `feature/bus-classification-route-pricing` branch.\n\n### Conventions\n- **Base URL**: `{{baseUrl}}` (defaults to `http://localhost:5000/api/v1`)\n- **Auth**: JWT Bearer via collection-level auth (`Authorization: Bearer {{accessToken}}`).\n- **Response envelope**: `{ success, data, errors, meta }`.\n- **Enums** travel as strings (e.g. `\"Approved\"`, not `2`).\n- **Money**: ETB only, `decimal(18,2)`.\n- **Timestamps**: ISO 8601 UTC.\n\n### Quick start\n1. Hit `Auth › OTP › Send` with your phone.\n2. In Dev, the OTP is logged to the API console. Run `Auth › OTP › Verify` — the test script auto-stores `accessToken` + `refreshToken`.\n3. Every subsequent request inherits the Bearer token automatically.\n\n### Roles & permissions\nEndpoints are protected by **policy** (`Admin`, `Driver`) and **fine-grained permissions** (e.g. `DriversApprove`, `PaymentsManualConfirm`). The bootstrap config seeds `+251911032089` as SuperAdmin in non-Production environments — that account can hit anything.\n\n### Variables\n- `baseUrl` — API base, includes `/api/v1`\n- `accessToken` / `refreshToken` — auto-populated by Auth requests\n- `tripId`, `bookingId`, `routeId`, `driverId`, `busId`, `transactionId`, `pickupLocationId`, `stopId`, `documentId`, `passengerId`, `roleId`, `agreementVersion`, `deviceToken` — set these as you go for easy chaining.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// no-op: per-request prerequest hooks live on the request itself."
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000/api/v1", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" },
+    { "key": "deviceToken", "value": "", "type": "string" },
+    { "key": "tripId", "value": "", "type": "string" },
+    { "key": "bookingId", "value": "", "type": "string" },
+    { "key": "routeId", "value": "", "type": "string" },
+    { "key": "driverId", "value": "", "type": "string" },
+    { "key": "busId", "value": "", "type": "string" },
+    { "key": "transactionId", "value": "", "type": "string" },
+    { "key": "pickupLocationId", "value": "", "type": "string" },
+    { "key": "stopId", "value": "", "type": "string" },
+    { "key": "documentId", "value": "", "type": "string" },
+    { "key": "passengerId", "value": "", "type": "string" },
+    { "key": "roleId", "value": "", "type": "string" },
+    { "key": "agreementVersion", "value": "1.0.0", "type": "string" },
+    { "key": "phone", "value": "+251911032089", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness ping",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/ping",
+            "description": "Public liveness probe. Returns 200 if the API process is up."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "OTP-only authentication. Once the OTP is verified, the test script automatically writes `accessToken`, `refreshToken`, and `deviceToken` to the collection variables.",
+      "item": [
+        {
+          "name": "OTP — Send",
+          "event": [],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/otp/send",
+            "description": "Generates a 6-digit OTP, stores a BCrypt hash, and dispatches via AfroSMS (mocked → console log in Development).\n\n**Rate limit**: 3 sends per phone per 15 minutes.\n\n**Body**\n- `phone` (string, required) — E.164 format, e.g. `+251911032089`."
+          }
+        },
+        {
+          "name": "OTP — Verify",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.success && res.data && res.data.tokens) {",
+                  "  pm.collectionVariables.set('accessToken', res.data.tokens.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', res.data.tokens.refreshToken);",
+                  "  if (res.data.deviceToken) pm.collectionVariables.set('deviceToken', res.data.deviceToken);",
+                  "  console.log('Tokens captured. New user?', res.data.isNewUser);",
+                  "} else {",
+                  "  console.warn('OTP verify did not return tokens; response:', JSON.stringify(res));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"code\": \"123456\",\n  \"existingDeviceToken\": null,\n  \"deviceLabel\": \"Postman\",\n  \"deviceFingerprint\": \"postman-runner-1\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/otp/verify",
+            "description": "Verifies the OTP, issues an access + refresh token pair, and (optionally) provisions a trusted device.\n\n**Body**\n- `phone` (string, required)\n- `code` (string, required) — 6-digit OTP\n- `existingDeviceToken` (string, optional) — pass an existing device token to refresh trust\n- `deviceLabel` (string, optional) — human-readable device name\n- `deviceFingerprint` (string, optional)\n\n**Response highlights**: `tokens.accessToken`, `tokens.refreshToken`, `isNewUser`, `needsSetup`, `agreementRequired`. The test script auto-stores tokens."
+          }
+        },
+        {
+          "name": "Profile setup (one-time)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Rediet\",\n  \"lastName\": \"Zewdu\",\n  \"role\": \"Passenger\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/profile/setup",
+            "description": "One-time setup right after a freshly verified user. Sets `FullName` and optionally promotes from Passenger → Driver.\n\n**Body**\n- `firstName` (required, ≤100)\n- `lastName` (required, ≤100)\n- `role` (optional) — `\"Passenger\"` or `\"Driver\"`. Admin accounts are never provisioned here.\n\nReturns a fresh token pair if the role changed."
+          }
+        },
+        {
+          "name": "PIN — Verify (trusted device sign-in)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"pin\": \"123456\",\n  \"deviceToken\": \"{{deviceToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/pin/verify",
+            "description": "Sign in with PIN + previously trusted device token. 5 failed attempts → 30 min lockout. Admin accounts must re-verify via OTP every 30 days regardless of PIN."
+          }
+        },
+        {
+          "name": "PIN — Setup / change",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPin\": \"482917\",\n  \"currentPin\": null\n}"
+            },
+            "url": "{{baseUrl}}/auth/pin/setup",
+            "description": "Create or change PIN. `currentPin` required only when changing an existing PIN."
+          }
+        },
+        {
+          "name": "Devices — List trusted",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/auth/devices",
+            "description": "Returns the caller's non-revoked trusted devices."
+          }
+        },
+        {
+          "name": "Devices — Revoke one",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/auth/devices/:id",
+            "description": "Revoke a single trusted device. `:id` is the device's GUID."
+          }
+        },
+        {
+          "name": "Devices — Revoke all",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/devices/revoke-all",
+            "description": "Revoke every trusted device for the caller and invalidate all refresh tokens. Forces a fresh OTP login next time."
+          }
+        },
+        {
+          "name": "Refresh tokens",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.success && res.data) {",
+                  "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                  "  console.log('Tokens rotated.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/refresh",
+            "description": "Rotates refresh tokens. The old token is revoked, a new pair is issued. Absolute max session age: 90 days."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/logout",
+            "description": "Revokes the supplied refresh token. Returns 204."
+          }
+        },
+        {
+          "name": "Agreement — Accept",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agreementType\": \"Passenger\",\n  \"documentVersion\": \"{{agreementVersion}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/agreements/accept",
+            "description": "Records immutable acceptance of the given agreement version with IP + UA fingerprinting.\n\n**`agreementType`**: `Passenger` | `Driver`."
+          }
+        },
+        {
+          "name": "Agreement — Get current",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/auth/agreements/current?type=Passenger&lang=En",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "agreements", "current"],
+              "query": [
+                { "key": "type", "value": "Passenger", "description": "Passenger | Driver" },
+                { "key": "lang", "value": "En", "description": "En | Am | Om" }
+              ]
+            },
+            "description": "Returns the currently active agreement document — version, multi-language content, effective date."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users (me)",
+      "item": [
+        {
+          "name": "Get my profile",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/users/me",
+            "description": "Returns the authenticated user's profile (id, phone, full name, role, preferredLanguage)."
+          }
+        },
+        {
+          "name": "Update my profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Rediet Zewdu\",\n  \"preferredLanguage\": \"Am\"\n}"
+            },
+            "url": "{{baseUrl}}/users/me",
+            "description": "Update name and/or preferred language. Phone changes require a separate OTP re-verification flow.\n\n**`preferredLanguage`**: `En` | `Am` | `Om`."
+          }
+        },
+        {
+          "name": "Delete my account",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/users/me",
+            "description": "Soft-deletes the authenticated passenger account. Blocks if any active booking exists."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Drivers (self-service)",
+      "description": "Endpoints for drivers managing their own profile, documents, vehicle and trips. Most require `Policy = Driver`.",
+      "item": [
+        {
+          "name": "Register driver",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+251911000001\",\n  \"fullName\": \"Abebe Bekele\"\n}"
+            },
+            "url": "{{baseUrl}}/drivers/register",
+            "description": "Creates a User (role=Driver) plus an Incomplete DriverProfile. Returns access + refresh tokens — driver should run OTP-verify first, since AfroSMS may also be required for OTP."
+          }
+        },
+        {
+          "name": "Update personal details",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dateOfBirth\": \"1990-05-12\",\n  \"gender\": \"Male\",\n  \"nationality\": \"Ethiopian\",\n  \"email\": \"abebe.bekele@example.com\",\n  \"addressStreet\": \"Bole Road\",\n  \"addressCity\": \"Addis Ababa\",\n  \"addressRegion\": \"Addis Ababa\",\n  \"addressCountry\": \"Ethiopia\"\n}"
+            },
+            "url": "{{baseUrl}}/drivers/profile/personal",
+            "description": "Updates the driver's personal details. Driver must be ≥18.\n\n**`gender`**: `Unspecified` | `Male` | `Female` | `Other`."
+          }
+        },
+        {
+          "name": "Update vehicle info",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"make\": \"Toyota\",\n  \"model\": \"HiAce\",\n  \"year\": 2018,\n  \"plate\": \"AA-3-12345\",\n  \"colour\": \"White\",\n  \"capacity\": 12,\n  \"shanciNumber\": \"SH-998877\",\n  \"motorNumber\": \"MTR-554433\",\n  \"isOwner\": true\n}"
+            },
+            "url": "{{baseUrl}}/drivers/profile/vehicle",
+            "description": "Create or update the driver's vehicle. `isOwner=true` forces an `OwnershipProof` document on profile submit."
+          }
+        },
+        {
+          "name": "Update payout preference",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"MobileWallet\",\n  \"walletProvider\": \"Telebirr\",\n  \"walletPhoneOrRef\": \"+251911000001\",\n  \"bankHolderName\": null,\n  \"bankName\": null,\n  \"bankAccountNumber\": null,\n  \"bankBranch\": null\n}"
+            },
+            "url": "{{baseUrl}}/drivers/profile/payout",
+            "description": "Configure where payouts land.\n\n- `method = BankTransfer` → requires `bankHolderName`, `bankName`, `bankAccountNumber`.\n- `method = MobileWallet` → requires `walletProvider` (`Telebirr` | `CBEBirr` | `HelloCash` | `ADC`) and `walletPhoneOrRef`.\n\nSensitive fields are encrypted at rest (AES-256)."
+          }
+        },
+        {
+          "name": "Upload document",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": [], "description": "JPEG/PNG/PDF, ≤10MB" },
+                { "key": "documentType", "value": "DriverLicence", "type": "text", "description": "NationalId | DriverLicence | Roadworthiness | Insurance | PoliceClearance | OwnershipProof" },
+                { "key": "expiryDate", "value": "2027-05-12", "type": "text", "description": "yyyy-MM-dd" }
+              ]
+            },
+            "url": "{{baseUrl}}/drivers/documents/upload",
+            "description": "Streams the file directly to S3. Magic-byte validation enforced. Returns presigned URL (1h TTL)."
+          }
+        },
+        {
+          "name": "Upload vehicle photo",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": [], "description": "Image file" },
+                { "key": "slot", "value": "Front", "type": "text", "description": "Front | Rear | Interior | Dashboard" }
+              ]
+            },
+            "url": "{{baseUrl}}/drivers/vehicle/photos",
+            "description": "Upload a single vehicle photo into one of 4 fixed slots. Replacing an existing slot overwrites."
+          }
+        },
+        {
+          "name": "Delete vehicle photo",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/drivers/vehicle/photos/:slot",
+            "description": "Clear a vehicle photo slot. `:slot` ∈ `Front | Rear | Interior | Dashboard`."
+          }
+        },
+        {
+          "name": "Submit profile for review",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/drivers/profile/submit",
+            "description": "Validates all required sections are complete (personal + vehicle + 5 documents + payout) and flips status `Incomplete → Pending`. 422 with missing-sections list if any gap remains."
+          }
+        },
+        {
+          "name": "Get my driver profile",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/drivers/profile",
+            "description": "Full driver profile with documents (presigned URLs), payout prefs (masked), and completion %."
+          }
+        },
+        {
+          "name": "Get profile status",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/drivers/profile/status",
+            "description": "Lightweight status check: `{ status, rejectionReason?, completionPct, missingSections[] }`."
+          }
+        },
+        {
+          "name": "My schedule",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/drivers/me/schedule",
+            "description": "Returns the authenticated driver's `upcoming`, `inProgress`, `completed`, and `cancelled` trips."
+          }
+        },
+        {
+          "name": "Schedule trip (driver-initiated)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"routeId\": \"{{routeId}}\",\n  \"departureTime\": \"2026-05-20T06:00:00Z\",\n  \"arrivalEstimate\": \"2026-05-20T09:30:00Z\",\n  \"destinationGeofenceRadiusMetres\": 500\n}"
+            },
+            "url": "{{baseUrl}}/drivers/trips",
+            "description": "Driver-initiated trip scheduling (uses the driver's currently-assigned bus). `destinationGeofenceRadiusMetres` valid range: 50–5000."
+          }
+        },
+        {
+          "name": "Cancel my trip",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/drivers/trips/{{tripId}}?reason=Mechanical issue",
+              "host": ["{{baseUrl}}"],
+              "path": ["drivers", "trips", "{{tripId}}"],
+              "query": [{ "key": "reason", "value": "Mechanical issue" }]
+            },
+            "description": "Driver can cancel their own scheduled trip. Triggers full refunds + AfroSMS notifications to confirmed passengers."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Routes",
+      "description": "Routes and their nested pickup locations. Read endpoints are public. Mutating endpoints require `Policy=Admin` + `RoutesManage` permission.",
+      "item": [
+        {
+          "name": "List routes",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/routes?activeOnly=true&page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["routes"],
+              "query": [
+                { "key": "activeOnly", "value": "true" },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            },
+            "description": "Paginated list of routes."
+          }
+        },
+        {
+          "name": "Get route by id",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/routes/{{routeId}}",
+            "description": "Full route detail: polyline, stops (ordered), pickup locations."
+          }
+        },
+        {
+          "name": "Create route",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"originCity\": \"Addis Ababa\",\n  \"destinationCity\": \"Adama\",\n  \"distanceKm\": 99.5,\n  \"estimatedDurationMin\": 105,\n  \"gpsPolyline\": [\n    { \"lat\": 9.0054, \"lng\": 38.7636 },\n    { \"lat\": 8.8500, \"lng\": 39.0000 },\n    { \"lat\": 8.5404, \"lng\": 39.2706 }\n  ],\n  \"stops\": [\n    { \"name\": \"Meskel Square\",       \"lat\": 9.0107, \"lng\": 38.7613, \"sequenceOrder\": 1, \"isPickup\": true,  \"isDropoff\": false },\n    { \"name\": \"Adama Bus Terminal\", \"lat\": 8.5404, \"lng\": 39.2706, \"sequenceOrder\": 2, \"isPickup\": false, \"isDropoff\": true  }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/routes",
+            "description": "Create a route. ≥2 stops required, sequence orders must be unique and strictly increasing. Distance 0–10000 km, duration 0–1440 min."
+          }
+        },
+        {
+          "name": "Update route",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"originCity\": \"Addis Ababa\",\n  \"destinationCity\": \"Adama\",\n  \"distanceKm\": 99.5,\n  \"estimatedDurationMin\": 110,\n  \"gpsPolyline\": [\n    { \"lat\": 9.0054, \"lng\": 38.7636 },\n    { \"lat\": 8.5404, \"lng\": 39.2706 }\n  ],\n  \"stops\": [\n    { \"name\": \"Meskel Square\",       \"lat\": 9.0107, \"lng\": 38.7613, \"sequenceOrder\": 1, \"isPickup\": true,  \"isDropoff\": false },\n    { \"name\": \"Adama Bus Terminal\", \"lat\": 8.5404, \"lng\": 39.2706, \"sequenceOrder\": 2, \"isPickup\": false, \"isDropoff\": true  }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/routes/{{routeId}}",
+            "description": "Full update — same body as create."
+          }
+        },
+        {
+          "name": "Deactivate route",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/routes/{{routeId}}/deactivate",
+            "description": "Soft-deactivate: sets `is_active = false`. Existing trips remain."
+          }
+        },
+        {
+          "name": "Pickup locations — list",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/routes/{{routeId}}/pickup-locations",
+            "description": "All active pickup points for a route, ordered by `sequenceOrder`."
+          }
+        },
+        {
+          "name": "Pickup locations — create",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bole Medhanealem\",\n  \"lat\": 8.9994,\n  \"lng\": 38.7990,\n  \"description\": \"In front of the church gate.\",\n  \"sequenceOrder\": 1\n}"
+            },
+            "url": "{{baseUrl}}/routes/{{routeId}}/pickup-locations"
+          }
+        },
+        {
+          "name": "Pickup locations — update",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bole Medhanealem (north gate)\",\n  \"lat\": 8.9998,\n  \"lng\": 38.7995,\n  \"description\": \"North gate — preferred for early-morning departures.\",\n  \"sequenceOrder\": 1\n}"
+            },
+            "url": "{{baseUrl}}/routes/{{routeId}}/pickup-locations/{{pickupLocationId}}"
+          }
+        },
+        {
+          "name": "Pickup locations — delete",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/routes/{{routeId}}/pickup-locations/{{pickupLocationId}}",
+            "description": "Soft delete (`is_active = false`)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Buses",
+      "description": "All bus endpoints require `Policy=Admin` and the `BusesManage` permission.",
+      "item": [
+        {
+          "name": "List buses",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/buses?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["buses"],
+              "query": [
+                { "key": "status", "value": "Active", "disabled": true, "description": "Active | Maintenance | Retired" },
+                { "key": "assignedDriverId", "value": "", "disabled": true },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get bus",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/buses/{{busId}}"
+          }
+        },
+        {
+          "name": "Create bus",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plate\": \"AA-3-77777\",\n  \"make\": \"Toyota\",\n  \"model\": \"Coaster\",\n  \"year\": 2021,\n  \"capacity\": 29,\n  \"shanciNumber\": \"SH-2026-001\",\n  \"motorNumber\": \"MTR-2026-001\",\n  \"type\": \"MiniBus\"\n}"
+            },
+            "url": "{{baseUrl}}/buses",
+            "description": "**`type`**: `MiniBus` | `Isuzu` | `PrivateCar`."
+          }
+        },
+        {
+          "name": "Update bus",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plate\": \"AA-3-77777\",\n  \"make\": \"Toyota\",\n  \"model\": \"Coaster\",\n  \"year\": 2021,\n  \"capacity\": 29,\n  \"shanciNumber\": \"SH-2026-001\",\n  \"motorNumber\": \"MTR-2026-001\",\n  \"type\": \"MiniBus\",\n  \"status\": \"Active\"\n}"
+            },
+            "url": "{{baseUrl}}/buses/{{busId}}"
+          }
+        },
+        {
+          "name": "Assign bus to driver",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driverId\": \"{{driverId}}\",\n  \"note\": \"Assigned for AA→Adama corridor.\"\n}"
+            },
+            "url": "{{baseUrl}}/buses/{{busId}}/assign",
+            "description": "Records the assignment in bus_assignment_history. Driver must be Approved."
+          }
+        },
+        {
+          "name": "Unassign bus",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/buses/{{busId}}/unassign"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Trips",
+      "description": "Trip lifecycle: schedule → start → location pings → check in passengers → end (geofenced).",
+      "item": [
+        {
+          "name": "List trips",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/trips?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["trips"],
+              "query": [
+                { "key": "status", "value": "Scheduled", "disabled": true, "description": "Scheduled | InProgress | Completed | Cancelled" },
+                { "key": "routeId", "value": "{{routeId}}", "disabled": true },
+                { "key": "driverId", "value": "{{driverId}}", "disabled": true },
+                { "key": "from", "value": "2026-05-13T00:00:00Z", "disabled": true },
+                { "key": "to", "value": "2026-05-20T00:00:00Z", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            },
+            "description": "Drivers see their own trips. Admins see all. Filters: status, routeId, driverId, date range."
+          }
+        },
+        {
+          "name": "Get trip",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/trips/{{tripId}}",
+            "description": "Driver/Admin: includes passenger manifest. Passenger: only sees trip info, not manifest."
+          }
+        },
+        {
+          "name": "Get seat map",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/trips/{{tripId}}/seats",
+            "description": "Public — used by the booking flow. Cached in Redis 30s. Returns `[{ seatNumber, isBooked }]`."
+          }
+        },
+        {
+          "name": "Schedule trip (admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"routeId\": \"{{routeId}}\",\n  \"driverId\": \"{{driverId}}\",\n  \"busId\": \"{{busId}}\",\n  \"departureTime\": \"2026-05-20T06:00:00Z\",\n  \"arrivalEstimate\": \"2026-05-20T09:30:00Z\",\n  \"destinationGeofenceRadiusMetres\": 500\n}"
+            },
+            "url": "{{baseUrl}}/trips",
+            "description": "Validates: driver Approved, bus Active, no time conflict for either."
+          }
+        },
+        {
+          "name": "Update trip",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"departureTime\": \"2026-05-20T07:00:00Z\",\n  \"arrivalEstimate\": \"2026-05-20T10:30:00Z\",\n  \"destinationGeofenceRadiusMetres\": 750\n}"
+            },
+            "url": "{{baseUrl}}/trips/{{tripId}}",
+            "description": "Only allowed while status = Scheduled."
+          }
+        },
+        {
+          "name": "Cancel trip",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/trips/{{tripId}}?reason=Operator cancellation",
+              "host": ["{{baseUrl}}"],
+              "path": ["trips", "{{tripId}}"],
+              "query": [{ "key": "reason", "value": "Operator cancellation" }]
+            },
+            "description": "Admin cancels a trip. Triggers full refunds and SMS to all confirmed passengers."
+          }
+        },
+        {
+          "name": "Start trip (driver)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": 9.0054,\n  \"lng\": 38.7636\n}"
+            },
+            "url": "{{baseUrl}}/trips/{{tripId}}/start",
+            "description": "Driver-only. Departure_time must be within ±30 min. Flips status → InProgress."
+          }
+        },
+        {
+          "name": "End trip (driver)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": 8.5404,\n  \"lng\": 39.2706\n}"
+            },
+            "url": "{{baseUrl}}/trips/{{tripId}}/end",
+            "description": "Geofenced — must be inside `destinationGeofenceRadiusMetres` of final dropoff stop. Outside → 400 `Trip.OutsideGeofence`."
+          }
+        },
+        {
+          "name": "End trip — admin override",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"overrideReason\": \"Mechanical breakdown 3km out — completed by relief bus.\",\n  \"lat\": 8.5410,\n  \"lng\": 39.2715\n}"
+            },
+            "url": "{{baseUrl}}/trips/{{tripId}}/end-override",
+            "description": "Bypasses geofence. Creates a `trip_incident` with admin_override fields. Required when an incident is recorded but driver couldn't reach the dropoff."
+          }
+        },
+        {
+          "name": "Stop arrived",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/trips/{{tripId}}/stops/{{stopId}}/arrived",
+            "description": "Records `actual_arrival` on the trip_stop. Triggers `BUS_ARRIVED_PICKUP` SMS to passengers boarding at this stop."
+          }
+        },
+        {
+          "name": "Check in passenger",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stopId\": \"{{stopId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/trips/{{tripId}}/passengers/{{passengerId}}/checkin"
+          }
+        },
+        {
+          "name": "Mark no-show",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/trips/{{tripId}}/passengers/{{passengerId}}/noshow"
+          }
+        },
+        {
+          "name": "Verify ticket (QR)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qrCodePayload\": \"ADRSH:eyJyZWYiOiJBQjEyMzQ1Njc4OTAiLCJzaWciOiIuLi4ifQ==\"\n}"
+            },
+            "url": "{{baseUrl}}/trips/{{tripId}}/verify-ticket",
+            "description": "Verify the HMAC-signed QR payload. Returns passenger name, seat #, pickup name, status."
+          }
+        },
+        {
+          "name": "Report incident",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"FlatTyre\",\n  \"note\": \"Front-left tyre punctured near KM 42.\",\n  \"lat\": 8.7100,\n  \"lng\": 39.1500\n}"
+            },
+            "url": "{{baseUrl}}/trips/{{tripId}}/incidents",
+            "description": "**`type`**: `FlatTyre` | `Mechanical` | `Accident` | `Delay` | `Other`."
+          }
+        },
+        {
+          "name": "List incidents for trip",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/trips/{{tripId}}/incidents"
+          }
+        },
+        {
+          "name": "Record GPS location",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": 8.8500,\n  \"lng\": 39.0000,\n  \"heading\": 95.5,\n  \"speed\": 62.3\n}"
+            },
+            "url": "{{baseUrl}}/trips/{{tripId}}/location",
+            "description": "Appended to trip_location_logs and broadcast to the `trip-{tripId}` SignalR group. Server also emits `GeofenceStatus` to the driver. Note: prefer the SignalR hub `SendLocation` for live trips."
+          }
+        },
+        {
+          "name": "Latest GPS location",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/trips/{{tripId}}/location/latest"
+          }
+        },
+        {
+          "name": "Trip manifest",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/trips/{{tripId}}/manifest",
+            "description": "Passenger manifest: seat, name, phone (masked), pickup, dropoff, boarding state."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "item": [
+        {
+          "name": "Create booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.success && res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('bookingId', res.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"seatNumbers\": [3, 4],\n  \"pickupLocationId\": \"{{pickupLocationId}}\",\n  \"dropoffStopId\": \"{{stopId}}\",\n  \"pointsToRedeem\": 0,\n  \"passengerDetails\": [\n    {\n      \"fullName\": \"Rediet Zewdu\",\n      \"phone\": \"+251911032089\",\n      \"nextOfKinName\": \"Almaz Zewdu\",\n      \"nextOfKinPhone\": \"+251911000999\"\n    },\n    {\n      \"fullName\": \"Hana Tadesse\",\n      \"phone\": \"+251922000111\",\n      \"nextOfKinName\": \"Tigist Tadesse\",\n      \"nextOfKinPhone\": \"+251922000222\"\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/bookings",
+            "description": "Creates a booking holding the seats with a Redis pessimistic lock (10-min TTL).\n\n**Rules**:\n- `seatNumbers.length == passengerDetails.length`\n- `pickupLocationId` must belong to the trip's route\n- `dropoffStopId` must be downstream of pickup\n- `pointsToRedeem` ≤ passenger balance and ≥ min_redemption if > 0\n- Passenger may hold ≤2 Pending bookings at a time"
+          }
+        },
+        {
+          "name": "List bookings",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/bookings?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"],
+              "query": [
+                { "key": "status", "value": "Confirmed", "disabled": true, "description": "Pending|Confirmed|CheckedIn|Completed|Cancelled|NoShow" },
+                { "key": "tripId", "value": "{{tripId}}", "disabled": true },
+                { "key": "passengerName", "value": "", "disabled": true },
+                { "key": "bookingRef", "value": "", "disabled": true },
+                { "key": "from", "value": "2026-05-01T00:00:00Z", "disabled": true },
+                { "key": "to", "value": "2026-05-31T23:59:59Z", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            },
+            "description": "Passenger sees own bookings. Admin sees all."
+          }
+        },
+        {
+          "name": "Get booking",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/bookings/{{bookingId}}"
+          }
+        },
+        {
+          "name": "Cancel booking",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/bookings/{{bookingId}}",
+            "description": "Passenger cancels own; admin cancels any (admin = full refund regardless of policy). If points were redeemed, they're refunded too."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Initiate payment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.success && res.data && res.data.transactionId) {",
+                  "  pm.collectionVariables.set('transactionId', res.data.transactionId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"method\": \"ADC\",\n  \"accountRef\": \"+251911032089\"\n}"
+            },
+            "url": "{{baseUrl}}/payments/initiate",
+            "description": "Starts a payment for a Pending booking. Only the last 4 chars of `accountRef` are persisted (masked). Returns `transactionId`, `gatewayRef`, provider instructions, expiry.\n\n**`method`** currently supports: `ADC` (other Ethiopian mobile-money providers wired but pending sandbox credentials)."
+          }
+        },
+        {
+          "name": "Verify payment (re-check)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{transactionId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/payments/verify",
+            "description": "Manual re-check of a still-Pending transaction. Calls the provider's verify API."
+          }
+        },
+        {
+          "name": "Webhook — provider callback",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-ADC-Signature", "value": "<hmac-sha256-of-raw-body>" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gatewayRef\": \"<provider-supplied-ref>\",\n  \"status\": \"Success\",\n  \"failureReason\": null,\n  \"timestamp\": \"2026-05-13T10:30:00Z\"\n}"
+            },
+            "url": "{{baseUrl}}/payments/webhooks/adc",
+            "description": "Provider-to-server callback. `:method` in URL = `telebirr` | `cbebirr` | `hellocash` | `adc`. Signature is validated via constant-time comparison; 401 on mismatch.\n\nOn `Success` the booking is confirmed and a BOOKING_CONFIRMED SMS goes out."
+          }
+        },
+        {
+          "name": "List providers (admin)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/payments/providers",
+            "description": "Returns providers configured + currently enabled in this environment."
+          }
+        },
+        {
+          "name": "Transactions — list (admin)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/payments/transactions?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "transactions"],
+              "query": [
+                { "key": "method", "value": "ADC", "disabled": true },
+                { "key": "status", "value": "Success", "disabled": true, "description": "Pending|Success|Failed|Refunded|TimedOut" },
+                { "key": "from", "value": "2026-05-01T00:00:00Z", "disabled": true },
+                { "key": "to", "value": "2026-05-31T23:59:59Z", "disabled": true },
+                { "key": "minAmount", "value": "100", "disabled": true },
+                { "key": "maxAmount", "value": "5000", "disabled": true },
+                { "key": "bookingRef", "value": "", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Transactions — get one (admin)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/payments/transactions/{{transactionId}}"
+          }
+        },
+        {
+          "name": "Transactions — manual confirm (admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Provider confirmed receipt of funds in dashboard but webhook not delivered. Verified gateway_ref manually.\"\n}"
+            },
+            "url": "{{baseUrl}}/payments/transactions/{{transactionId}}/manual-confirm",
+            "description": "Audit-logged manual confirmation when the provider has actually received the money but the webhook never arrived. Requires `PaymentsManualConfirm` permission. Cannot run on a terminal-state transaction."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payouts",
+      "item": [
+        {
+          "name": "List payouts (admin)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/payouts?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["payouts"],
+              "query": [
+                { "key": "driverId", "value": "{{driverId}}", "disabled": true },
+                { "key": "status", "value": "Paid", "disabled": true, "description": "Pending|Processing|Paid|Failed" },
+                { "key": "method", "value": "MobileWallet", "disabled": true, "description": "BankTransfer|MobileWallet" },
+                { "key": "from", "value": "2026-05-01T00:00:00Z", "disabled": true },
+                { "key": "to", "value": "2026-05-31T23:59:59Z", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get payout (admin)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/payouts/:id",
+            "description": "Replace `:id` with a payout GUID."
+          }
+        },
+        {
+          "name": "Webhook — bank settlement",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Signature", "value": "<hmac-sha256>" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gatewayRef\": \"BANK-REF-12345\",\n  \"status\": \"Paid\",\n  \"settledAt\": \"2026-05-13T11:00:00Z\"\n}"
+            },
+            "url": "{{baseUrl}}/payouts/webhooks/bank"
+          }
+        },
+        {
+          "name": "Webhook — wallet settlement",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Signature", "value": "<hmac-sha256>" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gatewayRef\": \"TELEBIRR-REF-67890\",\n  \"status\": \"Paid\",\n  \"settledAt\": \"2026-05-13T11:00:00Z\"\n}"
+            },
+            "url": "{{baseUrl}}/payouts/webhooks/wallet"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rewards",
+      "item": [
+        {
+          "name": "Balance",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/rewards/balance",
+            "description": "Returns `{ pointsBalance, etbEquivalent }` using the currently active redemption rate."
+          }
+        },
+        {
+          "name": "History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/rewards/history?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["rewards", "history"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Referral code",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/rewards/referral"
+          }
+        },
+        {
+          "name": "Redeem",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"pointsToRedeem\": 500\n}"
+            },
+            "url": "{{baseUrl}}/rewards/redeem",
+            "description": "Reduces the booking total by the rewards-config redemption rate. Reversed automatically on booking cancellation."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/notifications?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications"],
+              "query": [
+                { "key": "isRead", "value": "false", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark as read",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/notifications/:id/read"
+          }
+        },
+        {
+          "name": "Mark all as read",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/notifications/read-all"
+          }
+        },
+        {
+          "name": "Get preferences",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/notifications/preferences"
+          }
+        },
+        {
+          "name": "Update preferences",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  { \"channel\": \"Sms\",   \"eventType\": \"BookingConfirmed\", \"isEnabled\": true  },\n  { \"channel\": \"InApp\", \"eventType\": \"TripReminder\",     \"isEnabled\": true  },\n  { \"channel\": \"Sms\",   \"eventType\": \"TripReminder\",     \"isEnabled\": false }\n]"
+            },
+            "url": "{{baseUrl}}/notifications/preferences",
+            "description": "**`channel`**: `InApp` | `Sms`. `eventType` is a free-form string identifying the event."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "Create review",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"score\": 5,\n  \"comment\": \"On time, driver was courteous, bus was clean.\"\n}"
+            },
+            "url": "{{baseUrl}}/reviews",
+            "description": "Allowed only when booking belongs to caller and is Completed. One review per booking. `score` ∈ 1..5."
+          }
+        },
+        {
+          "name": "List reviews",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/reviews?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["reviews"],
+              "query": [
+                { "key": "revieweeId", "value": "{{driverId}}", "disabled": true },
+                { "key": "tripId", "value": "{{tripId}}", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin / Drivers",
+      "description": "Driver moderation. Requires `Policy=Admin` + permissions such as `DriversView`, `DriversApprove`, `DriversSuspend`.",
+      "item": [
+        {
+          "name": "List drivers",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/drivers?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "drivers"],
+              "query": [
+                { "key": "status", "value": "Pending", "disabled": true, "description": "Incomplete|Pending|Approved|Rejected|Suspended" },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "from", "value": "", "disabled": true },
+                { "key": "to", "value": "", "disabled": true },
+                { "key": "assignedToBus", "value": "true", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get driver",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/drivers/{{driverId}}",
+            "description": "Full profile with documents (1h presigned URLs) and payout prefs (masked)."
+          }
+        },
+        {
+          "name": "Approve driver",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/admin/drivers/{{driverId}}/approve",
+            "description": "Status → Approved. Sends DRIVER_APPROVED SMS."
+          }
+        },
+        {
+          "name": "Reject driver",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Driver's licence image is unreadable. Re-upload with a clearer photo.\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/drivers/{{driverId}}/reject"
+          }
+        },
+        {
+          "name": "Suspend driver",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Two confirmed no-shows in 30 days.\",\n  \"durationDays\": 14\n}"
+            },
+            "url": "{{baseUrl}}/admin/drivers/{{driverId}}/suspend"
+          }
+        },
+        {
+          "name": "Approve document",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/admin/drivers/{{driverId}}/documents/{{documentId}}/approve"
+          }
+        },
+        {
+          "name": "Reject document",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Document is expired.\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/drivers/{{driverId}}/documents/{{documentId}}/reject"
+          }
+        },
+        {
+          "name": "Request document re-upload",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Image is blurry — please re-take in good lighting.\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/drivers/{{driverId}}/documents/{{documentId}}/request-reupload"
+          }
+        },
+        {
+          "name": "Bus assignment history",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/drivers/{{driverId}}/assignments"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin / Passengers",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/passengers?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "passengers"],
+              "query": [
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get passenger",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/passengers/{{passengerId}}"
+          }
+        },
+        {
+          "name": "Suspension history",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/passengers/{{passengerId}}/suspensions"
+          }
+        },
+        {
+          "name": "Suspend passenger",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Repeated payment disputes.\",\n  \"durationDays\": 30\n}"
+            },
+            "url": "{{baseUrl}}/admin/passengers/{{passengerId}}/suspend"
+          }
+        },
+        {
+          "name": "Lift suspension",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Dispute resolved; payment matched.\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/passengers/{{passengerId}}/lift-suspension"
+          }
+        },
+        {
+          "name": "List misconduct reports",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/passengers/{{passengerId}}/reports"
+          }
+        },
+        {
+          "name": "File misconduct report",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"NoShow\",\n  \"details\": \"Passenger did not board despite the bus waiting 10 minutes at the pickup.\",\n  \"bookingId\": \"{{bookingId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/passengers/{{passengerId}}/reports",
+            "description": "**`category`**: `Disruptive` | `NoShow` | `Harassment` | `PropertyDamage` | `PaymentDispute`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin / Passenger Flags",
+      "item": [
+        {
+          "name": "List flags",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/passenger-flags?openOnly=true&page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "passenger-flags"],
+              "query": [
+                { "key": "openOnly", "value": "true" },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dismiss flag",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Reviewed call recording — false alarm.\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/passenger-flags/:id/dismiss"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin / Reports",
+      "description": "All require `Policy=Admin` + `ReportsView`. Uses the read replica.",
+      "item": [
+        {
+          "name": "Aggregate report",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/reports?from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "reports"],
+              "query": [
+                { "key": "from", "value": "2026-05-01T00:00:00Z" },
+                { "key": "to", "value": "2026-05-31T23:59:59Z" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Drivers report",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/reports/drivers?from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z"
+          }
+        },
+        {
+          "name": "Passengers report",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/reports/passengers?from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z"
+          }
+        },
+        {
+          "name": "Operations report",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/reports/operations?from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z"
+          }
+        },
+        {
+          "name": "Financial report",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/reports/financial?from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z"
+          }
+        },
+        {
+          "name": "Engagement report",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/reports/engagement?from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z"
+          }
+        },
+        {
+          "name": "Dashboard KPIs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/dashboard/kpis",
+            "description": "Snapshot KPIs for the admin home page: trips today, active trips, revenue today, pending drivers, payouts today, stuck transactions."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin / Commission",
+      "item": [
+        {
+          "name": "List configs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/commission"
+          }
+        },
+        {
+          "name": "Publish new commission rate",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"passengerPercent\": 5.00,\n  \"driverPercent\": 15.00,\n  \"effectiveFrom\": \"2026-06-01T00:00:00Z\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/commission",
+            "description": "Two-sided commission. Both percentages 0–100. **Rate is snapshotted on the payout at trip completion**, so changing it does not affect already-completed trips."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin / Rewards config",
+      "item": [
+        {
+          "name": "List configs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/rewards-config"
+          }
+        },
+        {
+          "name": "Publish",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"earnRatePerEtb\": 1.0,\n  \"redemptionPointsPerEtb\": 10.0,\n  \"referralBonusPoints\": 100,\n  \"minRedemptionPoints\": 500,\n  \"effectiveFrom\": \"2026-06-01T00:00:00Z\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/rewards-config"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin / Route pricing",
+      "item": [
+        {
+          "name": "List pricing configs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/route-pricing"
+          }
+        },
+        {
+          "name": "Publish pricing config",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"etbPerKm\": 4.50,\n  \"effectiveFrom\": \"2026-06-01T00:00:00Z\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/route-pricing"
+          }
+        },
+        {
+          "name": "List price overrides",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/route-pricing/overrides",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "route-pricing", "overrides"],
+              "query": [{ "key": "routeId", "value": "{{routeId}}", "disabled": true }]
+            }
+          }
+        },
+        {
+          "name": "Create price override",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"routeId\": \"{{routeId}}\",\n  \"percentIncrement\": 10.0,\n  \"effectiveFrom\": \"2026-06-01T00:00:00Z\",\n  \"effectiveUntil\": \"2026-06-30T23:59:59Z\",\n  \"note\": \"Eid season surcharge.\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/route-pricing/overrides",
+            "description": "**`percentIncrement`** range: -90 to 500, must not be 0. To remove, delete the row."
+          }
+        },
+        {
+          "name": "Delete price override",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/admin/route-pricing/overrides/:id"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin / Settings",
+      "item": [
+        {
+          "name": "Geofence — get",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/settings/geofence"
+          }
+        },
+        {
+          "name": "Geofence — update",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"radiusMetres\": 500\n}"
+            },
+            "url": "{{baseUrl}}/admin/settings/geofence",
+            "description": "Default radius used when scheduling trips. Per-trip overrides also allowed. Valid range: 50–5000."
+          }
+        },
+        {
+          "name": "Agreements — list",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/agreement-documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "agreement-documents"],
+              "query": [{ "key": "type", "value": "Passenger", "disabled": true, "description": "Passenger | Driver" }]
+            }
+          }
+        },
+        {
+          "name": "Agreements — publish version",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"Passenger\",\n  \"version\": \"1.1.0\",\n  \"contentEn\": \"# Adrash Passenger Agreement\\n\\nBy using Adrash you agree to ...\",\n  \"contentAm\": \"# የአድራሽ ተሳፋሪ ስምምነት ...\",\n  \"contentOm\": \"# Walii-galtee Imaltoota Adrash ...\",\n  \"effectiveFrom\": \"2026-06-01T00:00:00Z\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/agreement-documents",
+            "description": "When this version's `effectiveFrom` passes, every user whose accepted version is older will get a 403 `Auth.AgreementUpdateRequired` until they accept."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin / Broadcasts",
+      "item": [
+        {
+          "name": "Send broadcast",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target\": \"AllPassengers\",\n  \"targetId\": null,\n  \"channel\": \"Both\",\n  \"title\": \"Service notice\",\n  \"body\": \"Departure times shifted by 30 min due to road closures on the AA–Adama corridor today.\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/notifications/broadcast",
+            "description": "**`target`**: `AllPassengers` | `AllDrivers` | `Route` | `SingleDriver` (last two require `targetId`).\n**`channel`**: `Sms` | `InApp` | `Both`.\n\nSMS goes out in each recipient's preferred language."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin / Roles & Permissions",
+      "item": [
+        {
+          "name": "Permissions — list",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/permissions",
+            "description": "All permissions grouped by category, ready for a role-editor UI."
+          }
+        },
+        {
+          "name": "Roles — list",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/roles"
+          }
+        },
+        {
+          "name": "Roles — get",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/roles/{{roleId}}"
+          }
+        },
+        {
+          "name": "Roles — create",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Dispatch Lead\",\n  \"description\": \"Schedules trips and manages live fleet.\",\n  \"permissionCodes\": [\n    \"TripsCreate\", \"TripsCancel\", \"BusesManage\", \"DriversView\", \"RoutesManage\"\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/admin/roles"
+          }
+        },
+        {
+          "name": "Roles — update",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Dispatch Lead\",\n  \"description\": \"Schedules trips, manages live fleet, can override geofence on end.\",\n  \"permissionCodes\": [\n    \"TripsCreate\", \"TripsCancel\", \"TripsOverrideEnd\", \"BusesManage\", \"DriversView\", \"RoutesManage\"\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/admin/roles/{{roleId}}"
+          }
+        },
+        {
+          "name": "Roles — delete",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/admin/roles/{{roleId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin / Audit log",
+      "item": [
+        {
+          "name": "List audit entries",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/audit?page=1&pageSize=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "audit"],
+              "query": [
+                { "key": "category", "value": "", "disabled": true },
+                { "key": "action", "value": "", "disabled": true },
+                { "key": "actorId", "value": "", "disabled": true },
+                { "key": "resourceType", "value": "Booking", "disabled": true },
+                { "key": "resourceId", "value": "", "disabled": true },
+                { "key": "from", "value": "2026-05-01T00:00:00Z", "disabled": true },
+                { "key": "to", "value": "2026-05-31T23:59:59Z", "disabled": true },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "50" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin / Admin users",
+      "description": "Manage admin accounts (`UsersManage` permission required throughout).",
+      "item": [
+        {
+          "name": "List admins",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/admin-users?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "admin-users"],
+              "query": [
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get admin",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/admin-users/:id"
+          }
+        },
+        {
+          "name": "Phone lookup (pre-invite)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/admin-users/lookup?phone=+251911000777",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "admin-users", "lookup"],
+              "query": [{ "key": "phone", "value": "+251911000777" }]
+            },
+            "description": "Tells you whether this phone is already a user — and, if so, whether inviting them as admin would promote an existing Passenger/Driver. Use the `confirmPromotion=true` flag on invite when this returns a hit."
+          }
+        },
+        {
+          "name": "Invite admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+251911000777\",\n  \"fullName\": \"Kebede Alemu\",\n  \"roleIds\": [\"{{roleId}}\"],\n  \"confirmPromotion\": false\n}"
+            },
+            "url": "{{baseUrl}}/admin/admin-users",
+            "description": "Creates the admin or promotes an existing user. If the phone already maps to a non-Admin user, the request will require `confirmPromotion=true`."
+          }
+        },
+        {
+          "name": "Assign roles",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleIds\": [\"{{roleId}}\"]\n}"
+            },
+            "url": "{{baseUrl}}/admin/admin-users/:id/roles"
+          }
+        },
+        {
+          "name": "Deactivate admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Left the company.\",\n  \"durationDays\": null\n}"
+            },
+            "url": "{{baseUrl}}/admin/admin-users/:id/deactivate"
+          }
+        },
+        {
+          "name": "Reactivate admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Rejoining as contractor.\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/admin-users/:id/reactivate"
+          }
+        },
+        {
+          "name": "Deactivation history",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/admin-users/:id/deactivations"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Agent / Drivers (sales-agent flow)",
+      "description": "Sales agents register drivers in person. Requires `DriversAgentRegister` permission.",
+      "item": [
+        {
+          "name": "Register driver (agent)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+251911000002\",\n  \"fullName\": \"Aster Mengistu\",\n  \"otpCode\": \"123456\"\n}"
+            },
+            "url": "{{baseUrl}}/agents/drivers",
+            "description": "Agent enters the OTP they helped the driver receive on their phone. Creates the User + Incomplete DriverProfile."
+          }
+        },
+        {
+          "name": "List my registrations",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/agents/drivers?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["agents", "drivers"],
+              "query": [
+                { "key": "status", "value": "Pending", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get registration",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/agents/drivers/{{driverId}}"
+          }
+        },
+        {
+          "name": "Update personal",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dateOfBirth\": \"1992-03-21\",\n  \"gender\": \"Female\",\n  \"nationality\": \"Ethiopian\",\n  \"email\": null,\n  \"addressStreet\": \"Megenagna\",\n  \"addressCity\": \"Addis Ababa\",\n  \"addressRegion\": \"Addis Ababa\",\n  \"addressCountry\": \"Ethiopia\"\n}"
+            },
+            "url": "{{baseUrl}}/agents/drivers/{{driverId}}/personal"
+          }
+        },
+        {
+          "name": "Update vehicle",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"make\": \"Isuzu\",\n  \"model\": \"NPR\",\n  \"year\": 2019,\n  \"plate\": \"AA-3-44444\",\n  \"colour\": \"Blue\",\n  \"capacity\": 24,\n  \"shanciNumber\": \"SH-991122\",\n  \"motorNumber\": \"MTR-880011\",\n  \"isOwner\": false\n}"
+            },
+            "url": "{{baseUrl}}/agents/drivers/{{driverId}}/vehicle"
+          }
+        },
+        {
+          "name": "Update payout",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"BankTransfer\",\n  \"bankHolderName\": \"Aster Mengistu\",\n  \"bankName\": \"CBE\",\n  \"bankAccountNumber\": \"1000123456789\",\n  \"bankBranch\": \"Bole\",\n  \"walletProvider\": null,\n  \"walletPhoneOrRef\": null\n}"
+            },
+            "url": "{{baseUrl}}/agents/drivers/{{driverId}}/payout"
+          }
+        },
+        {
+          "name": "Upload document",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": [] },
+                { "key": "documentType", "value": "DriverLicence", "type": "text" },
+                { "key": "expiryDate", "value": "2027-05-12", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/agents/drivers/{{driverId}}/documents"
+          }
+        },
+        {
+          "name": "Upload vehicle photo",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": [] },
+                { "key": "slot", "value": "Front", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/agents/drivers/{{driverId}}/vehicle/photos"
+          }
+        },
+        {
+          "name": "Submit profile",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/agents/drivers/{{driverId}}/submit",
+            "description": "Same validation as the driver-self-service submit endpoint."
+          }
+        }
+      ]
+    }
+  ]
+}

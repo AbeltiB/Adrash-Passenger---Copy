@@ -32,6 +32,7 @@ import { useLogout } from '@/features/auth/hooks/useLogout';
 import { useProfile } from '@/features/profile/hooks/useProfile';
 import { MMKVKeys } from '@/constants/mmkvKeys';
 import { readBoolean } from '@/lib/storage';
+import { PIN_LOGIN_ENABLED } from '@/features/auth/config';
 
 // ─── Avatar menu ──────────────────────────────────────────────────────────────
 
@@ -177,7 +178,11 @@ export default function HomeTab() {
     } = useBookingFlowStore();
 
     const [passengerErr, setPassengerErr] = useState<string | null>(null);
-    const [pinBannerVisible, setPinBannerVisible] = useState(() => readBoolean(MMKVKeys.PIN_HAS_BEEN_SET) !== true);
+    // PIN sign-in is off app-wide right now — don't nudge users to set up a
+    // PIN that login won't actually use (see auth/config.ts).
+    const [pinBannerVisible, setPinBannerVisible] = useState(
+        () => PIN_LOGIN_ENABLED && readBoolean(MMKVKeys.PIN_HAS_BEEN_SET) !== true,
+    );
 
     const routesQuery = useRoutes();
     const routes = useMemo(
@@ -436,7 +441,13 @@ export default function HomeTab() {
                                 style={styles.routeCard}
                                 onPress={() => {
                                     try {
-                                        setSearch({ origin: r.origin, destination: r.destination, date: r.date });
+                                        // Reuse the city pair only — r.date is whatever day this
+                                        // search happened to be made on, possibly weeks ago. Reusing
+                                        // it verbatim silently sends the user searching a past date
+                                        // with no indication why no trips turn up.
+                                        const now = new Date();
+                                        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                                        setSearch({ origin: r.origin, destination: r.destination, date: todayStr });
                                         selectRoute(null);
                                     } catch { /* guard against corrupt saved search */ }
                                     router.push('/(tabs)/search/results');

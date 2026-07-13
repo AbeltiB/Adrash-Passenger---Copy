@@ -89,7 +89,13 @@ export default function PaymentScreen() {
 
     const selectedInfo   = SANTIMPAY_PARTNERS.find((p) => p.partner === selectedPartner);
     const totalEtb       = flow.pendingBooking?.totalFare ?? 0;
-    const canPay         = Boolean(selectedPartner) && accountRef.trim().length > 0 && !initiate.isPending;
+
+    // Enforced here, not just at pre-fill time: a local-format or malformed
+    // number passes the server's bare length check but is rejected downstream
+    // by SantimPay with a 422 that auto-cancels the booking (see file header).
+    const accountRefValid = isValidAccountRef(accountRef);
+    const showAccountRefError = accountRef.trim().length > 0 && !accountRefValid;
+    const canPay = Boolean(selectedPartner) && accountRefValid && !initiate.isPending;
 
     async function handlePay() {
         if (!flow.pendingBooking || !selectedPartner) return;
@@ -211,7 +217,7 @@ export default function PaymentScreen() {
                                     {t('booking.payment.account_ref_label', { provider: selectedInfo.label })}
                                 </Text>
                                 <TextInput
-                                    style={styles.accountInput}
+                                    style={[styles.accountInput, showAccountRefError && styles.accountInputError]}
                                     value={accountRef}
                                     onChangeText={(v) => { setAccountRef(v); setError(''); }}
                                     keyboardType="phone-pad"
@@ -220,6 +226,11 @@ export default function PaymentScreen() {
                                     maxLength={15}
                                     accessibilityLabel="Payment account phone number"
                                 />
+                                {showAccountRefError && (
+                                    <Text style={styles.accountRefError}>
+                                        {t('booking.payment.account_ref_invalid')}
+                                    </Text>
+                                )}
                             </View>
 
                             <View style={styles.instructionCard}>
@@ -353,6 +364,8 @@ const styles = StyleSheet.create({
         color: Colors.text.primary,
         backgroundColor: Colors.background.secondary,
     },
+    accountInputError: { borderColor: Colors.semantic.error },
+    accountRefError:   { color: Colors.semantic.error, fontSize: 12, fontWeight: '600' },
     instructionCard: {
         backgroundColor: Colors.semantic.infoLight,
         borderRadius: BorderRadius.lg,

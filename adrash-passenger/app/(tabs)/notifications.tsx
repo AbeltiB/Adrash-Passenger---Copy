@@ -32,6 +32,17 @@ function eventIcon(type: NotificationEventType | null): string {
     }
 }
 
+// deepLink comes from the API, but is treated as untrusted here too — an
+// allowlist of known internal path prefixes (rather than trusting any string)
+// means a compromised/mistaken API response can't turn this into an open
+// redirect to an arbitrary or external route.
+const ALLOWED_DEEPLINK_PREFIXES = ['/(tabs)/', '/trip/', '/trips/', '/reviews/'];
+
+function isSafeInternalDeepLink(link: string): boolean {
+    if (link.includes('://') || link.includes('..')) return false;
+    return ALLOWED_DEEPLINK_PREFIXES.some((prefix) => link.startsWith(prefix));
+}
+
 function relativeTime(iso: string): string {
     const diffMs  = Date.now() - new Date(iso).getTime();
     const diffMin = Math.floor(diffMs / 60_000);
@@ -96,8 +107,7 @@ export default function NotificationsScreen() {
         if (!n.isRead) {
             markRead.mutate(n.id);
         }
-        if (n.deepLink) {
-            // deep links are safe internal routes, e.g. "/(tabs)/trip/{id}/index"
+        if (n.deepLink && isSafeInternalDeepLink(n.deepLink)) {
             router.push(n.deepLink as Parameters<typeof router.push>[0]);
         }
     }

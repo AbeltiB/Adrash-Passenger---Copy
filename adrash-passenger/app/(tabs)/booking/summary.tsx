@@ -19,8 +19,19 @@ import { useCreateBooking } from '@/features/passenger-booking/hooks/usePassenge
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
 import { bookingService, normalizePhone } from '@/features/passenger-booking/services/bookingService';
 import { toAppError } from '@/features/passenger-booking/utils/errors';
+import { assignSequentialSeats, NotEnoughSeatsError } from '@/features/passenger-booking/services/seatAssignment';
+import { uuidv4 } from '@/lib/id';
+import type { BookingDTO, CreateBookingDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 import { useRewardsBalance } from '../../../src/features/profile/hooks/useRewardsBalance';
-import { formatDateTime, formatTime, formatDuration } from '@/utils/date';
+import { formatDateTimeForLang, formatTimeForLang, formatDuration } from '@/utils/date';
+
+// ── Seat-conflict detection (mirrors friendlyBookingError's own matching) ─────
+
+function isSeatConflictError(err: ReturnType<typeof toAppError>): boolean {
+    const msg  = err.message.toLowerCase();
+    const code = (err.code ?? '').toLowerCase();
+    return code.includes('seat') || msg.includes('seat') || msg.includes('already booked');
+}
 
 // ── Booking error → user-friendly message ─────────────────────────────────────
 
@@ -79,14 +90,14 @@ function DetailRow({ label, value }: { label: string; value: string | null | und
     );
 }
 
-function safeFormatDateTime(iso?: string | null): string {
+function safeFormatDateTime(iso: string | null | undefined, lang: string): string {
     if (!iso) return '—';
-    try { return formatDateTime(iso); } catch { return iso; }
+    try { return formatDateTimeForLang(iso, lang); } catch { return iso; }
 }
 
-function safeFormatTime(iso?: string | null): string {
+function safeFormatTime(iso: string | null | undefined, lang: string): string {
     if (!iso) return '—';
-    try { return formatTime(iso); } catch { return iso; }
+    try { return formatTimeForLang(iso, lang); } catch { return iso; }
 }
 
 function safeFormatDuration(minutes?: number | null): string {
@@ -95,13 +106,19 @@ function safeFormatDuration(minutes?: number | null): string {
 }
 
 export default function SummaryScreen() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const f = useBookingFlowStore();
     const createBooking = useCreateBooking();
     const { data: balance } = useRewardsBalance();
 
     const [error, setError] = useState('');
     const [useRewards, setUseRewards] = useState(false);
+
+    // Stable for the life of this screen so a double-tap (or a network-level
+    // retry of the exact same request) reuses the same key instead of risking
+    // a duplicate booking. Only regenerated below if the request body itself
+    // changes (the seat-conflict retry — see createBookingWithSeatRetry).
+    const [idempotencyKey, setIdempotencyKey] = useState(() => uuidv4());
 
     const maxEtbDiscount = balance?.etbEquivalent ?? 0;
     const pointsToRedeem = useRewards && maxEtbDiscount > 0
@@ -116,6 +133,34 @@ export default function SummaryScreen() {
     const fare        = fareKnown
         ? bookingService.calculateFare(f.selectedSeats.length, pointsToRedeem, farePerSeat)
         : null;
+
+    // If another passenger's booking beat ours to these exact seats between
+    // pickup.tsx assigning them and this submit, the server rejects the create
+    // with a seat-conflict error. Re-fetch availability and retry once with the
+    // next free seats before bothering the user — see seatAssignment.ts.
+    //
+    // The retry sends different seatNumbers, so it must NOT reuse the first
+    // attempt's idempotency key (that key means "this exact request, if
+    // repeated, already ran" — reusing it here would risk the server treating
+    // the retry as a duplicate of the failed original instead of a new one).
+    async function createBookingWithSeatRetry(body: CreateBookingDTO): Promise<BookingDTO> {
+        try {
+            return await createBooking.mutateAsync({ body, idempotencyKey });
+        } catch (e) {
+            const appErr = toAppError(e);
+            const tripId = f.selectedTrip?.id;
+            if (!tripId || !isSeatConflictError(appErr)) throw e;
+
+            const freshSeats = await assignSequentialSeats(tripId, body.seatNumbers.length);
+            f.setSeats(freshSeats);
+            const freshKey = uuidv4();
+            setIdempotencyKey(freshKey);
+            return await createBooking.mutateAsync({
+                body: { ...body, seatNumbers: freshSeats },
+                idempotencyKey: freshKey,
+            });
+        }
+    }
 
     async function handleCreateBooking() {
         setError('');
@@ -142,12 +187,16 @@ export default function SummaryScreen() {
         if (validationError) { setError(validationError); return; }
 
         try {
-            const booking = await createBooking.mutateAsync(body);
+            const booking = await createBookingWithSeatRetry(body);
             f.setPendingBooking(booking);
             f.setPoints(pointsToRedeem);
             router.push('/(tabs)/booking/payment');
         } catch (e) {
-            setError(friendlyBookingError(toAppError(e)));
+            if (e instanceof NotEnoughSeatsError) {
+                setError(t('booking.pickup.not_enough_seats', { count: e.available }));
+            } else {
+                setError(friendlyBookingError(toAppError(e)));
+            }
         }
     }
 
@@ -155,8 +204,9 @@ export default function SummaryScreen() {
     const driver = trip?.driver;
     const bus    = trip?.bus;
 
-    const departureDate   = safeFormatDateTime(trip?.departureTime);
-    const arrivalTime     = safeFormatTime(trip?.arrivalEstimate);
+    const lang            = i18n.language ?? 'en';
+    const departureDate   = safeFormatDateTime(trip?.departureTime, lang);
+    const arrivalTime     = safeFormatTime(trip?.arrivalEstimate, lang);
     const tripDuration    = safeFormatDuration(trip?.route?.estimatedDurationMin);
     const driverName      = driver?.fullName ?? driver?.name ?? null;
     const vehicleInfo     = bus

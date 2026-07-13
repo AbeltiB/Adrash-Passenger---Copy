@@ -145,7 +145,10 @@
         "pickup": {
             "title": "የመነሻ ቦታ ይምረጡ",
             "search_placeholder": "የመነሻ ቦታ ፈልግ",
-            "confirm_pickup": "መነሻ ቦታ አረጋግጥ"
+            "confirm_pickup": "መነሻ ቦታ አረጋግጥ",
+            "checking_seats": "የመቀመጫ አቅርቦት በመፈተሽ ላይ…",
+            "not_enough_seats": "በዚህ ጉዞ ላይ {{count}} መቀመጫ(ዎች) ብቻ ቀርተዋል። የተሳፋሪዎችን ቁጥር ይቀንሱ ወይም ሌላ ጉዞ ይምረጡ።",
+            "seat_check_failed": "የመቀመጫ አቅርቦትን ማረጋገጥ አልተቻለም። እባክዎ እንደገና ይሞክሩ።"
         },
         "seats": {
             "title": "ወንበሮቻቸውን ይምረጡ",
@@ -192,6 +195,7 @@
             "processing": "በሂደት ላይ…",
             "account_ref_label": "{{provider}} ጋር የተመዘገበ ስልክ ቁጥር",
             "account_ref_placeholder": "+2519XXXXXXXX",
+            "account_ref_invalid": "ትክክለኛ የኢትዮጵያ ስልክ ቁጥር ያስገቡ (+2519XXXXXXXX)።",
             "already_in_progress": "ለዚህ ማስያዝ ክፍያ አስቀድሞ በሂደት ላይ ነው።",
             "provider_disabled": "የኦንላይን ክፍያ ለጊዜው አይገኝም። እባክዎ ቆይተው እንደገና ይሞክሩ።",
             "provider_unavailable": "የክፍያ አቅራቢ አሁን አይደርስም። እባክዎ እንደገና ይሞክሩ።",
@@ -301,6 +305,8 @@
         "delete_confirm_title": "መለያ ሰርዝ",
         "delete_confirm_body": "ይህ መለያዎን እና ሁሉንም የጉዞ ታሪክ እስከመጨረሻ ይሰርዛል። ሊቀለበስ አይችልም።",
         "delete": "ሰርዝ",
+        "delete_error": "መለያዎን መሰረዝ አልተቻለም። እባክዎ ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።",
+        "notif_pref_error": "የማሳወቂያ ቅንብርን ማዘመን አልተቻለም። እባክዎ እንደገና ይሞክሩ።",
         "notifications_section": "ማሳወቂያዎች",
         "account_section": "መለያ",
         "edit_btn": "አርትዕ",

@@ -12,64 +12,22 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
+import {
+    dateToEthiopian as dateToEth,
+    calendarTag,
+    ETH_MONTHS,
+    GREG_MONTHS_SHORT_EN,
+    GREG_MONTHS_FULL_EN,
+    GREG_MONTHS_OM,
+    DOW_EN,
+    DOW_AM,
+    DOW_OM,
+    ETH_AM_PERIODS as AM_PERIODS,
+    greg24ToEthPeriod,
+    greg24ToEthHour,
+    greg24To12h,
+} from '@/lib/ethiopianCalendar';
 
-// ─── Ethiopian calendar (JDN-based) ──────────────────────────────────────────
-// Verified: May 9 2026 GC = Ginbot 1 2018 EC; May 27 2026 GC = Ginbot 19 2018 EC
-
-const ETH_EPOCH = 1724221; // JDN of 1 Meskerem 1 EC
-
-function gregorianToJDN(y: number, m: number, d: number): number {
-    const a = Math.floor((14 - m) / 12);
-    const Y = y + 4800 - a;
-    const M = m + 12 * a - 3;
-    return (
-        d +
-        Math.floor((153 * M + 2) / 5) +
-        365 * Y +
-        Math.floor(Y / 4) -
-        Math.floor(Y / 100) +
-        Math.floor(Y / 400) -
-        32045
-    );
-}
-
-function jdnToEth(jdn: number): { year: number; month: number; day: number } {
-    const J = jdn - ETH_EPOCH;
-    const r = J % 1461;
-    const n = r % 365 + 365 * Math.floor(r / 1460);
-    return {
-        year:  4 * Math.floor(J / 1461) + Math.floor(r / 365) - Math.floor(r / 1460) + 1,
-        month: Math.floor(n / 30) + 1,
-        day:   (n % 30) + 1,
-    };
-}
-
-function dateToEth(date: Date) {
-    return jdnToEth(gregorianToJDN(date.getFullYear(), date.getMonth() + 1, date.getDate()));
-}
-
-// ─── Locale data ──────────────────────────────────────────────────────────────
-
-const ETH_MONTHS = [
-    'መስከረም', 'ጥቅምት', 'ኅዳር', 'ታኅሣሥ', 'ጥር', 'የካቲት',
-    'መጋቢት', 'ሚያዝያ', 'ግንቦት', 'ሰኔ', 'ሐምሌ', 'ነሐሴ', 'ጳጉሜ',
-];
-
-const GREG_MONTHS_SHORT_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const GREG_MONTHS_FULL_EN  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const GREG_MONTHS_OM       = ['Amajjii','Guraandhala','Bitootessa','Elba','Caamsa','Waxabajjii','Adoolessa','Hagayya','Fuulbana','Onkoloolessa','Sadaasa','Muddee'];
-
-const DOW_EN = ['Su','Mo','Tu','We','Th','Fr','Sa'];
-const DOW_AM = ['እሑ','ሰኞ','ማክ','ረቡ','ሐሙ','ዓር','ቅዳ'];
-const DOW_OM = ['Di','Wi','Qi','Ro','Ka','Ji','Sa'];
-
-// Ethiopian clock: 4 periods — each covers 6 Gregorian hours
-// ጥዋት  (morning)  Greg 06–11 → Eth 12,1,2,3,4,5
-// ቀን   (daytime)  Greg 12–17 → Eth 6,7,8,9,10,11
-// ምሽት  (evening)  Greg 18–23 → Eth 12,1,2,3,4,5
-// ሌሊት  (night)    Greg 00–05 → Eth 6,7,8,9,10,11
-
-const AM_PERIODS = ['ጥዋት', 'ቀን', 'ምሽት', 'ሌሊት'] as const;
 const AM_PERIOD_HOURS: ReadonlyArray<ReadonlyArray<number>> = [
     [12, 1, 2, 3, 4, 5],   // ጥዋት
     [6, 7, 8, 9, 10, 11],  // ቀን
@@ -81,19 +39,6 @@ const STD_HOURS = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 const MINUTES   = [0, 15, 30, 45];
 
 // ─── Time conversion helpers ──────────────────────────────────────────────────
-
-// Gregorian 24h → Ethiopian period index (0=ጥዋት, 1=ቀን, 2=ምሽት, 3=ሌሊት)
-function greg24ToEthPeriod(h: number): number {
-    if (h >= 6  && h < 12) return 0;
-    if (h >= 12 && h < 18) return 1;
-    if (h >= 18)            return 2;
-    return 3; // 0–5
-}
-
-// Gregorian 24h → Ethiopian hour (1–12)
-function greg24ToEthHour(h: number): number {
-    return (h + 6) % 12 || 12;
-}
 
 // Ethiopian hour + period index → Gregorian 24h
 function ethToGreg24(ethH: number, period: number): number {
@@ -108,9 +53,6 @@ function ethToGreg24(ethH: number, period: number): number {
 
 // Gregorian 24h → standard AM(0)/PM(1)
 function greg24ToAmPm(h: number): number { return h < 12 ? 0 : 1; }
-
-// Gregorian 24h → 12h display
-function greg24To12h(h: number): number { return h % 12 || 12; }
 
 // Standard 12h + AM/PM → Gregorian 24h
 function std12ToGreg24(h12: number, period: number): number {
@@ -128,12 +70,12 @@ export function formatDateDisplay(dateStr: string, lang: string): string {
 
     if (lang === 'am') {
         const eth = dateToEth(date);
-        return `${DOW_AM[dow]}、${ETH_MONTHS[eth.month - 1]} ${eth.day}`;
+        return `${DOW_AM[dow]}、${ETH_MONTHS[eth.month - 1]} ${eth.day} (${calendarTag(lang)})`;
     }
     if (lang === 'om') {
-        return `${DOW_OM[dow]}, ${GREG_MONTHS_OM[m - 1]} ${d}`;
+        return `${DOW_OM[dow]}, ${GREG_MONTHS_OM[m - 1]} ${d} (${calendarTag(lang)})`;
     }
-    return `${DOW_EN[dow]}, ${GREG_MONTHS_SHORT_EN[m - 1]} ${d}`;
+    return `${DOW_EN[dow]}, ${GREG_MONTHS_SHORT_EN[m - 1]} ${d} (${calendarTag(lang)})`;
 }
 
 export function formatTimeDisplay(timeStr: string, lang: string): string {
@@ -262,10 +204,10 @@ export function DateTimePicker({ date, time, onChange }: DateTimePickerProps) {
         const [y, m] = pickerDate.split('-').map(Number);
         if (lang === 'am') {
             const eth = dateToEth(new Date(y, m - 1, 1));
-            return `${ETH_MONTHS[eth.month - 1]} ${eth.year}`;
+            return `${ETH_MONTHS[eth.month - 1]} ${eth.year} (${calendarTag(lang)})`;
         }
-        if (lang === 'om') return `${GREG_MONTHS_OM[m - 1]} ${y}`;
-        return `${GREG_MONTHS_FULL_EN[m - 1]} ${y}`;
+        if (lang === 'om') return `${GREG_MONTHS_OM[m - 1]} ${y} (${calendarTag(lang)})`;
+        return `${GREG_MONTHS_FULL_EN[m - 1]} ${y} (${calendarTag(lang)})`;
     }
 
     return (

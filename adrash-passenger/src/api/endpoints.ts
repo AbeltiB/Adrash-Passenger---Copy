@@ -14,34 +14,13 @@ export const ENDPOINTS = {
     USERS: {
         ME: '/users/me',
     },
-    ROUTES: {
-        LIST:             '/routes',
-        SEARCH:           '/routes/search',
-        DETAIL:           (id: string) => `/routes/${id}`,
-        SEAT_MAP:         (id: string) => `/routes/${id}/seat-map`,
-        PICKUP_LOCATIONS: (id: string) => `/routes/${id}/pickup-locations`,
-    },
-    TRIPS: {
-        LIST:            '/trips',
-        DETAIL:          (id: string) => `/trips/${id}`,
-        SEATS:           (id: string) => `/trips/${id}/seats`,
-        LATEST_LOCATION: (id: string) => `/trips/${id}/location/latest`,
-    },
-    BOOKINGS: {
-        CREATE:            '/bookings',
-        LIST:              '/bookings',
-        DETAIL:            (id: string) => `/bookings/${id}`,
-        CANCEL:            (id: string) => `/bookings/${id}/cancel`,
-        CANCELLATION_INFO: (id: string) => `/bookings/${id}/cancellation-info`,
-    },
-    PAYMENTS: {
-        INITIATE: '/payments/initiate',
-        STATUS:   (paymentId: string) => `/payments/${paymentId}/status`,
-        VERIFY:   '/payments/verify',
-    },
-    REVIEWS: {
-        SUBMIT: '/reviews',
-    },
+    // Routes/Trips/Bookings/Payments/Reviews are called via
+    // features/passenger-booking's own repositories (routeRepository.ts,
+    // tripRepository.ts, bookingRepository.ts), which build their paths
+    // directly rather than through this registry — kept here previously but
+    // removed since they were unused and one (BOOKINGS.CANCEL) no longer
+    // matched the real DELETE /bookings/{id} call, which is a landmine for
+    // a future refactor that assumes this file is authoritative.
     REWARDS: {
         BALANCE:  '/rewards/balance',
         HISTORY:  '/rewards/history',

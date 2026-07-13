@@ -145,7 +145,10 @@
         "pickup": {
             "title": "Choose pickup location",
             "search_placeholder": "Search pickup location",
-            "confirm_pickup": "Confirm Pickup"
+            "confirm_pickup": "Confirm Pickup",
+            "checking_seats": "Checking seat availability…",
+            "not_enough_seats": "Only {{count}} seat(s) left on this trip. Reduce passengers or choose another trip.",
+            "seat_check_failed": "Could not check seat availability. Please try again."
         },
         "seats": {
             "title": "Select your seats",
@@ -192,6 +195,7 @@
             "processing": "Processing…",
             "account_ref_label": "Phone number registered with {{provider}}",
             "account_ref_placeholder": "+2519XXXXXXXX",
+            "account_ref_invalid": "Enter a valid Ethiopian phone number (+2519XXXXXXXX).",
             "already_in_progress": "A payment is already in progress for this booking.",
             "provider_disabled": "Online payment is temporarily unavailable. Please try again later.",
             "provider_unavailable": "Payment provider is currently unreachable. Please try again.",
@@ -301,6 +305,8 @@
         "delete_confirm_title": "Delete account",
         "delete_confirm_body": "This will permanently delete your account and all trip history. This cannot be undone.",
         "delete": "Delete",
+        "delete_error": "Could not delete your account. Please check your connection and try again.",
+        "notif_pref_error": "Could not update notification setting. Please try again.",
         "notifications_section": "Notifications",
         "account_section": "Account",
         "edit_btn": "Edit",

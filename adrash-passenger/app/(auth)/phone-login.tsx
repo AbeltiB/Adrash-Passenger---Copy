@@ -28,6 +28,7 @@ import { Colors, Spacing, BorderRadius } from '../../src/constants';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
 import { usePinVerify } from '../../src/features/auth/hooks/usePinVerify';
 import { useOtpSend } from '../../src/features/auth/hooks/useOtpSend';
+import { PIN_LOGIN_ENABLED } from '../../src/features/auth/config';
 import {
     clearAllSecureData,
     getDevicePhone,
@@ -189,12 +190,12 @@ export default function PhoneLoginScreen() {
         const normalised = normalisePhone(rawPhone);
         const dt = await getDeviceToken();
 
-        if (dt) {
+        if (PIN_LOGIN_ENABLED && dt) {
             // This device has a registered device-token → show PIN pad
             setDeviceToken(dt);
             setStep('pin');
         } else {
-            // New device (or device data cleared) → OTP flow
+            // PIN sign-in is disabled (or new device) → always go through OTP
             sendOtp(
                 { phone: normalised },
                 {

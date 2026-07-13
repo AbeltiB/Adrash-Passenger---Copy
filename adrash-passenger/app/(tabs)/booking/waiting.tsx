@@ -2,13 +2,18 @@
 // Polls payment status every 4 s (up to 30 tries = 2 min).
 // Also listens for the deep-link callback from the payment provider:
 //   adrash://payment/callback?status=success&ref=<gatewayRef>
-// When either confirms success → re-fetches the confirmed booking → confirmation screen.
+//
+// Neither the poll result nor the deep link's `status` param is trusted by
+// itself — both are just triggers to re-fetch the booking from the server and
+// check its own status. Only a booking the server reports as Confirmed sends
+// the user to the confirmation screen; anything else keeps them here.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import {
     ActivityIndicator,
+    Alert,
     Linking,
     Pressable,
     StyleSheet,
@@ -47,6 +52,7 @@ export default function WaitingScreen() {
     const [timedOut,  setTimedOut]  = useState(false);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const navigatingRef = useRef(false); // guard: only navigate once
+    const checkingRef   = useRef(false); // guard: only one in-flight confirmation check at a time
 
     // ── Expiry countdown ──────────────────────────────────────────────────────
     const [minutesLeft, setMinutesLeft] = useState<number | null>(null);
@@ -62,24 +68,29 @@ export default function WaitingScreen() {
         return () => clearInterval(id);
     }, [expiresAt]);
 
-    // ── Navigate to confirmation (re-fetch confirmed booking first) ────────────
+    // ── Navigate to confirmation — only once the SERVER says the booking is
+    // actually confirmed. A payment-status poll succeeding or a deep link
+    // arriving with `status=success` are both just *signals to go check* —
+    // neither is treated as proof by itself. If the re-fetch fails or the
+    // booking still isn't Confirmed, we stay here and let polling/manual
+    // "Check now" retry, instead of showing a receipt for an unpaid booking.
     const goToConfirmation = useCallback(async () => {
-        if (navigatingRef.current) return;
-        navigatingRef.current = true;
+        if (navigatingRef.current || checkingRef.current || !pending?.id) return;
 
-        if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+        checkingRef.current = true;
+        try {
+            const confirmed = await bookingRepository.detail(pending.id);
+            if (confirmed.status !== 'Confirmed') return;
 
-        // Re-fetch the booking so confirmation screen shows Confirmed status + QR code
-        if (pending?.id) {
-            try {
-                const confirmed = await bookingRepository.detail(pending.id);
-                setPending(confirmed);
-            } catch {
-                // On fetch failure keep the existing data — confirmation still works
-            }
+            navigatingRef.current = true;
+            if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+            setPending(confirmed);
+            router.replace('/(tabs)/booking/confirmation');
+        } catch {
+            // Could not verify with the server — do not navigate.
+        } finally {
+            checkingRef.current = false;
         }
-
-        router.replace('/(tabs)/booking/confirmation');
     }, [pending?.id, setPending]);
 
     // ── Polling ───────────────────────────────────────────────────────────────
@@ -101,7 +112,17 @@ export default function WaitingScreen() {
             triesRef.current += 1;
             if (triesRef.current >= MAX_TRIES) {
                 clearInterval(intervalRef.current!);
-                setTimedOut(true);
+                intervalRef.current = null;
+                // One last authoritative check before declaring a timeout —
+                // avoids telling the user "timed out" if the payment actually
+                // landed right as the poll window closed.
+                verify.mutate(transactionId, {
+                    onSuccess: (txn) => {
+                        if (txn.status === 'Success') void goToConfirmation();
+                        else setTimedOut(true);
+                    },
+                    onError: () => setTimedOut(true),
+                });
                 return;
             }
             doVerify();
@@ -131,6 +152,33 @@ export default function WaitingScreen() {
     // ── UI ────────────────────────────────────────────────────────────────────
     const status   = verify.data?.status ?? 'Pending';
     const isFailed = FAILED_STATUSES.has(status) || timedOut;
+
+    // ── Back-navigation guard while payment is still in flight ────────────────
+    // Leaving mid-poll doesn't cancel anything server-side — it just risks the
+    // user tapping "Pay" again from an earlier screen and starting a second
+    // transaction for the same booking. Once failed/timed out there's nothing
+    // left to protect, so back navigation is allowed through freely.
+    const navigation = useNavigation();
+    useEffect(() => {
+        if (isFailed) return;
+
+        const sub = navigation.addListener('beforeRemove', (e) => {
+            e.preventDefault();
+            Alert.alert(
+                'Payment in progress',
+                'Your payment is still being confirmed. Leaving now could cause issues if you try paying again. Are you sure you want to leave?',
+                [
+                    { text: 'Stay', style: 'cancel' },
+                    {
+                        text: 'Leave anyway',
+                        style: 'destructive',
+                        onPress: () => navigation.dispatch(e.data.action),
+                    },
+                ],
+            );
+        });
+        return sub;
+    }, [navigation, isFailed]);
 
     const instructions = (providerInstructions ?? '').trim();
 

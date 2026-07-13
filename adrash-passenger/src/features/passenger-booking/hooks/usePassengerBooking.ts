@@ -101,10 +101,16 @@ export function useBookingDetail(bookingId?: string) {
     });
 }
 
+interface CreateBookingPayload {
+    body:           CreateBookingDTO;
+    idempotencyKey: string;
+}
+
 export function useCreateBooking() {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: (body: CreateBookingDTO) => bookingRepository.create(body),
+        mutationFn: ({ body, idempotencyKey }: CreateBookingPayload) =>
+            bookingRepository.create(body, idempotencyKey),
         onSuccess:  () => void qc.invalidateQueries({ queryKey: ['bookings'] }),
     });
 }

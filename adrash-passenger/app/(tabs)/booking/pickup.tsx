@@ -7,9 +7,10 @@
 //     Falls back to a visual timeline when coordinates are unavailable.
 //   • Single-selection card list for boarding points.
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import {
+    ActivityIndicator,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -17,12 +18,14 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import * as MapLibreGL from '@maplibre/maplibre-react-native';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { MAP_STYLE_URL, MAP_AVAILABLE } from '@/lib/maps';
 import { StateView } from '@/features/passenger-booking/components/BookingUi';
 import { useRouteBundle } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
+import { assignSequentialSeats, NotEnoughSeatsError } from '@/features/passenger-booking/services/seatAssignment';
 import type { StopDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 
 // ─── Map error boundary (silently hides map on any MapLibre render error) ────
@@ -79,7 +82,10 @@ function RouteFallback({ stops, selectedPickupId }: { stops: StopDTO[]; selected
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function PickupScreen() {
+    const { t } = useTranslation();
     const f = useBookingFlowStore();
+    const [assigning, setAssigning] = useState(false);
+    const [seatError, setSeatError] = useState<string | null>(null);
 
     // Derive route ID from the selected trip — selectedRoute is not set by selectTrip()
     const routeId = f.selectedTrip?.routeId ?? f.selectedTrip?.route?.id ?? f.selectedRoute?.id;
@@ -138,6 +144,33 @@ export default function PickupScreen() {
     }, [validStops]);
 
     const canContinue = Boolean(f.selectedPickup && f.selectedDropoff);
+
+    // Seats are assigned automatically — first-come-first-served, lowest seat
+    // numbers first among whatever the server currently reports as free.
+    // Assignment happens here (not earlier) to keep the window between "we
+    // decided which seats" and "server locks them at booking create" as short
+    // as possible; summary.tsx retries once if another passenger wins the race.
+    async function handleContinue() {
+        if (!canContinue || assigning) return;
+        const tripId = f.selectedTrip?.id;
+        if (!tripId) return;
+
+        setSeatError(null);
+        setAssigning(true);
+        try {
+            const seats = await assignSequentialSeats(tripId, f.passengersCount);
+            f.setSeats(seats);
+            router.push('/(tabs)/booking/passengers');
+        } catch (e) {
+            if (e instanceof NotEnoughSeatsError) {
+                setSeatError(t('booking.pickup.not_enough_seats', { count: e.available }));
+            } else {
+                setSeatError(t('booking.pickup.seat_check_failed'));
+            }
+        } finally {
+            setAssigning(false);
+        }
+    }
 
     // ── Loading / error states ────────────────────────────────────────────────
     if (q.isLoading) {
@@ -318,19 +351,26 @@ export default function PickupScreen() {
                     <Text style={styles.destinationLock}>🔒</Text>
                 </View>
 
+                {/* ── Seat-assignment error ── */}
+                {seatError ? <Text style={styles.seatErrorText}>{seatError}</Text> : null}
+
                 {/* ── Continue button ── */}
                 <Pressable
-                    style={[styles.continueBtn, !canContinue && styles.continueBtnDisabled]}
-                    disabled={!canContinue}
-                    onPress={() => {
-                        f.setSeats(Array.from({ length: f.passengersCount }, (_, i) => i + 1));
-                        router.push('/(tabs)/booking/passengers');
-                    }}
+                    style={[styles.continueBtn, (!canContinue || assigning) && styles.continueBtnDisabled]}
+                    disabled={!canContinue || assigning}
+                    onPress={() => void handleContinue()}
                     accessibilityRole="button"
                 >
-                    <Text style={styles.continueBtnText}>
-                        {canContinue ? 'Continue  →' : 'Select a boarding point'}
-                    </Text>
+                    {assigning ? (
+                        <View style={styles.continueLoadingRow}>
+                            <ActivityIndicator color={Colors.neutral.white} />
+                            <Text style={styles.continueBtnText}>{t('booking.pickup.checking_seats')}</Text>
+                        </View>
+                    ) : (
+                        <Text style={styles.continueBtnText}>
+                            {canContinue ? 'Continue  →' : 'Select a boarding point'}
+                        </Text>
+                    )}
                 </Pressable>
 
                 <View style={{ height: Spacing.lg }} />
@@ -498,6 +538,13 @@ const styles = StyleSheet.create({
     },
     continueBtnDisabled: { opacity: 0.45 },
     continueBtnText:     { color: Colors.neutral.white, fontWeight: '800', fontSize: 16 },
+    continueLoadingRow:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    seatErrorText: {
+        color: Colors.semantic.error,
+        fontSize: 13,
+        fontWeight: '600',
+        textAlign: 'center',
+    },
 
     emptyState: { padding: Spacing.lg, alignItems: 'center' },
     emptyText:  { color: Colors.text.tertiary, textAlign: 'center' },

@@ -145,7 +145,10 @@
         "pickup": {
             "title": "Bakka Ka'umsa Filadhu",
             "search_placeholder": "Bakka ka'umsa barbaadi",
-            "confirm_pickup": "Ka'umsa Mirkaneessi"
+            "confirm_pickup": "Ka'umsa Mirkaneessi",
+            "checking_seats": "Jiraachuu teessoo ilaaluu irra jira…",
+            "not_enough_seats": "Imala kana irratti teessoo {{count}} qofa hafe. Lakkoofsa imaltootaa hir'isi yookaan imala biraa filadhu.",
+            "seat_check_failed": "Jiraachuu teessoo mirkaneessuu hin dandeenye. Maaloo irra deebi'ii yaali."
         },
         "seats": {
             "title": "Teessoo Kee Filadhu",
@@ -192,6 +195,7 @@
             "processing": "Hojjetamaa jira…",
             "account_ref_label": "Lakkoofsa bilbilaa {{provider}} waliin galmaaye",
             "account_ref_placeholder": "+2519XXXXXXXX",
+            "account_ref_invalid": "Lakkoofsa bilbilaa Itoophiyaa sirrii galchi (+2519XXXXXXXX).",
             "already_in_progress": "Kaffaltiin eeyyama kanaaf dursee hojjatamaa jira.",
             "provider_disabled": "Kaffaltiin online yeroof hin argamu. Booda irra deebi'i yaali.",
             "provider_unavailable": "Kennaaa kaffaltii amma hin dhaqqabamne. Irra deebi'i yaali.",
@@ -301,6 +305,8 @@
         "delete_confirm_title": "Herrega Haquu",
         "delete_confirm_body": "Kun herrega kee fi seenaa imala hunda dhumatti ni haqa. Irra deebi'uun hin danda'amu.",
         "delete": "Haquu",
+        "delete_error": "Herrega kee haquun hin dandeenye. Maaloo sirna walqunnamtii kee mirkaneessii irra deebi'ii yaali.",
+        "notif_pref_error": "Qindaa'ina beeksisaa haaromsuun hin dandeenye. Maaloo irra deebi'ii yaali.",
         "notifications_section": "Beeksisa",
         "account_section": "Herrega",
         "edit_btn": "Gulaali",

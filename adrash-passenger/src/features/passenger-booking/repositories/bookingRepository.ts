@@ -16,8 +16,16 @@ export class BookingRepository {
     // create/list/detail run raw API JSON through mapBooking so the app's field
     // names (bookingReference, totalFare, qrCode) are populated from the backend's
     // (bookingRef, totalFareEtb, qrCodeData).
-    create(body: CreateBookingDTO, signal?: AbortSignal) {
-        return postData<unknown, CreateBookingDTO>('/bookings', body, signal).then(mapBooking);
+    //
+    // idempotencyKey mirrors the same header already sent on /payments/initiate.
+    // It is optional here because the backend's booking-create endpoint isn't
+    // documented as honoring it yet (see Adrash.postman_collection.json) — this
+    // is a forward-compatible, no-op-if-ignored addition, not a guarantee.
+    create(body: CreateBookingDTO, idempotencyKey?: string, signal?: AbortSignal) {
+        return postData<unknown, CreateBookingDTO>(
+            '/bookings', body, signal,
+            idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+        ).then(mapBooking);
     }
 
     list(status: BookingStatusDTO, page = 1, pageSize = 20, signal?: AbortSignal) {

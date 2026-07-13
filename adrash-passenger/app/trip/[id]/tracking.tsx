@@ -3,7 +3,7 @@
 // Uses MapLibre (no Google Maps API key required).
 
 import { useEffect, useRef, useState } from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, Redirect } from 'expo-router';
 import {
     ActivityIndicator,
     Alert,
@@ -17,8 +17,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { useTrip, useTripLocation } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
+import { useAuthStore } from '@/features/auth/store/authStore';
 import { startTracking, stopTracking } from '@/lib/signalr';
-import { getAccessToken } from '@/features/auth/utils/token';
 import { MAP_STYLE_URL, MAP_AVAILABLE } from '@/lib/maps';
 import type { TripLocationDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 
@@ -41,10 +41,12 @@ function ETACard({
     eta,
     nextStop,
     connectionState,
+    onReconnect,
 }: {
     eta: number | null;
     nextStop: string | null;
     connectionState: ConnectionState;
+    onReconnect: () => void;
 }) {
     return (
         <View style={styles.etaCard}>
@@ -56,7 +58,10 @@ function ETACard({
             )}
             {connectionState === 'disconnected' && (
                 <View style={styles.reconnectRow}>
-                    <Text style={styles.disconnectText}>⚠️  Connection lost — retrying</Text>
+                    <Text style={styles.disconnectText}>⚠️  Connection lost</Text>
+                    <Pressable onPress={onReconnect} style={styles.reconnectBtn} accessibilityRole="button">
+                        <Text style={styles.reconnectBtnText}>Reconnect</Text>
+                    </Pressable>
                 </View>
             )}
             <View style={styles.etaRow}>
@@ -115,12 +120,16 @@ export default function TrackingScreen() {
         originCity?: string;
         destinationCity?: string;
     }>();
+    const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
     const tripQuery = useTrip(id);
     const locQuery  = useTripLocation(id);
     const flow      = useBookingFlowStore();
 
     const [livePos, setLivePos]               = useState<LivePosition | null>(null);
     const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
+    // Bumped by the manual "Reconnect" button once withAutomaticReconnect has
+    // exhausted its own retry schedule and the hub has settled into `closed`.
+    const [reconnectAttempt, setReconnectAttempt] = useState(0);
     const cameraRef = useRef<MapLibreGL.CameraRef>(null);
 
     // ── SignalR setup ──────────────────────────────────────────────────────────
@@ -129,10 +138,9 @@ export default function TrackingScreen() {
 
         async function connect() {
             try {
-                const token = await getAccessToken();
-                if (!token || !mounted) return;
+                if (!mounted) return;
 
-                const hub = await startTracking(token);
+                const hub = await startTracking();
 
                 hub.onreconnecting(() => { if (mounted) setConnectionState('reconnecting'); });
                 hub.onreconnected(() =>  { if (mounted) setConnectionState('connected');    });
@@ -164,7 +172,12 @@ export default function TrackingScreen() {
             mounted = false;
             void stopTracking();
         };
-    }, [id]);
+    }, [id, reconnectAttempt]);
+
+    function handleManualReconnect() {
+        setConnectionState('connecting');
+        setReconnectAttempt((n) => n + 1);
+    }
 
     // ── Animate camera to bus position on each live update ────────────────────
     useEffect(() => {
@@ -221,6 +234,12 @@ export default function TrackingScreen() {
             properties: {},
           }
         : null;
+
+    // This screen is registered as a top-level Stack.Screen outside (tabs)
+    // (see app/_layout.tsx), so it doesn't inherit that group's isAuthenticated
+    // guard. A raw deep link could otherwise open a live map + SignalR
+    // connection with no session at all.
+    if (!isAuthenticated) return <Redirect href="/(auth)" />;
 
     return (
         <View style={styles.container}>
@@ -285,7 +304,13 @@ export default function TrackingScreen() {
                     )}
                 </MapLibreGL.Map>
             ) : (
-                <View style={[styles.map, styles.mapUnavailable]} />
+                <View style={[styles.map, styles.mapUnavailable]}>
+                    <Text style={styles.mapUnavailableIcon}>🗺️</Text>
+                    <Text style={styles.mapUnavailableText}>Live map unavailable</Text>
+                    <Text style={styles.mapUnavailableSub}>
+                        You can still see ETA and status updates below.
+                    </Text>
+                </View>
             )}
 
             {/* ── Header overlay ── */}
@@ -319,6 +344,7 @@ export default function TrackingScreen() {
                         eta={livePos?.eta ?? null}
                         nextStop={livePos?.nextStopName ?? null}
                         connectionState={connectionState}
+                        onReconnect={handleManualReconnect}
                     />
                 </View>
             </SafeAreaView>
@@ -339,7 +365,13 @@ export default function TrackingScreen() {
 const styles = StyleSheet.create({
     container:      { flex: 1, backgroundColor: Colors.background.secondary },
     map:            { flex: 1 },
-    mapUnavailable: { backgroundColor: Colors.background.secondary },
+    mapUnavailable: {
+        backgroundColor: Colors.background.secondary,
+        alignItems: 'center', justifyContent: 'center', gap: Spacing.xs,
+    },
+    mapUnavailableIcon: { fontSize: 40 },
+    mapUnavailableText: { color: Colors.text.secondary, fontWeight: '700', fontSize: 14 },
+    mapUnavailableSub:  { color: Colors.text.tertiary, fontSize: 12 },
 
     headerOverlay: {
         position: 'absolute', top: 0, left: 0, right: 0,
@@ -383,9 +415,14 @@ const styles = StyleSheet.create({
         borderRadius: BorderRadius.xl,
         padding: Spacing.md, gap: Spacing.sm, ...Shadow.lg,
     },
-    reconnectRow:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    reconnectRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
     reconnectText: { color: Colors.semantic.warning, fontWeight: '700', fontSize: 12 },
     disconnectText: { color: Colors.semantic.error, fontWeight: '700', fontSize: 12 },
+    reconnectBtn: {
+        borderWidth: 1.5, borderColor: Colors.semantic.error,
+        borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, paddingVertical: 6,
+    },
+    reconnectBtnText: { color: Colors.semantic.error, fontWeight: '700', fontSize: 12 },
 
     etaRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
     busEmoji: { fontSize: 32 },

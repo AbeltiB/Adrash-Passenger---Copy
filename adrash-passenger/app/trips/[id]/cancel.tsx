@@ -3,7 +3,7 @@
 // APIs: GET /bookings/{id}/cancellation-info, POST /bookings/{id}/cancel
 
 import { useState } from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, Redirect } from 'expo-router';
 import {
     ActivityIndicator,
     Pressable,
@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../../src/constants';
+import { useAuthStore } from '../../../src/features/auth/store/authStore';
 import {
     useCancellationInfo,
     useBookingDetail,
@@ -22,6 +23,7 @@ import {
 
 export default function CancelBookingScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
+    const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
     const [agreed, setAgreed] = useState(false);
     const [cancelled, setCancelled] = useState(false);
 
@@ -37,9 +39,18 @@ export default function CancelBookingScreen() {
 
     async function confirmCancel() {
         if (!id || !agreed) return;
-        await cancelMut.mutateAsync(id);
-        setCancelled(true);
+        try {
+            await cancelMut.mutateAsync(id);
+            setCancelled(true);
+        } catch {
+            // cancelMut.isError / cancelMut.error already surface this below
+        }
     }
+
+    // This screen is a top-level route outside (tabs), so it doesn't inherit
+    // that group's isAuthenticated guard — a raw deep link could otherwise
+    // reach it with no session at all.
+    if (!isAuthenticated) return <Redirect href="/(auth)" />;
 
     // ── Success state ──────────────────────────────────────────────────────────
     if (cancelled) {

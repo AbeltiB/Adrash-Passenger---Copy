@@ -63,11 +63,20 @@ export type NotificationData = {
     bookingId?: string;
 };
 
+// Push payload data is attacker-influenced (anyone holding a leaked Expo push
+// token can send arbitrary `data`), so tripId is validated as a plain
+// id-shaped token — no slashes, dots, or query-string characters — before
+// being interpolated into a route. Anything else is treated as absent rather
+// than passed through to router.push.
+const SAFE_ROUTE_ID = /^[a-zA-Z0-9_-]+$/;
+
 export function getNavigationFromNotification(
     data: Record<string, unknown>,
 ): string | null {
     const d = data as NotificationData;
-    if (d.screen === 'trip'    && d.tripId)    return `/(tabs)/trip/${d.tripId}`;
+    if (d.screen === 'trip' && typeof d.tripId === 'string' && SAFE_ROUTE_ID.test(d.tripId)) {
+        return `/(tabs)/trip/${d.tripId}`;
+    }
     if (d.screen === 'booking' && d.bookingId) return `/(tabs)/booking/confirmation`;
     return null;
 }

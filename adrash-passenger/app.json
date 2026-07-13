@@ -20,8 +20,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.adrash.passenger",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Used to show your position on the live trip tracking map.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Used to show your position on the live trip tracking map."
+        "NSLocationWhenInUseUsageDescription": "Used to show your position on the live trip tracking map."
       }
     },
     "android": {
@@ -29,6 +28,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#13598A"
       },
+      "allowBackup": false,
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.adrash.passenger",
@@ -38,7 +38,6 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.INTERNET",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
         "android.permission.POST_NOTIFICATIONS"
       ],

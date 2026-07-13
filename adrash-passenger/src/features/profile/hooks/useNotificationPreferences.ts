@@ -25,7 +25,12 @@ export function useNotificationPreferences() {
 export function useUpdateNotificationPreferences() {
     const queryClient = useQueryClient();
 
-    return useMutation<NotificationPreferenceDto[], Error, NotificationPreferenceDto[]>({
+    return useMutation<
+        NotificationPreferenceDto[],
+        Error,
+        NotificationPreferenceDto[],
+        { previous: NotificationPreferenceDto[] | undefined }
+    >({
         mutationFn: async (prefs) => {
             const res = await apiClient.patch<ApiResponse<NotificationPreferenceDto[]>>(
                 ENDPOINTS.NOTIFICATIONS.PREFERENCES,
@@ -35,6 +40,19 @@ export function useUpdateNotificationPreferences() {
                 throw new Error(res.data.errors?.[0] ?? 'Failed to update preferences');
             }
             return res.data.data ?? [];
+        },
+        // Flip the switch immediately rather than waiting on the network...
+        onMutate: async (next) => {
+            await queryClient.cancelQueries({ queryKey: NOTIF_PREFS_KEY });
+            const previous = queryClient.getQueryData<NotificationPreferenceDto[]>(NOTIF_PREFS_KEY);
+            queryClient.setQueryData<NotificationPreferenceDto[]>(NOTIF_PREFS_KEY, next);
+            return { previous };
+        },
+        // ...and snap it back if the PATCH actually failed.
+        onError: (_err, _next, context) => {
+            if (context?.previous) {
+                queryClient.setQueryData<NotificationPreferenceDto[]>(NOTIF_PREFS_KEY, context.previous);
+            }
         },
         onSuccess: (updated) => {
             queryClient.setQueryData<NotificationPreferenceDto[]>(NOTIF_PREFS_KEY, updated);

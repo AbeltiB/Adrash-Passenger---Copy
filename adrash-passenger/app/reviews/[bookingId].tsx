@@ -4,7 +4,7 @@
 // API: POST /reviews { bookingId, score, comment }
 
 import { useState } from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, Redirect } from 'expo-router';
 import {
     ActivityIndicator,
     Pressable,
@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../src/constants';
+import { useAuthStore } from '../../src/features/auth/store/authStore';
 import {
     useSubmitReview,
     useBookingDetail,
@@ -45,6 +46,7 @@ const STAR_LABELS: Record<number, string> = {
 
 export default function ReviewScreen() {
     const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
+    const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
     const booking   = useBookingDetail(bookingId);
     const submitMut = useSubmitReview();
 
@@ -65,8 +67,37 @@ export default function ReviewScreen() {
 
     async function handleSubmit() {
         if (!bookingId || !canSubmit) return;
-        await submitMut.mutateAsync({ bookingId, score, comment: comment.trim() });
-        setDone(true);
+        try {
+            await submitMut.mutateAsync({ bookingId, score, comment: comment.trim() });
+            setDone(true);
+        } catch {
+            // submitMut.isError / submitMut.error already surface this below
+        }
+    }
+
+    // This screen is a top-level route outside (tabs), so it doesn't inherit
+    // that group's isAuthenticated guard.
+    if (!isAuthenticated) return <Redirect href="/(auth)" />;
+
+    // The trip-detail screen already hides its "Rate this trip" button once
+    // hasReview is true, but that's UI-layer only — this screen is directly
+    // reachable (stale link, back-navigation, duplicate tap), so check again
+    // here rather than relying solely on the server to reject a second review.
+    if (booking.data?.hasReview) {
+        return (
+            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+                <View style={styles.successView}>
+                    <Text style={styles.successIcon}>⭐</Text>
+                    <Text style={styles.successTitle}>Already reviewed</Text>
+                    <Text style={styles.successSub}>
+                        You've already submitted a review for this trip.
+                    </Text>
+                    <Pressable style={styles.doneBtn} onPress={() => router.back()}>
+                        <Text style={styles.doneBtnText}>Back</Text>
+                    </Pressable>
+                </View>
+            </SafeAreaView>
+        );
     }
 
     // ── Success state ─────────────────────────────────────────────────────────

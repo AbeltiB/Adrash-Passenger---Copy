@@ -2,6 +2,7 @@
 // Booking confirmed — full receipt screen with image + PDF download.
 
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import {
     ActivityIndicator,
@@ -21,18 +22,18 @@ import {
     saveTicketAsPDF,
     type TicketData,
 } from '@/lib/ticketDownload';
-import { formatDateTime, formatTime, formatDuration } from '@/utils/date';
+import { formatDateTimeForLang, formatTimeForLang, formatDuration } from '@/utils/date';
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
-function safeFormatDateTime(iso?: string | null): string {
+function safeFormatDateTime(iso: string | null | undefined, lang: string): string {
     if (!iso) return '—';
-    try { return formatDateTime(iso); } catch { return iso; }
+    try { return formatDateTimeForLang(iso, lang); } catch { return iso; }
 }
 
-function safeFormatTime(iso?: string | null): string {
+function safeFormatTime(iso: string | null | undefined, lang: string): string {
     if (!iso) return '—';
-    try { return formatTime(iso); } catch { return iso; }
+    try { return formatTimeForLang(iso, lang); } catch { return iso; }
 }
 
 function safeFormatDuration(minutes?: number | null): string {
@@ -40,9 +41,9 @@ function safeFormatDuration(minutes?: number | null): string {
     try { return formatDuration(minutes); } catch { return ''; }
 }
 
-function safePurchaseDate(iso?: string | null): string {
+function safePurchaseDate(iso: string | null | undefined, lang: string): string {
     if (!iso) return new Date().toLocaleString();
-    try { return formatDateTime(iso); } catch { return iso; }
+    try { return formatDateTimeForLang(iso, lang); } catch { return iso; }
 }
 
 // ── InfoRow helper ────────────────────────────────────────────────────────────
@@ -72,7 +73,7 @@ const rowStyles = StyleSheet.create({
 
 interface ReceiptCardProps {
     bookingRef:      string;
-    qrData:          string;
+    qrData:          string | null;
     origin:          string;
     destination:     string;
     departureTime:   string;
@@ -126,10 +127,20 @@ function ReceiptCard(p: ReceiptCardProps) {
                 <Text style={rcStyles.routeText}>{p.origin}  →  {p.destination}</Text>
             </View>
 
-            {/* QR code */}
+            {/* QR code — only ever the server-issued signed payload, never a
+                fallback built from the booking reference printed above. */}
             <View style={rcStyles.qrSection}>
-                <QRCode value={p.qrData} size={180} padding={10} />
-                <Text style={rcStyles.qrPrompt}>Show to your driver at boarding</Text>
+                {p.qrData ? (
+                    <>
+                        <QRCode value={p.qrData} size={180} padding={10} />
+                        <Text style={rcStyles.qrPrompt}>Show to your driver at boarding</Text>
+                    </>
+                ) : (
+                    <View style={rcStyles.qrPending}>
+                        <Text style={rcStyles.qrPendingText}>QR code not ready yet</Text>
+                        <Text style={rcStyles.qrPendingSub}>Pull to refresh, or check My Trips shortly.</Text>
+                    </View>
+                )}
             </View>
 
             <View style={rcStyles.dashed} />
@@ -260,6 +271,13 @@ const rcStyles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     qrPrompt: { color: '#6B7280', fontSize: 12, fontWeight: '600' },
+    qrPending: {
+        width: 180, height: 180, borderRadius: 12,
+        borderWidth: 1.5, borderColor: '#E5E7EB', borderStyle: 'dashed',
+        alignItems: 'center', justifyContent: 'center', gap: 6, padding: 16,
+    },
+    qrPendingText: { color: '#6B7280', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+    qrPendingSub:  { color: '#9CA3AF', fontSize: 11, textAlign: 'center' },
 
     dashed: {
         marginHorizontal: 16, borderTopWidth: 2,
@@ -304,12 +322,20 @@ const rcStyles = StyleSheet.create({
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function ConfirmationScreen() {
+    const { i18n }       = useTranslation();
+    const lang           = i18n.language ?? 'en';
     const flow          = useBookingFlowStore();
     const storedBooking = flow.pendingBooking;
     const { data: liveBooking } = useBookingDetail(storedBooking?.id);
     const booking = liveBooking ?? storedBooking;
 
-    const qrData     = booking?.qrCode ?? booking?.bookingReference ?? 'CONFIRMED';
+    // The QR must be the server-issued, HMAC-signed payload (booking.qrCode).
+    // It must NEVER fall back to the plaintext booking reference — that value
+    // is also printed on this same screen, so anyone who reads or photographs
+    // it could regenerate an identical-looking QR and forge a boarding pass.
+    // When qrCode isn't present yet, qrData is left null and the QR section
+    // shows a "not ready" state instead (see below) rather than a fake code.
+    const qrData      = booking?.qrCode ?? null;
     const bookingRef  = booking?.bookingReference ?? '—';
     const origin      = flow.origin || booking?.trip?.route?.originCity || '—';
     const destination = flow.destination || booking?.trip?.route?.destinationCity || '—';
@@ -345,15 +371,15 @@ export default function ConfirmationScreen() {
     const totalFare       = booking?.totalFare ?? 0;
 
     const paymentMethod = flow.selectedPaymentMethod ?? 'Mobile Payment';
-    const purchasedAt   = safePurchaseDate(booking?.createdAt);
+    const purchasedAt   = safePurchaseDate(booking?.createdAt, lang);
 
     const receiptProps: ReceiptCardProps = {
         bookingRef,
         qrData,
         origin,
         destination,
-        departureTime:   safeFormatDateTime(trip?.departureTime),
-        arrivalEstimate: safeFormatTime(trip?.arrivalEstimate),
+        departureTime:   safeFormatDateTime(trip?.departureTime, lang),
+        arrivalEstimate: safeFormatTime(trip?.arrivalEstimate, lang),
         duration,
         driverName,
         busLabel,
@@ -393,8 +419,8 @@ export default function ConfirmationScreen() {
             bookingRef,
             origin,
             destination,
-            departureTime:   safeFormatDateTime(trip?.departureTime),
-            arrivalEstimate: safeFormatTime(trip?.arrivalEstimate),
+            departureTime:   safeFormatDateTime(trip?.departureTime, lang),
+            arrivalEstimate: safeFormatTime(trip?.arrivalEstimate, lang),
             duration,
             driverName,
             busLabel,
@@ -414,6 +440,42 @@ export default function ConfirmationScreen() {
         } finally {
             setDownloading(null);
         }
+    }
+
+    // This screen must never claim a booking is confirmed unless the server
+    // says so. waiting.tsx already checks this before navigating here, but
+    // this screen is also reachable by back-navigation or a stale deep link,
+    // so it re-checks independently rather than trusting how it was reached.
+    const nonConfirmedStatus = booking?.status && booking.status !== 'Confirmed'
+        && booking.status !== 'CheckedIn' && booking.status !== 'Completed'
+        ? booking.status
+        : null;
+
+    if (nonConfirmedStatus) {
+        return (
+            <SafeAreaView style={styles.container} edges={['top']}>
+                <View style={styles.inner}>
+                    <View style={[styles.content, { flex: 1, justifyContent: 'center' }]}>
+                        <View style={[styles.successCircle, { backgroundColor: Colors.semantic.errorLight }]}>
+                            <Text style={[styles.checkmark, { color: Colors.semantic.error }]}>!</Text>
+                        </View>
+                        <Text style={styles.title}>Not confirmed yet</Text>
+                        <Text style={styles.subtitle}>
+                            {nonConfirmedStatus === 'Cancelled'
+                                ? 'This booking was cancelled, so no ticket is available.'
+                                : "We couldn't confirm this booking's payment. Check its status in My Trips before boarding."}
+                        </Text>
+                        <Pressable
+                            style={styles.doneBtn}
+                            onPress={() => router.replace('/(tabs)/my-trips')}
+                            accessibilityRole="button"
+                        >
+                            <Text style={styles.doneBtnText}>View My Trips</Text>
+                        </Pressable>
+                    </View>
+                </View>
+            </SafeAreaView>
+        );
     }
 
     return (

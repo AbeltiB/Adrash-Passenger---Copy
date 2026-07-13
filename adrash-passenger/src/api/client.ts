@@ -54,6 +54,41 @@ function flushQueue(err: unknown, token: string | null) {
     queue = [];
 }
 
+// ── Shared refresh call ───────────────────────────────────────────────────────
+// Single implementation of POST /auth/refresh so the 401 interceptor below,
+// useRefreshToken.ts, and the splash screen's silent-session-resume all rotate
+// tokens the same way instead of duplicating the axios call three times.
+export async function refreshAccessToken(): Promise<AuthTokens> {
+    const rt = await getRefreshToken();
+    if (!rt) throw new Error('no-refresh-token');
+
+    const { data } = await axios.post<{
+        access_token: string;
+        expires_in: number;
+        refresh_token?: string;
+    }>(
+        `${API_V1_BASE}${ENDPOINTS.AUTH.REFRESH}`,
+        { refresh_token: rt },
+        {
+            headers: {
+                'Content-Type': 'application/json',
+                Accept:         'application/json',
+            },
+        },
+    );
+
+    const tokens: AuthTokens = {
+        accessToken: data.access_token,
+        expiresIn:   data.expires_in,
+        ...(data.refresh_token !== undefined
+            ? { refreshToken: data.refresh_token }
+            : {}),
+    };
+
+    await storeTokens(tokens);
+    return tokens;
+}
+
 // ── Agreement redirect guard ──────────────────────────────────────────────────
 // Prevents a race condition where a 403 fires in the brief window between
 // the user accepting the agreement and the server registering that acceptance.
@@ -141,38 +176,10 @@ apiClient.interceptors.response.use(
         refreshing = true;
 
         try {
-            const rt = await getRefreshToken();
-            if (!rt) throw new Error('no-refresh-token');
+            const tokens = await refreshAccessToken();
 
-            const { data } = await axios.post<{
-                access_token: string;
-                expires_in: number;
-                refresh_token?: string;
-            }>(
-                `${API_V1_BASE}${ENDPOINTS.AUTH.REFRESH}`,
-                { refresh_token: rt },
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Accept:         'application/json',
-                    },
-                },
-            );
-
-            // Build a correctly-typed AuthTokens object.
-            // refreshToken is optional on AuthTokens so only include it when present.
-            const tokens: AuthTokens = {
-                accessToken: data.access_token,
-                expiresIn:   data.expires_in,
-                ...(data.refresh_token !== undefined
-                    ? { refreshToken: data.refresh_token }
-                    : {}),
-            };
-
-            await storeTokens(tokens);
-
-            flushQueue(null, data.access_token);
-            original.headers.Authorization = `Bearer ${data.access_token}`;
+            flushQueue(null, tokens.accessToken);
+            original.headers.Authorization = `Bearer ${tokens.accessToken}`;
             return apiClient(original);
 
         } catch (refreshErr) {
