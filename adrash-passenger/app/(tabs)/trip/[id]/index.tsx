@@ -23,13 +23,20 @@ import { formatDateTime, formatTime, formatDuration } from '@/utils/date';
 
 // ─── QR display ────────────────────────────────────────────────────────────────
 
-function QRDisplay({ data, bookingRef }: { data: string; bookingRef: string }) {
+function QRDisplay({ data, bookingRef }: { data: string | null; bookingRef: string }) {
     return (
         <View style={styles.qrWrapper}>
             <View style={styles.perforation} />
             <View style={styles.qrCard}>
                 <Text style={styles.qrBrand}>አድራሽ  ·  ADRASH</Text>
-                <QRCode value={data} size={200} padding={12} />
+                {data ? (
+                    <QRCode value={data} size={200} padding={12} />
+                ) : (
+                    <View style={styles.qrPendingBox}>
+                        <Text style={styles.qrPendingText}>QR code not ready yet</Text>
+                        <Text style={styles.qrPendingSub}>Pull to refresh, or check back shortly.</Text>
+                    </View>
+                )}
                 <Text style={styles.qrPrompt}>Show this to your driver</Text>
                 <View style={styles.qrDivider} />
                 <Text style={styles.qrRefLabel}>BOOKING REFERENCE</Text>
@@ -129,7 +136,10 @@ export default function TripDetailScreen() {
         try { return formatDuration(m); } catch { return ''; }
     })();
 
-    const qrData       = booking.qrCode ?? booking.bookingReference;
+    // Must be the server-issued, HMAC-signed payload — never the plaintext
+    // bookingReference, which is printed right below it on this same card and
+    // could otherwise be used to forge a matching-looking (but unsigned) QR.
+    const qrData       = booking.qrCode ?? null;
     const isInProgress = trip?.status === 'InProgress';
     const isCompleted  = booking.status === 'Completed';
 
@@ -352,6 +362,15 @@ export default function TripDetailScreen() {
                         </Pressable>
                     )}
 
+                    {booking.status === 'Confirmed' && (
+                        <Pressable
+                            style={styles.cancelBtn}
+                            onPress={() => router.push(`/trips/${booking.id}/cancel`)}
+                        >
+                            <Text style={styles.cancelBtnText}>Cancel booking</Text>
+                        </Pressable>
+                    )}
+
                 </View>
 
                 <View style={{ height: Spacing.xl }} />
@@ -426,6 +445,13 @@ const styles = StyleSheet.create({
     },
     qrCard:       { backgroundColor: Colors.background.primary, padding: Spacing.lg, alignItems: 'center', gap: Spacing.sm, ...Shadow.md },
     qrBrand:      { fontWeight: '900', fontSize: 13, color: Colors.brand.primary, letterSpacing: 1 },
+    qrPendingBox: {
+        width: 200, height: 200, borderRadius: 12,
+        borderWidth: 1.5, borderColor: Colors.border.medium, borderStyle: 'dashed',
+        alignItems: 'center', justifyContent: 'center', gap: 6, padding: 16,
+    },
+    qrPendingText: { color: Colors.text.secondary, fontSize: 13, fontWeight: '700', textAlign: 'center' },
+    qrPendingSub:  { color: Colors.text.tertiary, fontSize: 11, textAlign: 'center' },
     qrPrompt:     { color: Colors.text.secondary, fontSize: 13, fontWeight: '600' },
     qrDivider:    { width: '100%', height: 1, backgroundColor: Colors.border.light },
     qrRefLabel:   { color: Colors.text.tertiary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
@@ -478,4 +504,6 @@ const styles = StyleSheet.create({
     trackBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
     reviewBtn: { backgroundColor: Colors.semantic.warningLight, borderRadius: BorderRadius.lg, paddingVertical: 15, alignItems: 'center' },
     reviewBtnText: { color: Colors.semantic.warning, fontWeight: '800', fontSize: 15 },
+    cancelBtn: { borderWidth: 1.5, borderColor: Colors.semantic.error, borderRadius: BorderRadius.lg, paddingVertical: 14, alignItems: 'center' },
+    cancelBtnText: { color: Colors.semantic.error, fontWeight: '800', fontSize: 15 },
 });

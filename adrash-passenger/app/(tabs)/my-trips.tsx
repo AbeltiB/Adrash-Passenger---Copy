@@ -52,6 +52,7 @@ function StatusBadge({ status }: { status: BookingStatusDTO }) {
 // ─── Booking card ──────────────────────────────────────────────────────────────
 
 function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
+    const { t: tFn } = useTranslation();
     const route  = booking.trip?.route;
     const driver = booking.trip?.driver;
     const bus    = booking.trip?.bus;
@@ -67,7 +68,10 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
     const hasVehicleInfo = Boolean(driverName ?? busLabel);
 
     const isInProgress = booking.trip?.status === 'InProgress';
-    const qrData = booking.qrCode ?? booking.bookingReference;
+    // Must be the server-issued, HMAC-signed payload — never the plaintext
+    // bookingReference, which is printed right below it and could otherwise
+    // be used to forge a matching-looking (but unsigned) boarding pass.
+    const qrData = booking.qrCode ?? null;
 
     return (
         <View style={styles.card}>
@@ -127,7 +131,11 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
             </View>
 
             {/* QR code */}
-            {qrData ? <QRCode value={qrData} size={100} padding={6} /> : null}
+            {qrData ? (
+                <QRCode value={qrData} size={100} padding={6} />
+            ) : tab === 'upcoming' ? (
+                <Text style={styles.qrPendingText}>QR code not ready yet — pull to refresh shortly.</Text>
+            ) : null}
 
             {/* Refund status (cancelled/past) */}
             {booking.refundStatus ? (
@@ -165,6 +173,15 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
 
                 {tab === 'past' && booking.hasReview && (
                     <Text style={styles.reviewedText}>✓ Reviewed</Text>
+                )}
+
+                {tab === 'upcoming' && (
+                    <Pressable
+                        style={styles.cancelBtn}
+                        onPress={() => router.push(`/trips/${booking.id}/cancel`)}
+                    >
+                        <Text style={styles.cancelBtnText}>{tFn('trips.cancel_trip')}</Text>
+                    </Pressable>
                 )}
 
                 <Pressable
@@ -355,6 +372,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     ghostBtnText: { color: Colors.text.primary, fontWeight: '700', fontSize: 13 },
+
+    cancelBtn: {
+        borderWidth: 1, borderColor: Colors.semantic.error,
+        borderRadius: BorderRadius.md,
+        paddingVertical: 11,
+        alignItems: 'center',
+    },
+    cancelBtnText: { color: Colors.semantic.error, fontWeight: '700', fontSize: 13 },
+    qrPendingText: { color: Colors.text.tertiary, fontSize: 12, fontStyle: 'italic' },
 
     centred:     { alignItems: 'center', justifyContent: 'center', padding: Spacing['2xl'], gap: Spacing.md },
     emptyIcon:   { fontSize: 44 },

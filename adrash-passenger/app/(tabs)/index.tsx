@@ -20,7 +20,9 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ADRASH_LOGO from '../../assets/Logo Adrash one.png';
+// White version — the hero header sits on Colors.brand.primaryDark, and the
+// original logo's black wordmark is unreadable against that dark background.
+import ADRASH_LOGO from '../../assets/Logo Adrash white.png';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { DateTimePicker } from '@/features/passenger-booking/components/DateTimePicker';
 import { StateView } from '@/features/passenger-booking/components/BookingUi';

@@ -7,6 +7,7 @@ import { router, useLocalSearchParams, Redirect } from 'expo-router';
 import {
     ActivityIndicator,
     Alert,
+    Linking,
     Pressable,
     StyleSheet,
     Text,
@@ -193,21 +194,26 @@ export default function TrackingScreen() {
     const position: TripLocationDTO | LivePosition | null = livePos ?? locQuery.data ?? null;
 
     // ── SOS ───────────────────────────────────────────────────────────────────
+    // There is no backend SOS/emergency endpoint yet — this must never claim to
+    // have sent an alert it didn't actually send. The one thing this screen CAN
+    // do for real, with no backend change, is call the driver directly using the
+    // live trip data already loaded here.
     function triggerSOS() {
+        const driverPhone = tripQuery.data?.driver?.phone;
         Alert.alert(
-            '⚠️  Send emergency alert?',
-            'Your current trip location will be shared with Adrash support and your next-of-kin via SMS.',
+            '⚠️  Emergency',
+            driverPhone
+                ? "Adrash doesn't have an automatic emergency alert yet. You can call the driver directly right now."
+                : "Adrash doesn't have an automatic emergency alert yet. Please call local emergency services directly.",
             [
                 { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Send alert',
-                    style: 'destructive',
-                    onPress: () =>
-                        Alert.alert(
-                            'Alert sent',
-                            'Adrash support and your emergency contact have been notified.',
-                        ),
-                },
+                ...(driverPhone
+                    ? [{
+                        text: 'Call driver',
+                        style: 'destructive' as const,
+                        onPress: () => void Linking.openURL(`tel:${driverPhone}`),
+                    }]
+                    : []),
             ],
         );
     }
