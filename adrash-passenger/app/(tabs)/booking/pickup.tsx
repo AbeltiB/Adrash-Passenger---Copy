@@ -178,7 +178,17 @@ export default function PickupScreen() {
             router.push('/(tabs)/booking/passengers');
         } catch (e) {
             if (e instanceof NotEnoughSeatsError) {
-                setSeatError(t('booking.pickup.not_enough_seats', { count: e.available }));
+                // 0 available with 0 total ever reported for this trip means the bus/seat
+                // map was never set up server-side — a genuinely different situation from
+                // "sold out" (which implies real demand), and one the passenger can't work
+                // around by picking fewer seats, only by picking a different trip.
+                const knownTotal = f.selectedTrip?.totalSeats ?? f.selectedTrip?.bus?.capacity ?? null;
+                const neverConfigured = e.available === 0 && (knownTotal == null || knownTotal === 0);
+                setSeatError(
+                    neverConfigured
+                        ? t('booking.pickup.trip_not_configured')
+                        : t('booking.pickup.not_enough_seats', { count: e.available }),
+                );
                 setTripFullyBooked(e.available === 0);
             } else {
                 setSeatError(t('booking.pickup.seat_check_failed'));

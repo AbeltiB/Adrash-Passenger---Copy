@@ -148,6 +148,7 @@
             "confirm_pickup": "Ka'umsa Mirkaneessi",
             "checking_seats": "Jiraachuu teessoo ilaaluu irra jira…",
             "not_enough_seats": "Imala kana irratti teessoo {{count}} qofa hafe. Lakkoofsa imaltootaa hir'isi yookaan imala biraa filadhu.",
+            "trip_not_configured": "Imalli kun hanga ammaatti teessoo hin qabu — kun wanti ati sirreessuu dandeessu miti. Maaloo imala biraa filadhu yookaan deeggarsa qunnamaa.",
             "seat_check_failed": "Jiraachuu teessoo mirkaneessuu hin dandeenye. Maaloo irra deebi'ii yaali."
         },
         "seats": {

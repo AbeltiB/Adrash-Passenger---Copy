@@ -148,6 +148,7 @@
             "confirm_pickup": "Confirm Pickup",
             "checking_seats": "Checking seat availability…",
             "not_enough_seats": "Only {{count}} seat(s) left on this trip. Reduce passengers or choose another trip.",
+            "trip_not_configured": "This trip has no seats set up yet on our end — it's not something you can fix. Please choose another trip or contact support.",
             "seat_check_failed": "Could not check seat availability. Please try again."
         },
         "seats": {
