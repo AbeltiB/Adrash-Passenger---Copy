@@ -1,0 +1,180 @@
+# FIX: Booking always blocked with "Only 0 seat(s) left on this trip"
+
+**Type:** Bug fix — client-side response-parsing mismatch
+**Scope:** Passenger app only (this repo). No backend change required.
+**Priority:** High — blocks *all* passenger bookings.
+
+---
+
+## Symptom
+
+Every attempt to book a seat fails at the pickup step with:
+
+> **"Only 0 seat(s) left on this trip. Reduce passengers or choose another trip."**
+
+(Amharic/Oromo variants of the same string.)
+
+It happens on **every trip, regardless of real availability**. The ticket-officer
+app can book the same trip with no problem — proving seats really are free and the
+backend is healthy. The bug is entirely in how this app parses the seat-map response.
+
+---
+
+## Root cause
+
+The seat-availability check reads `GET /trips/{id}/seats` through the **paginated**
+envelope helper (`getPage` → `pickList`), but that endpoint does **not** return a
+paginated list. It returns a single object:
+
+```jsonc
+// Actual API response for GET /trips/{id}/seats
+{
+  "success": true,
+  "data": {
+    "totalSeats": 11,
+    "seats": [
+      { "seatNumber": 1, "isBooked": false },
+      { "seatNumber": 2, "isBooked": true }
+      // ...
+    ]
+  },
+  "meta": null
+}
+```
+
+The seat array lives under **`data.seats`**. But `pickList`
+(`src/features/passenger-booking/services/apiEnvelope.ts`) only unwraps an array
+or an object keyed by `items` / `results` / `data`:
+
+```ts
+function pickList<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[];
+  const obj = data as { items?: T[]; results?: T[]; data?: T[] } | null;
+  return obj?.items ?? obj?.results ?? obj?.data ?? [];  // ← no `seats` → returns []
+}
+```
+
+Because `data` is the object `{ totalSeats, seats }` (not an array, and its list is
+under `seats`), `pickList` returns `[]`.
+
+### The failure chain
+
+1. `app/(tabs)/booking/pickup.tsx` → `handleContinue()` calls
+   `assignSequentialSeats(tripId, count)`.
+2. `src/features/passenger-booking/services/seatAssignment.ts` fetches
+   `tripRepository.seats(tripId)`.
+3. `src/features/passenger-booking/repositories/tripRepository.ts` uses
+   `getPage<SeatDTO>('/trips/${tripId}/seats').then(p => p.items)` → `pickList` →
+   **`[]`**.
+4. `assignSequentialSeats`: `available.length` (0) `< count` → throws
+   `NotEnoughSeatsError(0, count)`.
+5. `pickup.tsx` catches it. Because the trip's `totalSeats` **is** correctly mapped
+   (> 0), the "never configured" branch is skipped and it shows
+   `booking.pickup.not_enough_seats` with `count: 0` →
+   **"Only 0 seat(s) left…"**.
+
+Because step 3 always yields `[]` (structural mismatch, not real fullness), this
+blocks **every** trip.
+
+### Why the seat-map screen still looks fine (and hid this)
+
+`app/(tabs)/booking/seats.tsx` calls the same broken `seats()` and gets `[]`, but it
+**falls back to generating all seats from bus capacity, all marked available**. So
+the visual seat map looks healthy while the actual booking path (`assignSequentialSeats`,
+which has no fallback) throws. Don't be fooled by the seat map looking correct.
+
+---
+
+## The fix
+
+Apply **both** changes. Change 1 fixes this endpoint directly; Change 2 hardens the
+shared helper so any current/future `{ ..., seats }` payload parses correctly.
+
+### Change 1 — read the seat map as an object, not a page
+
+**File:** `src/features/passenger-booking/repositories/tripRepository.ts`
+
+`getData` is already imported in this file. Replace the `seats(...)` method:
+
+```ts
+// BEFORE
+seats(tripId: string, signal?: AbortSignal) {
+  return getPage<SeatDTO>(`/trips/${tripId}/seats`, undefined, signal).then((p) => p.items);
+}
+```
+
+```ts
+// AFTER — the endpoint returns { totalSeats, seats: SeatDTO[] }, not a page
+seats(tripId: string, signal?: AbortSignal) {
+  return getData<{ totalSeats: number; seats: SeatDTO[] }>(`/trips/${tripId}/seats`, undefined, signal)
+    .then((r) => r?.seats ?? []);
+}
+```
+
+Keep `getPage` imported — `list()` in the same file still uses it.
+
+### Change 2 — teach `pickList` about `seats` (defensive)
+
+**File:** `src/features/passenger-booking/services/apiEnvelope.ts`
+
+```ts
+// BEFORE
+function pickList<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[];
+  const obj = data as { items?: T[]; results?: T[]; data?: T[] } | null;
+  return obj?.items ?? obj?.results ?? obj?.data ?? [];
+}
+```
+
+```ts
+// AFTER
+function pickList<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[];
+  const obj = data as { items?: T[]; results?: T[]; data?: T[]; seats?: T[] } | null;
+  return obj?.items ?? obj?.results ?? obj?.data ?? obj?.seats ?? [];
+}
+```
+
+---
+
+## Field-name check (already correct — do not change)
+
+The API's seat objects are camelCase `seatNumber` / `isBooked`, which already match
+`SeatDTO` (`src/features/passenger-booking/dtos/bookingDtos.ts`) and the seat-map UI
+(`seats.tsx` reads `seat.seatNumber` / `seat.isBooked`). No mapping needed for the
+seat items themselves — only the *wrapper* was being parsed wrong.
+
+---
+
+## Verification
+
+After applying both changes:
+
+1. **Type-check / build.** Run the project's type-check (e.g. `npx tsc --noEmit`) and,
+   if configured, the lint/build step. Expect no new errors. *(Note: if `node_modules`
+   isn't installed in this workspace, run `npm install` first.)*
+2. **Booking flow.** Select any Scheduled trip with known free seats → choose a pickup
+   → continue. It must proceed to the passengers step instead of showing
+   "Only 0 seat(s) left". Confirm the server-assigned seat numbers appear on the
+   confirmation screen.
+3. **Seat-map screen.** The seat map should now render **real** booked/available seats
+   from the API (booked seats disabled), not the all-available capacity fallback.
+4. **Genuinely full trip (regression guard).** On a trip whose seats are actually all
+   taken, you should still get the "Only 0 seat(s) left" message — that path is correct;
+   we're only fixing the *false* 0.
+
+---
+
+## Notes / out of scope
+
+- **Backend is not changed.** `GET /trips/{id}/seats` returning
+  `{ totalSeats, seats: [...] }` is the intended, stable contract; this app was simply
+  parsing it as a paginated list.
+- **Latent secondary mismatch (not this bug, watch for it):** the search-results
+  "sold out" badge in `app/(tabs)/search/results.tsx` reads `trip.availableSeats`
+  (correctly mapped from the API's `seatsAvailable`). That's a *separate*,
+  counter-based signal. It is not the source of the "Only 0 seat(s) left" message and
+  should be left alone unless a distinct "sold out" false-positive is reported.
+- This is the same class of API-vs-app field/shape mismatch fixed previously for
+  `fare` (`passengerFareEtb`) and `availableSeats` (`seatsAvailable`) in
+  `src/features/passenger-booking/services/mappers.ts`.
