@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
-import { useBookingDetail } from '@/features/passenger-booking/hooks/usePassengerBooking';
+import { useBookingDetail, useRouteBundle } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import type { BookingStatusDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 import { QRCode } from '@/components/QRCode';
 import { saveTicketAsImage, saveTicketAsPDF, type TicketData } from '@/lib/ticketDownload';
@@ -88,6 +88,11 @@ export default function TripDetailScreen() {
     const ticketRef = useRef<View>(null);
     const [downloading, setDownloading] = useState<'image' | 'pdf' | null>(null);
 
+    // Called unconditionally (before the loading/error early returns below) so
+    // hook order stays stable across renders — `enabled` inside the hook itself
+    // handles the routeId-not-yet-known case safely.
+    const routeBundle = useRouteBundle(booking?.trip?.routeId);
+
     if (query.isLoading) {
         return (
             <SafeAreaView style={styles.container} edges={['top']}>
@@ -143,6 +148,14 @@ export default function TripDetailScreen() {
     const isInProgress = trip?.status === 'InProgress';
     const isCompleted  = booking.status === 'Completed';
 
+    // The booking API only returns pickupLocationId (a raw id), never a
+    // resolved name, and a route can have more than one pickup point — picking
+    // "the first stop marked isPickup" showed the wrong one whenever a route
+    // had multiple boarding points. Resolve the actual chosen id instead.
+    const pickupName = booking.pickupLocation?.name
+        ?? routeBundle.data?.pickups?.find((p) => p.id === booking.pickupLocationId)?.name
+        ?? null;
+
     async function downloadImage() {
         if (!ticketRef.current) return;
         setDownloading('image');
@@ -163,8 +176,8 @@ export default function TripDetailScreen() {
             duration,
             driverName,
             busLabel,
-            pickup:          bk.pickupLocation?.name ?? '—',
-            dropoff:         bk.dropoffStop?.name ?? '—',
+            pickup:          pickupName ?? '—',
+            dropoff:         bk.dropoffStop?.name ?? destination,
             seats:           seatsArr.join(', ') || '—',
             subtotal:        Math.max(0, (bk.totalFare ?? 0) - (bk.serviceFee ?? 0) + (bk.rewardsDiscount ?? 0)),
             serviceFee:      bk.serviceFee ?? 0,
@@ -238,7 +251,7 @@ export default function TripDetailScreen() {
                         <View style={styles.routeDetailItem}>
                             <Text style={styles.detailLabel}>Pickup</Text>
                             <Text style={styles.detailValue}>
-                                {trip?.route?.stops?.find((s) => s.isPickup)?.name ?? '—'}
+                                {pickupName ?? '—'}
                             </Text>
                         </View>
                         <View style={styles.routeDetailItem}>

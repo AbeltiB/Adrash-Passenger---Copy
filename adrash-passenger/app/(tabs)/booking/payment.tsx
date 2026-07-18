@@ -112,7 +112,10 @@ export default function PaymentScreen() {
                 idempotencyKey,
             });
 
+            // 'SantimPay' is only the gateway that routed the charge — the receipt
+            // should show the downstream rail the passenger actually paid through.
             flow.setPaymentMethod('SantimPay');
+            flow.setSantimPayPartner(selectedPartner);
             router.push({
                 pathname: '/(tabs)/booking/waiting',
                 params:   {

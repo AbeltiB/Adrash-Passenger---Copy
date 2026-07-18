@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import type { BookingDTO, BookingStatusDTO } from '@/features/passenger-booking/dtos/bookingDtos';
-import { useBookings } from '@/features/passenger-booking/hooks/usePassengerBooking';
+import { useBookings, useRouteBundle } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { QRCode } from '@/components/QRCode';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -73,6 +73,19 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
     // be used to forge a matching-looking (but unsigned) boarding pass.
     const qrData = booking.qrCode ?? null;
 
+    // The booking API only ever returns pickupLocationId (a raw id), never a
+    // resolved name — booking.pickupLocation was always going to be empty.
+    // Resolve it against the route's own pickup list (cached per routeId, so
+    // this is one extra request per distinct route shown, not per card).
+    const routeBundle  = useRouteBundle(booking.trip?.routeId);
+    const pickupName   = booking.pickupLocation?.name
+        ?? routeBundle.data?.pickups?.find((p) => p.id === booking.pickupLocationId)?.name
+        ?? null;
+    // Drop-off is always the route's destination terminal — the city name is
+    // already reliably present on booking.trip.route (unlike a resolved stop),
+    // so prefer it over the equally-unpopulated dropoffStop.name.
+    const dropoffName = booking.dropoffStop?.name ?? route?.destinationCity ?? null;
+
     return (
         <View style={styles.card}>
             {/* Route + status */}
@@ -118,14 +131,14 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
                 <View style={styles.boardingRow}>
                     <Text style={styles.boardingLabel}>Pickup</Text>
                     <Text style={styles.boardingValue} numberOfLines={1}>
-                        {booking.pickupLocation?.name ?? '—'}
+                        {pickupName ?? '—'}
                     </Text>
                 </View>
                 <View style={styles.boardingDivider} />
                 <View style={styles.boardingRow}>
                     <Text style={styles.boardingLabel}>Drop-off</Text>
                     <Text style={styles.boardingValue} numberOfLines={1}>
-                        {booking.dropoffStop?.name ?? '—'}
+                        {dropoffName ?? '—'}
                     </Text>
                 </View>
             </View>

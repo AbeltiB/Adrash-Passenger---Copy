@@ -23,6 +23,7 @@ import {
     type TicketData,
 } from '@/lib/ticketDownload';
 import { formatDateTimeForLang, formatTimeForLang, formatDuration } from '@/utils/date';
+import { SANTIMPAY_PARTNERS } from '@/features/passenger-booking/services/paymentService';
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
@@ -370,7 +371,11 @@ export default function ConfirmationScreen() {
     const rewardsDiscount = booking?.rewardsDiscount ?? 0;
     const totalFare       = booking?.totalFare ?? 0;
 
-    const paymentMethod = flow.selectedPaymentMethod ?? 'Mobile Payment';
+    // 'SantimPay' is the aggregator that routed the charge, not something a
+    // passenger would recognize — show the downstream rail they actually paid
+    // through (Telebirr / CBE Birr / M-Pesa) instead.
+    const partnerInfo   = SANTIMPAY_PARTNERS.find((p) => p.partner === flow.selectedSantimPayPartner);
+    const paymentMethod = partnerInfo?.label ?? flow.selectedPaymentMethod ?? 'Mobile Payment';
     const purchasedAt   = safePurchaseDate(booking?.createdAt, lang);
 
     const receiptProps: ReceiptCardProps = {
