@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
-import { useCreateBooking } from '@/features/passenger-booking/hooks/usePassengerBooking';
+import { useCreateBooking, useRouteBundle } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
 import { bookingService, normalizePhone } from '@/features/passenger-booking/services/bookingService';
 import { toAppError } from '@/features/passenger-booking/utils/errors';
@@ -125,11 +125,23 @@ export default function SummaryScreen() {
         ? Math.round(maxEtbDiscount)
         : 0;
 
-    // Only compute the breakdown when the fare is known from the API.
-    // If the trip has no fare set (new route, pricing not configured yet),
-    // show a "calculated at checkout" placeholder instead of a fake number.
+    // The server now prices a booking by the actual distance from the chosen
+    // boarding point to the destination (sent as pickupLocationId on create),
+    // not a single flat trip-level fare. When a route has more than one
+    // pickup point, the true total can only be known once the booking is
+    // actually created — showing our own flat trip.fare guess here would risk
+    // a mismatch with what payment.tsx shows moments later from the real
+    // server response. With exactly one pickup point there's nothing for the
+    // fare to vary by, so the flat estimate is still accurate.
+    const routeId = f.selectedTrip?.routeId ?? f.selectedTrip?.route?.id ?? f.selectedRoute?.id;
+    const routeBundle = useRouteBundle(routeId);
+    const fareMayVaryByPickup = (routeBundle.data?.pickups?.length ?? 0) > 1;
+
+    // Only compute the breakdown when the fare is both known from the API and
+    // can't still change based on the boarding point. Otherwise show a
+    // "calculated at checkout" placeholder instead of a possibly-wrong number.
     const farePerSeat = f.selectedTrip?.fare;
-    const fareKnown   = farePerSeat != null;
+    const fareKnown   = farePerSeat != null && !fareMayVaryByPickup;
     const fare        = fareKnown
         ? bookingService.calculateFare(f.selectedSeats.length, pointsToRedeem, farePerSeat)
         : null;
@@ -320,7 +332,9 @@ export default function SummaryScreen() {
                     ) : (
                         <View style={styles.fareUnknown}>
                             <Text style={styles.fareUnknownText}>
-                                Fare will be calculated at checkout.{'\n'}
+                                {fareMayVaryByPickup
+                                    ? 'Your fare depends on the boarding point you chose.'
+                                    : 'Fare will be calculated at checkout.'}{'\n'}
                                 The exact amount is shown before you pay.
                             </Text>
                         </View>
