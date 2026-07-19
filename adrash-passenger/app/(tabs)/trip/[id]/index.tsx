@@ -19,7 +19,7 @@ import { useBookingDetail, useRouteBundle } from '@/features/passenger-booking/h
 import type { BookingStatusDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 import { QRCode } from '@/components/QRCode';
 import { saveTicketAsImage, saveTicketAsPDF, type TicketData } from '@/lib/ticketDownload';
-import { formatDateTime, formatTime, formatDuration } from '@/utils/date';
+import { formatDateTime, formatEthiopianDateTime } from '@/utils/date';
 
 // ─── QR display ────────────────────────────────────────────────────────────────
 
@@ -135,11 +135,6 @@ export default function TripDetailScreen() {
         ? [bus.model, bus.plateNumber].filter(Boolean).join('  ·  ') || null
         : null;
     const seatsArr = booking.seatNumbers ?? [];
-    const duration = (() => {
-        const m = trip?.route?.estimatedDurationMin;
-        if (!m || m <= 0) return '';
-        try { return formatDuration(m); } catch { return ''; }
-    })();
 
     // Must be the server-issued, HMAC-signed payload — never the plaintext
     // bookingReference, which is printed right below it on this same card and
@@ -171,9 +166,8 @@ export default function TripDetailScreen() {
             bookingRef:      bk.bookingReference,
             origin,
             destination,
-            departureTime:   depTime,
-            arrivalEstimate: safeFmt(trip?.arrivalEstimate, formatTime),
-            duration,
+            departureTime:      depTime,
+            departureEthiopian: safeFmt(trip?.departureTime, formatEthiopianDateTime),
             driverName,
             busLabel,
             pickup:          pickupName ?? '—',

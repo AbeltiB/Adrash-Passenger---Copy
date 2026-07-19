@@ -1,0 +1,1740 @@
+{
+  "info": {
+    "_postman_id": "adrash-passenger-v1",
+    "name": "Adrash — Passenger App API",
+    "description": "Every endpoint the Adrash passenger mobile app consumes, generated from the .NET controllers.\n\n**Conventions**\n- Base URL: `{{baseUrl}}` (e.g. https://api.adrash.et)\n- Auth: `Authorization: Bearer {{accessToken}}` (collection-level; anonymous endpoints override to no-auth)\n- Envelope: every 2xx is `{ \"success\": true, \"data\": T, \"errors\": [], \"meta\": null | {totalCount,totalPages,currentPage,pageSize} }`\n- Errors: RFC7807 ProblemDetails `{ title, status, detail, code }` — the app-specific code is the top-level `code`\n- JSON is camelCase and **enums serialize as strings** (e.g. \"SantimPay\", \"Passenger\", \"En\")\n- Money: decimal + separate `currency: \"ETB\"`; timestamps ISO-8601 UTC\n\n**Two contract gotchas the client must respect**\n1. `POST /bookings` has **no `seatNumbers`** — seats are server-allocated FCFS; the count comes from `passengerDetails.length`.\n2. Quote `passengerFareEtb`, never `baseFareEtb` (the latter is the driver-side base and under-quotes the customer).\n\nRun order: Auth -> Discovery -> Bookings -> Payments. Test scripts auto-capture tokens and ids into collection variables.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "phone",
+      "value": "+251900000000",
+      "type": "string"
+    },
+    {
+      "key": "otp",
+      "value": "123456",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "deviceToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "deviceId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "routeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tripId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "pickupLocationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "dropoffStopId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bookingId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bookingToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "transactionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "notificationId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Auth (OTP / PIN / devices)",
+      "description": "Phone-OTP only — no passwords. First login: POST otp/send -> otp/verify. Subsequent logins on a trusted device can use pin/verify. Enums serialize as STRINGS (JsonStringEnumConverter, Program.cs:58) and all property names are camelCase.",
+      "item": [
+        {
+          "name": "Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/otp/send",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "otp",
+                "send"
+              ]
+            },
+            "description": "Rate limited per phone. If the phone matches a configured TestAccount bypass phone, no real SMS is sent and the fixed bypass code always verifies.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"sent\": true,\n    \"expiresAt\": \"2026-07-15T10:05:00Z\",\n    \"rateLimited\": false\n  },\n  \"errors\": [],\n  \"meta\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Verify OTP (login)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/otp/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "otp",
+                "verify"
+              ]
+            },
+            "description": "Returns the token pair + user. `isNewUser`/`needsSetup` drive the one-time profile-setup screen. A deviceToken is returned when the device is enrolled — store it for PIN login.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"code\": \"{{otp}}\",\n  \"existingDeviceToken\": null,\n  \"deviceLabel\": \"Pixel 8 - Passenger App\",\n  \"deviceFingerprint\": \"abc123-device-fingerprint\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"tokens\": {\n      \"accessToken\": \"eyJhbGciOiJSUzI1NiIs...\",\n      \"accessTokenExpiresAt\": \"2026-07-15T10:15:00Z\",\n      \"refreshToken\": \"w9Xk...64-byte-opaque\",\n      \"refreshTokenExpiresAt\": \"2026-08-14T10:00:00Z\"\n    },\n    \"user\": {\n      \"id\": \"3f1c...\",\n      \"phone\": \"+251900000000\",\n      \"fullName\": \"\",\n      \"role\": \"Passenger\",\n      \"adminSubRole\": null,\n      \"isVerified\": true,\n      \"preferredLanguage\": \"En\"\n    },\n    \"isNewUser\": true,\n    \"needsSetup\": true,\n    \"agreementRequired\": true,\n    \"requiredAgreementVersion\": \"v1.2\",\n    \"pinSet\": false,\n    \"deviceToken\": \"device-token-opaque\"\n  },\n  \"errors\": [],\n  \"meta\": null\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.data && b.data.tokens) {",
+                  "  pm.collectionVariables.set('accessToken', b.data.tokens.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', b.data.tokens.refreshToken);",
+                  "}",
+                  "if (b.data && b.data.deviceToken) pm.collectionVariables.set('deviceToken', b.data.deviceToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Setup profile (one-time, new account)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/profile/setup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "profile",
+                "setup"
+              ]
+            },
+            "description": "Called once when verify returned needsSetup=true. Sets User.FullName. `role` is optional and only used for driver self-registration — passengers omit it.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Sara\",\n  \"lastName\": \"Mehari\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"user\": {\n      \"id\": \"3f1c...\",\n      \"fullName\": \"Sara Mehari\",\n      \"role\": \"Passenger\"\n    },\n    \"tokens\": null,\n    \"driverProfileId\": null\n  },\n  \"errors\": [],\n  \"meta\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Verify PIN (returning login on trusted device)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/pin/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "pin",
+                "verify"
+              ]
+            },
+            "description": "Three-factor: phone + 6-digit PIN + enrolled device token. Failure codes: Auth.PinNotSet, Auth.DeviceNotTrusted, Auth.PinLocked (5 wrong = 30 min), Auth.InvalidPin, Auth.AccountSuspended.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"pin\": \"123456\",\n  \"deviceToken\": \"{{deviceToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.data && b.data.tokens) {",
+                  "  pm.collectionVariables.set('accessToken', b.data.tokens.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', b.data.tokens.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Setup / change PIN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/pin/setup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "pin",
+                "setup"
+              ]
+            },
+            "description": "currentPin is required only when replacing an existing PIN. 6 digits; trivial sequences (123456/987654) are rejected.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPin\": \"135790\",\n  \"currentPin\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List trusted devices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "devices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke one device",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "devices",
+                "{{deviceId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke all devices",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/devices/revoke-all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "devices",
+                "revoke-all"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh tokens",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Rotates: the old refresh token is revoked and a new pair issued.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.data) {",
+                  "  pm.collectionVariables.set('accessToken', b.data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', b.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get current agreement",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/agreements/current?type=Passenger&lang=En",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "agreements",
+                "current"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "Passenger",
+                  "description": "Passenger | Driver | TicketOfficer"
+                },
+                {
+                  "key": "lang",
+                  "value": "En",
+                  "description": "En | Am | Om"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Accept agreement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/agreements/accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "agreements",
+                "accept"
+              ]
+            },
+            "description": "Required when verify returned agreementRequired=true. Immutable record.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agreementType\": \"Passenger\",\n  \"documentVersion\": \"v1.2\",\n  \"ipAddress\": null,\n  \"deviceInfo\": \"Pixel 8 / Android 15\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Profile",
+      "item": [
+        {
+          "name": "Get me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"3f1c...\",\n    \"phone\": \"+251900000000\",\n    \"fullName\": \"Sara Mehari\",\n    \"role\": \"Passenger\",\n    \"adminSubRole\": null,\n    \"isVerified\": true,\n    \"preferredLanguage\": \"En\"\n  },\n  \"errors\": [],\n  \"meta\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update me",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Phone cannot be changed here — use the phone-change OTP flow below. preferredLanguage: En | Am | Om.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Sara M. Mehari\",\n  \"preferredLanguage\": \"Am\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Request phone change (sends OTP to new number)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me/phone/change-request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "phone",
+                "change-request"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPhone\": \"+251911223344\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm phone change",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me/phone/change-confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "phone",
+                "change-confirm"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPhone\": \"+251911223344\",\n  \"code\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete my account",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Blocked while active bookings exist. Soft-delete + anonymisation."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Discovery (routes, trips, seats)",
+      "description": "Route + trip browsing and the seat map. GET /routes and the seat map are anonymous; the trip list/detail require a bearer token.",
+      "item": [
+        {
+          "name": "List routes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/routes?activeOnly=true&search=&page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "routes"
+              ],
+              "query": [
+                {
+                  "key": "activeOnly",
+                  "value": "true"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "matches origin/destination city",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json(); if (b.data && b.data[0]) pm.collectionVariables.set('routeId', b.data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get route detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/routes/{{routeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "routes",
+                "{{routeId}}"
+              ]
+            },
+            "description": "Public detail used by the passenger booking flow — stops (ordered), pickup locations, polyline.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List route pickup locations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/routes/{{routeId}}/pickup-locations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "routes",
+                "{{routeId}}",
+                "pickup-locations"
+              ]
+            },
+            "description": "Boarding points the passenger picks at booking time. Use one of these ids as pickupLocationId.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json(); if (b.data && b.data[0]) pm.collectionVariables.set('pickupLocationId', b.data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search trips",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/trips?status=Scheduled&routeId={{routeId}}&from=2026-07-15T00:00:00Z&to=2026-07-16T00:00:00Z&search=&page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "trips"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "Scheduled",
+                  "description": "Scheduled | InProgress | Completed | Cancelled"
+                },
+                {
+                  "key": "routeId",
+                  "value": "{{routeId}}"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-07-15T00:00:00Z"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-07-16T00:00:00Z"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "trip code or city",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "IMPORTANT: quote passengers `passengerFareEtb` (per-seat price incl. markup), NOT `baseFareEtb` (driver-side number — would under-quote)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"9a2f...\",\n      \"code\": \"T-X4SDM6\",\n      \"routeId\": \"1b7e...\",\n      \"originCity\": \"Adama\",\n      \"destinationCity\": \"Addis Ababa\",\n      \"departureTime\": \"2026-07-15T08:00:00Z\",\n      \"arrivalEstimate\": \"2026-07-15T10:00:00Z\",\n      \"startedAt\": null,\n      \"status\": \"Scheduled\",\n      \"seatsTotal\": 22,\n      \"seatsAvailable\": 19,\n      \"baseFareEtb\": 600,\n      \"passengerFareEtb\": 700,\n      \"currency\": \"ETB\"\n    }\n  ],\n  \"errors\": [],\n  \"meta\": {\n    \"totalCount\": 1,\n    \"totalPages\": 1,\n    \"currentPage\": 1,\n    \"pageSize\": 20\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json(); if (b.data && b.data[0]) pm.collectionVariables.set('tripId', b.data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get trip detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/trips/{{tripId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "trips",
+                "{{tripId}}"
+              ]
+            },
+            "description": "Passengers get trip info only (no manifest)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get seat map",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/trips/{{tripId}}/seats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "trips",
+                "{{tripId}}",
+                "seats"
+              ]
+            },
+            "description": "Returns ALL seats 1..seatsTotal with a flag (not just free ones). Fields are exactly `seatNumber` (number) and `isBooked` (boolean). A seat counts as booked when a booking row exists with status != Cancelled and != NoShow — Pending (unpaid) bookings DO hold seats. Empty `seats` array only when the assigned bus capacity is 0. Not cached — reads the DB per call.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"totalSeats\": 22,\n    \"seats\": [\n      {\n        \"seatNumber\": 1,\n        \"isBooked\": true\n      },\n      {\n        \"seatNumber\": 2,\n        \"isBooked\": false\n      },\n      {\n        \"seatNumber\": 3,\n        \"isBooked\": false\n      }\n    ]\n  },\n  \"errors\": [],\n  \"meta\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Latest trip location (live tracking)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/trips/{{tripId}}/location/latest",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "trips",
+                "{{tripId}}",
+                "location",
+                "latest"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Trip incidents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/trips/{{tripId}}/incidents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "trips",
+                "{{tripId}}",
+                "incidents"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Bookings",
+      "item": [
+        {
+          "name": "Create booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bookings"
+              ]
+            },
+            "description": "IMPORTANT — seats are NOT chosen by the client. There is no `seatNumbers` field; the server allocates first-come-first-served (lowest-numbered free seats), and the seat COUNT = passengerDetails.length (max 6). Any seatNumbers you send is ignored. Booking is created Pending and holds its seats immediately, before payment. Conflict -> 409 with code \"Booking.SeatNotAvailable\" (messages: \"This trip is sold out.\" / \"Only N seat(s) left...\" / \"Seats were booked concurrently by another request. Please try again.\"). A passenger may hold at most 2 Pending bookings.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"pickupLocationId\": \"{{pickupLocationId}}\",\n  \"dropoffStopId\": \"{{dropoffStopId}}\",\n  \"passengerDetails\": [\n    {\n      \"fullName\": \"Sara Mehari\",\n      \"phone\": \"+251900000000\",\n      \"nextOfKinName\": \"Yonas Mehari\",\n      \"nextOfKinPhone\": \"+251911223344\"\n    }\n  ],\n  \"pointsToRedeem\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"c81d...\",\n    \"bookingRef\": \"ADR7K2M9QX41\",\n    \"status\": \"Pending\",\n    \"passengerId\": \"3f1c...\",\n    \"tripId\": \"9a2f...\",\n    \"routeId\": \"1b7e...\",\n    \"departureTime\": \"2026-07-15T08:00:00Z\",\n    \"originCity\": \"Adama\",\n    \"destinationCity\": \"Addis Ababa\",\n    \"seatNumbers\": [\n      4\n    ],\n    \"pickupLocationId\": \"5d2a...\",\n    \"pickupLocationName\": \"Adama Terminal\",\n    \"dropoffStopId\": \"7c9b...\",\n    \"dropoffStopName\": \"Meskel Square\",\n    \"totalFareEtb\": 700,\n    \"currency\": \"ETB\",\n    \"pointsRedeemed\": 0,\n    \"qrCodeData\": \"ADR7K2M9QX41.9a2f.3f1c.HMACSIG\",\n    \"passengerDetails\": [\n      {\n        \"fullName\": \"Sara Mehari\",\n        \"phoneMasked\": \"******0000\",\n        \"nextOfKinName\": \"Yonas Mehari\",\n        \"nextOfKinPhoneMasked\": \"******3344\"\n      }\n    ],\n    \"payments\": [],\n    \"createdAt\": \"2026-07-15T09:58:00Z\",\n    \"cancelledAt\": null\n  },\n  \"errors\": [],\n  \"meta\": null\n}"
+            },
+            {
+              "name": "409 Seat conflict",
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"title\": \"Booking failed\",\n  \"status\": 409,\n  \"detail\": \"Seats were booked concurrently by another request. Please try again.\",\n  \"code\": \"Booking.SeatNotAvailable\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json(); if (b.data) pm.collectionVariables.set('bookingId', b.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List my bookings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings?status=Confirmed&tripId=&bookingRef=&from=&to=&page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bookings"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "Confirmed",
+                  "description": "Pending | Confirmed | CheckedIn | Completed | Cancelled | NoShow",
+                  "disabled": true
+                },
+                {
+                  "key": "tripId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "bookingRef",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Passengers see only their own bookings; admins see all."
+          },
+          "response": []
+        },
+        {
+          "name": "Get booking detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bookings",
+                "{{bookingId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancellation info (refund preview)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}/cancellation-info",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bookings",
+                "{{bookingId}}",
+                "cancellation-info"
+              ]
+            },
+            "description": "Shows what a cancellation would refund under the active policy, before committing."
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel booking",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bookings",
+                "{{bookingId}}"
+              ]
+            },
+            "description": "Applies the active refund policy. Redeemed points are re-credited. Frees the seats."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Payments",
+      "item": [
+        {
+          "name": "List payment methods (SantimPay partners)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/methods",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "methods"
+              ]
+            },
+            "description": "Wallet options to show in the picker; use the returned partner code as santimPayPartner.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Initiate payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Optional but recommended — makes a double-tap safe. Replays the first response."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/initiate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "initiate"
+              ]
+            },
+            "description": "method is a STRING enum: \"SantimPay\" | \"ADC\" | \"Cash\" (Cash is officer-only). accountRef is the payer wallet phone. Pushes a USSD/app prompt to the payer; the booking stays Pending until the provider webhook confirms it. A second initiate while one is Pending returns 409 Payment.AlreadyInProgress.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"method\": \"SantimPay\",\n  \"accountRef\": \"{{phone}}\",\n  \"santimPayPartner\": \"telebirr\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"transactionId\": \"f0c4...\",\n    \"gatewayRef\": \"SP-88213771\",\n    \"providerInstructions\": \"Approve the payment prompt on your phone.\",\n    \"expiresAt\": \"2026-07-15T10:05:00Z\",\n    \"currency\": \"ETB\"\n  },\n  \"errors\": [],\n  \"meta\": null\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json(); if (b.data) pm.collectionVariables.set('transactionId', b.data.transactionId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify payment (manual re-check)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "verify"
+              ]
+            },
+            "description": "Polls the provider for a Pending transaction — use when the webhook is slow. On success the booking flips to Confirmed.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{transactionId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Rewards",
+      "item": [
+        {
+          "name": "Balance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rewards/balance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rewards",
+                "balance"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"pointsBalance\": 480,\n    \"lifetimeEarned\": 1200,\n    \"lifetimeRedeemed\": 720,\n    \"etbEquivalent\": 48,\n    \"minRedemptionPoints\": 100,\n    \"currency\": \"ETB\"\n  },\n  \"errors\": [],\n  \"meta\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rewards/history?page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rewards",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Referral code",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rewards/referral",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rewards",
+                "referral"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Redeem points against a booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rewards/redeem",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rewards",
+                "redeem"
+              ]
+            },
+            "description": "Must be >= the configured minimum redemption and <= balance. Reversed automatically if the booking is cancelled. You can also redeem inline at booking time via the pointsToRedeem field on POST /bookings.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"pointsToRedeem\": 200\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Notifications",
+      "item": [
+        {
+          "name": "List notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications?isRead=false&page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "isRead",
+                  "value": "false",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark one read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/{{notificationId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "{{notificationId}}",
+                "read"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark all read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/read-all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "read-all"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get preferences",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "preferences"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update preferences",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "preferences"
+              ]
+            },
+            "description": "Body is an ARRAY of preference objects (not wrapped).",
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"channel\": \"Sms\",\n    \"eventType\": \"BOOKING_CONFIRMED\",\n    \"isEnabled\": true\n  },\n  {\n    \"channel\": \"InApp\",\n    \"eventType\": \"TRIP_REMINDER_2H\",\n    \"isEnabled\": false\n  }\n]",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. Reviews & ticket",
+      "item": [
+        {
+          "name": "Submit review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reviews"
+              ]
+            },
+            "description": "score is 1..5. Only for a Completed booking you own, once per booking.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"score\": 5,\n  \"comment\": \"Smooth trip, driver was on time.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reviews?revieweeId=&tripId=&page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reviews"
+              ],
+              "query": [
+                {
+                  "key": "revieweeId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "tripId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Public ticket by token (no auth)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/ticket/{{bookingToken}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "public",
+                "ticket",
+                "{{bookingToken}}"
+              ]
+            },
+            "description": "Shareable ticket view for the short bookingToken returned on the booking. Rate limited; exposes name + seat + departure only.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

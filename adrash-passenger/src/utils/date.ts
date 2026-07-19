@@ -74,3 +74,11 @@ export function formatTimeForLang(iso: string, lang: string): string {
 export function formatDateTimeForLang(iso: string, lang: string): string {
     return `${formatDateForLang(iso, lang)} · ${formatTimeForLang(iso, lang)}`;
 }
+
+/** Always renders in the Ethiopian calendar/clock, regardless of the app's
+ *  current UI language — e.g. 'ሰኞ、ሐምሌ 6 2018 (ኢ.አ.) · 11:40 ጥዋት'. Used on
+ *  receipts to show the local Ethiopian date alongside the primary
+ *  (language-following) departure time, not as a language switch. */
+export function formatEthiopianDateTime(iso: string): string {
+    return `${formatDateForLang(iso, 'am')} · ${formatTimeForLang(iso, 'am')}`;
+}

@@ -43,14 +43,13 @@ function withName(tmpUri: string, stem: string, ext: 'jpg' | 'pdf'): string {
 
 // ── Full receipt data type ────────────────────────────────────────────────────
 export interface TicketData {
-    bookingRef:      string;
-    origin:          string;
-    destination:     string;
-    departureTime:   string;
-    arrivalEstimate: string;
-    duration:        string;
-    driverName:      string | null;
-    busLabel:        string | null;
+    bookingRef:         string;
+    origin:             string;
+    destination:        string;
+    departureTime:      string;
+    departureEthiopian: string;
+    driverName:         string | null;
+    busLabel:           string | null;
     pickup:          string;
     dropoff:         string;
     seats:           string;
@@ -137,18 +136,16 @@ export function buildReceiptHtml(d: TicketData): string {
             : '',
     ].filter(Boolean).join('');
 
-    const durationNote = d.duration ? `  ·  ${esc(d.duration)}` : '';
-
     return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Adrash Receipt — ${esc(d.bookingRef)}</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,Helvetica Neue,Arial,sans-serif;background:#f0f2ef;padding:20px;color:#111}
+body{font-family:-apple-system,Helvetica Neue,Arial,sans-serif;background:#F4F8FB;padding:20px;color:#111}
 .wrap{max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;
       box-shadow:0 4px 24px rgba(0,0,0,.13)}
-.hdr{background:linear-gradient(135deg,#1B4332 0%,#2D6A4F 100%);color:#fff;
+.hdr{background:linear-gradient(135deg,#0C3A5C 0%,#13598A 100%);color:#fff;
      padding:24px 28px 18px;text-align:center}
 .brand{font-size:26px;font-weight:900;letter-spacing:3px}
 .brand-am{font-size:15px;opacity:.8;margin-top:3px;letter-spacing:1px}
@@ -156,14 +153,14 @@ body{font-family:-apple-system,Helvetica Neue,Arial,sans-serif;background:#f0f2e
 .badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.2);
        border-radius:24px;padding:6px 18px;font-size:13px;font-weight:700;margin-top:14px}
 .ref-bar{display:flex;justify-content:space-between;align-items:center;
-         background:#edf7f1;padding:14px 28px;border-bottom:1px solid #d1e7da}
-.ref-l{font-size:10px;font-weight:700;color:#1B4332;letter-spacing:1.2px;text-transform:uppercase}
-.ref-v{font-size:20px;font-weight:900;color:#1B4332;font-family:monospace;letter-spacing:2px;margin-top:3px}
+         background:#E8F2FA;padding:14px 28px;border-bottom:1px solid #CFE3F2}
+.ref-l{font-size:10px;font-weight:700;color:#0C3A5C;letter-spacing:1.2px;text-transform:uppercase}
+.ref-v{font-size:20px;font-weight:900;color:#0C3A5C;font-family:monospace;letter-spacing:2px;margin-top:3px}
 .purch{text-align:right}
 .purch-l{font-size:10px;font-weight:700;color:#888;letter-spacing:1px;text-transform:uppercase}
 .purch-v{font-size:12px;font-weight:600;color:#333;margin-top:3px}
-.route-bar{text-align:center;padding:18px 28px;background:#f9fbfa;border-bottom:1px solid #e8ede9}
-.route{font-size:22px;font-weight:900;color:#1B4332}
+.route-bar{text-align:center;padding:18px 28px;background:#F4F8FB;border-bottom:1px solid #E1EDF5}
+.route{font-size:22px;font-weight:900;color:#0C3A5C}
 .sec{padding:14px 28px;border-bottom:1px solid #eee}
 .sec-t{font-size:10px;font-weight:700;color:#bbb;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px}
 .row{display:flex;justify-content:space-between;align-items:flex-start;
@@ -176,16 +173,16 @@ body{font-family:-apple-system,Helvetica Neue,Arial,sans-serif;background:#f0f2e
        padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:13px}
 .p-row:last-child{border-bottom:none}
 .p-name{color:#111;font-weight:500}
-.p-seat{background:#edf7f1;color:#1B4332;border-radius:6px;padding:2px 8px;
+.p-seat{background:#E8F2FA;color:#0C3A5C;border-radius:6px;padding:2px 8px;
         font-weight:700;font-size:12px;flex-shrink:0;margin-left:8px}
 .fare-sec{padding:14px 28px;border-bottom:1px solid #eee}
 .total-row{display:flex;justify-content:space-between;align-items:center;
-           margin-top:12px;padding-top:12px;border-top:2px solid #1B4332}
+           margin-top:12px;padding-top:12px;border-top:2px solid #0C3A5C}
 .total-lbl{font-size:15px;font-weight:800;color:#111;letter-spacing:.3px}
-.total-val{font-size:22px;font-weight:900;color:#1B4332}
+.total-val{font-size:22px;font-weight:900;color:#0C3A5C}
 .foot{padding:16px 28px;text-align:center;background:#f9f9f9}
 .foot-t{font-size:11px;color:#bbb;line-height:18px}
-.foot-b{font-size:12px;font-weight:700;color:#1B4332;margin-top:6px;letter-spacing:.5px}
+.foot-b{font-size:12px;font-weight:700;color:#0C3A5C;margin-top:6px;letter-spacing:.5px}
 </style>
 </head>
 <body><div class="wrap">
@@ -215,7 +212,7 @@ body{font-family:-apple-system,Helvetica Neue,Arial,sans-serif;background:#f0f2e
 <div class="sec">
   <div class="sec-t">Trip Details</div>
   ${infoRow('Departure', d.departureTime)}
-  <div class="row"><span class="lbl">Arrival (est.)${durationNote}</span><span class="val">${esc(d.arrivalEstimate)}</span></div>
+  ${infoRow('Departure (Ethiopian)', d.departureEthiopian)}
   ${d.driverName ? infoRow('Driver', d.driverName) : ''}
   ${d.busLabel   ? infoRow('Vehicle', d.busLabel)  : ''}
 </div>
