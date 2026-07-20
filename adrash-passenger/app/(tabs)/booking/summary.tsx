@@ -195,7 +195,7 @@ export default function SummaryScreen() {
             passengerDetails:  normalizedPassengers,
         };
 
-        const validationError = bookingService.validateBooking(body, f.selectedPickup, f.selectedDropoff);
+        const validationError = bookingService.validateBooking(body, f.selectedPickup, f.selectedDropoff, routeBundle.data?.stops ?? []);
         if (validationError) { setError(validationError); return; }
 
         try {
