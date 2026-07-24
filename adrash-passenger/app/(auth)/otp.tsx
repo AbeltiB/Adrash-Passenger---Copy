@@ -23,11 +23,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius } from '../../src/constants';
 import { useOtpSend } from '../../src/features/auth/hooks/useOtpSend';
 import { useOtpVerify } from '../../src/features/auth/hooks/useOtpVerify';
+import { isTestLoginNumber } from '../../src/features/auth/config';
 
 const RESEND_SECONDS = 60;
 
 function maskPhone(phone: string): string {
     if (!phone || phone.length < 4) return phone;
+    // Test/reviewer login IDs aren't real phone numbers — showing them
+    // through the +251-masking below would just print a confusing string.
+    if (isTestLoginNumber(phone)) return phone;
     const withoutCountry = phone.startsWith('+251') ? phone.slice(4) : phone;
     if (withoutCountry.length < 3) return phone;
     const last2 = withoutCountry.slice(-2);

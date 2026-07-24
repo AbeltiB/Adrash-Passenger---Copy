@@ -7,7 +7,7 @@
 //     Falls back to a visual timeline when coordinates are unavailable.
 //   • Single-selection card list for boarding points.
 
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import {
     ActivityIndicator,
@@ -22,25 +22,12 @@ import { useTranslation } from 'react-i18next';
 import * as MapLibreGL from '@maplibre/maplibre-react-native';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import { MAP_STYLE_URL, MAP_AVAILABLE } from '@/lib/maps';
+import { MapErrorBoundary } from '@/components/MapErrorBoundary';
 import { StateView } from '@/features/passenger-booking/components/BookingUi';
 import { useRouteBundle } from '@/features/passenger-booking/hooks/usePassengerBooking';
 import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingFlowStore';
 import { assignSequentialSeats, NotEnoughSeatsError } from '@/features/passenger-booking/services/seatAssignment';
 import type { StopDTO } from '@/features/passenger-booking/dtos/bookingDtos';
-
-// ─── Map error boundary (silently hides map on any MapLibre render error) ────
-
-class MapBoundary extends React.Component<
-    { children: React.ReactNode },
-    { failed: boolean }
-> {
-    state = { failed: false };
-    static getDerivedStateFromError() { return { failed: true }; }
-    render() {
-        if (this.state.failed) return null;
-        return this.props.children;
-    }
-}
 
 // ─── Route timeline ───────────────────────────────────────────────────────────
 
@@ -240,7 +227,7 @@ export default function PickupScreen() {
             >
                 {/* ── Route map (MapLibre — no API key needed) ── */}
                 {hasMap ? (
-                    <MapBoundary>
+                    <MapErrorBoundary>
                     <View style={styles.mapCard}>
                         <MapLibreGL.Map
                             style={styles.map}
@@ -311,7 +298,7 @@ export default function PickupScreen() {
                             )}
                         </View>
                     </View>
-                    </MapBoundary>
+                    </MapErrorBoundary>
                 ) : null}
 
                 {/* Route timeline (always visible below map, or as sole fallback) */}

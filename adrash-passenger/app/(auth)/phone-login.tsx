@@ -28,7 +28,7 @@ import { Colors, Spacing, BorderRadius } from '../../src/constants';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
 import { usePinVerify } from '../../src/features/auth/hooks/usePinVerify';
 import { useOtpSend } from '../../src/features/auth/hooks/useOtpSend';
-import { PIN_LOGIN_ENABLED } from '../../src/features/auth/config';
+import { PIN_LOGIN_ENABLED, isTestLoginNumber } from '../../src/features/auth/config';
 import {
     clearAllSecureData,
     getDevicePhone,
@@ -41,12 +41,16 @@ const PIN_LENGTH = 6;
 
 function normalisePhone(raw: string): string {
     const digits = raw.replace(/\D/g, '');
+    // Test/reviewer accounts are sent exactly as typed — they aren't real
+    // Ethiopian numbers, so the usual +251 normalisation doesn't apply.
+    if (isTestLoginNumber(digits)) return digits;
     const local  = digits.startsWith('0') ? digits.slice(1) : digits;
     return `+251${local}`;
 }
 
 function isValidEthiopianPhone(raw: string): boolean {
-    return /^(09|9|07|7)\d{8}$/.test(raw.replace(/\D/g, ''));
+    const digits = raw.replace(/\D/g, '');
+    return /^(09|9|07|7)\d{8}$/.test(digits) || isTestLoginNumber(digits);
 }
 
 function displayPhone(raw: string): string {

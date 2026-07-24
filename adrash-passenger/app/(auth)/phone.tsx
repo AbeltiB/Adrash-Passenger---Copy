@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, BorderRadius } from '../../src/constants';
 import { useOtpSend } from '../../src/features/auth/hooks/useOtpSend';
+import { isTestLoginNumber } from '../../src/features/auth/config';
 
 /**
  * Accepted formats:
@@ -32,13 +33,16 @@ function displayFormat(raw: string): string {
 
 export function normaliseEthiopianPhone(raw: string): string {
   const digits = raw.replace(/\D/g, '');
+  // Test/reviewer accounts are sent exactly as typed — they aren't real
+  // Ethiopian numbers, so the usual +251 normalisation doesn't apply.
+  if (isTestLoginNumber(digits)) return digits;
   const local = stripLeadingZero(digits);
   return `+251${local}`;
 }
 
 function isValidPhone(raw: string): boolean {
   const digits = raw.replace(/\D/g, '');
-  return ETHIOPIAN_PHONE_RE.test(digits);
+  return ETHIOPIAN_PHONE_RE.test(digits) || isTestLoginNumber(digits);
 }
 
 function getErrorMessage(error: unknown): string {

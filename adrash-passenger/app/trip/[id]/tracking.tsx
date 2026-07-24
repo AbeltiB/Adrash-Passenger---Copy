@@ -2,7 +2,7 @@
 // Full-screen live tracking — SignalR primary + GPS polling fallback + SOS.
 // Uses MapLibre (no Google Maps API key required).
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { router, useLocalSearchParams, Redirect } from 'expo-router';
 import {
     ActivityIndicator,
@@ -21,6 +21,7 @@ import { useBookingFlowStore } from '@/features/passenger-booking/store/bookingF
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { startTracking, stopTracking } from '@/lib/signalr';
 import { MAP_STYLE_URL, MAP_AVAILABLE } from '@/lib/maps';
+import { MapErrorBoundary } from '@/components/MapErrorBoundary';
 import type { TripLocationDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -82,6 +83,22 @@ function ETACard({
                 </View>
                 <View style={[styles.liveDot, connectionState === 'connected' && styles.liveDotActive]} />
             </View>
+        </View>
+    );
+}
+
+// ─── Map unavailable fallback ─────────────────────────────────────────────────
+// Shared between "native module isn't present" and "MapLibre threw at runtime"
+// (via MapErrorBoundary below) — the passenger doesn't need to know which.
+
+function MapUnavailable() {
+    return (
+        <View style={[styles.map, styles.mapUnavailable]}>
+            <Text style={styles.mapUnavailableIcon}>🗺️</Text>
+            <Text style={styles.mapUnavailableText}>Live map unavailable</Text>
+            <Text style={styles.mapUnavailableSub}>
+                You can still see ETA and status updates below.
+            </Text>
         </View>
     );
 }
@@ -229,17 +246,26 @@ export default function TrackingScreen() {
         ? [pickup.lng, pickup.lat]
         : [38.7578, 9.0320]; // Addis Ababa
 
-    // Route polyline as GeoJSON LineString
-    const routeGeoJSON = trip?.route?.polyline
-        ? {
-            type: 'Feature' as const,
-            geometry: {
-                type: 'LineString' as const,
-                coordinates: decodePolyline(trip.route.polyline),
-            },
-            properties: {},
-          }
-        : null;
+    // Route polyline as GeoJSON LineString. Guarded: a malformed/truncated
+    // polyline string from the server fed straight into MapLibre as NaN/bad
+    // coordinates is a real, previously-unhandled crash source on this screen.
+    const routeGeoJSON = useMemo(() => {
+        if (!trip?.route?.polyline) return null;
+        try {
+            const coordinates = decodePolyline(trip.route.polyline);
+            const valid = coordinates.length >= 2 && coordinates.every(
+                ([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat),
+            );
+            if (!valid) return null;
+            return {
+                type: 'Feature' as const,
+                geometry: { type: 'LineString' as const, coordinates },
+                properties: {},
+            };
+        } catch {
+            return null;
+        }
+    }, [trip?.route?.polyline]);
 
     // This screen is registered as a top-level Stack.Screen outside (tabs)
     // (see app/_layout.tsx), so it doesn't inherit that group's isAuthenticated
@@ -251,72 +277,68 @@ export default function TrackingScreen() {
         <View style={styles.container}>
             {/* ── Map ── */}
             {MAP_AVAILABLE ? (
-                <MapLibreGL.Map
-                    style={styles.map}
-                    mapStyle={MAP_STYLE_URL}
-                    compass={true}
-                    logo={false}
-                >
-                    <MapLibreGL.Camera
-                        ref={cameraRef}
-                        initialViewState={{ center: initialCoord, zoom: 13 }}
-                    />
+                <MapErrorBoundary fallback={<MapUnavailable />}>
+                    <MapLibreGL.Map
+                        style={styles.map}
+                        mapStyle={MAP_STYLE_URL}
+                        compass={true}
+                        logo={false}
+                    >
+                        <MapLibreGL.Camera
+                            ref={cameraRef}
+                            initialViewState={{ center: initialCoord, zoom: 13 }}
+                        />
 
-                    {/* Route polyline */}
-                    {routeGeoJSON && (
-                        <MapLibreGL.GeoJSONSource id="route-src" data={routeGeoJSON}>
-                            <MapLibreGL.Layer
-                                id="route-line"
-                                type="line"
-                                paint={{ 'line-color': Colors.brand.primary, 'line-width': 4, 'line-opacity': 0.85 }}
-                            />
-                        </MapLibreGL.GeoJSONSource>
-                    )}
+                        {/* Route polyline */}
+                        {routeGeoJSON && (
+                            <MapLibreGL.GeoJSONSource id="route-src" data={routeGeoJSON}>
+                                <MapLibreGL.Layer
+                                    id="route-line"
+                                    type="line"
+                                    paint={{ 'line-color': Colors.brand.primary, 'line-width': 4, 'line-opacity': 0.85 }}
+                                />
+                            </MapLibreGL.GeoJSONSource>
+                        )}
 
-                    {/* Pickup marker */}
-                    {pickup && (
-                        <MapLibreGL.Marker
-                            id="pickup"
-                            lngLat={[pickup.lng, pickup.lat]}
-                        >
-                            <View style={styles.pinOuter}>
-                                <Text style={styles.pinEmoji}>📍</Text>
-                            </View>
-                        </MapLibreGL.Marker>
-                    )}
+                        {/* Pickup marker */}
+                        {pickup && (
+                            <MapLibreGL.Marker
+                                id="pickup"
+                                lngLat={[pickup.lng, pickup.lat]}
+                            >
+                                <View style={styles.pinOuter}>
+                                    <Text style={styles.pinEmoji}>📍</Text>
+                                </View>
+                            </MapLibreGL.Marker>
+                        )}
 
-                    {/* Destination marker */}
-                    {dropoff && (
-                        <MapLibreGL.Marker
-                            id="dropoff"
-                            lngLat={[dropoff.lng, dropoff.lat]}
-                        >
-                            <View style={styles.pinOuter}>
-                                <Text style={styles.pinEmoji}>🏁</Text>
-                            </View>
-                        </MapLibreGL.Marker>
-                    )}
+                        {/* Destination marker */}
+                        {dropoff && (
+                            <MapLibreGL.Marker
+                                id="dropoff"
+                                lngLat={[dropoff.lng, dropoff.lat]}
+                            >
+                                <View style={styles.pinOuter}>
+                                    <Text style={styles.pinEmoji}>🏁</Text>
+                                </View>
+                            </MapLibreGL.Marker>
+                        )}
 
-                    {/* Live bus */}
-                    {position && (
-                        <MapLibreGL.Marker
-                            id="bus"
-                            lngLat={[position.lng, position.lat]}
-                        >
-                            <View style={styles.busMarker}>
-                                <Text style={styles.busMarkerText}>🚌</Text>
-                            </View>
-                        </MapLibreGL.Marker>
-                    )}
-                </MapLibreGL.Map>
+                        {/* Live bus */}
+                        {position && (
+                            <MapLibreGL.Marker
+                                id="bus"
+                                lngLat={[position.lng, position.lat]}
+                            >
+                                <View style={styles.busMarker}>
+                                    <Text style={styles.busMarkerText}>🚌</Text>
+                                </View>
+                            </MapLibreGL.Marker>
+                        )}
+                    </MapLibreGL.Map>
+                </MapErrorBoundary>
             ) : (
-                <View style={[styles.map, styles.mapUnavailable]}>
-                    <Text style={styles.mapUnavailableIcon}>🗺️</Text>
-                    <Text style={styles.mapUnavailableText}>Live map unavailable</Text>
-                    <Text style={styles.mapUnavailableSub}>
-                        You can still see ETA and status updates below.
-                    </Text>
-                </View>
+                <MapUnavailable />
             )}
 
             {/* ── Header overlay ── */}
