@@ -14,7 +14,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Colors, Spacing, BorderRadius, Shadow } from '@/constants';
 import type { BookingDTO, BookingStatusDTO } from '@/features/passenger-booking/dtos/bookingDtos';
 import { useBookings, useRouteBundle } from '@/features/passenger-booking/hooks/usePassengerBooking';
@@ -68,10 +68,14 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
     const hasVehicleInfo = Boolean(driverName ?? busLabel);
 
     const isInProgress = booking.trip?.status === 'InProgress';
+    // Each passenger now has their own individually-verifiable QR (not one
+    // shared per booking) — prefer the first passenger's own code, falling
+    // back to the legacy booking-level field for backward compatibility.
     // Must be the server-issued, HMAC-signed payload — never the plaintext
     // bookingReference, which is printed right below it and could otherwise
     // be used to forge a matching-looking (but unsigned) boarding pass.
-    const qrData = booking.qrCode ?? null;
+    const passengerCount = booking.passengerDetails?.length ?? 1;
+    const qrData = booking.passengerDetails?.[0]?.qrCode ?? booking.qrCode ?? null;
 
     // The booking API only ever returns pickupLocationId (a raw id), never a
     // resolved name — booking.pickupLocation was always going to be empty.
@@ -143,8 +147,15 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
                 </View>
             </View>
 
-            {/* QR code */}
-            {qrData ? (
+            {/* QR code — only shown inline when there's exactly one passenger.
+                A multi-passenger booking has a separate QR per person now
+                (see View ticket); showing just the first one here would look
+                like "the" ticket when it's only one of several. */}
+            {passengerCount > 1 ? (
+                <Text style={styles.multiTicketNote}>
+                    🎫 {passengerCount} separate tickets — open "View ticket" for each passenger's own QR
+                </Text>
+            ) : qrData ? (
                 <QRCode value={qrData} size={100} padding={6} />
             ) : tab === 'upcoming' ? (
                 <Text style={styles.qrPendingText}>QR code not ready yet — pull to refresh shortly.</Text>
@@ -199,7 +210,10 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
 
                 <Pressable
                     style={styles.ghostBtn}
-                    onPress={() => router.push(`/(tabs)/trip/${booking.id}`)}
+                    onPress={() => router.push({
+                        pathname: '/(tabs)/trip/[id]',
+                        params: { id: booking.id, fromTab: tab },
+                    })}
                 >
                     <Text style={styles.ghostBtnText}>View ticket</Text>
                 </Pressable>
@@ -212,7 +226,11 @@ function BookingCard({ booking, tab }: { booking: BookingDTO; tab: Tab }) {
 
 export default function MyTripsTab() {
     const { t: tFn } = useTranslation();
-    const [tab, setTab] = useState<Tab>('upcoming');
+    // "View ticket" passes back the tab it was opened from (see BookingCard
+    // below) so returning from the ticket screen lands back on the same
+    // tab instead of always resetting to Upcoming.
+    const { tab: initialTab } = useLocalSearchParams<{ tab?: Tab }>();
+    const [tab, setTab] = useState<Tab>(initialTab ?? 'upcoming');
     const query = useBookings(TAB_STATUS[tab]);
 
     const bookings = useMemo(
@@ -394,6 +412,7 @@ const styles = StyleSheet.create({
     },
     cancelBtnText: { color: Colors.semantic.error, fontWeight: '700', fontSize: 13 },
     qrPendingText: { color: Colors.text.tertiary, fontSize: 12, fontStyle: 'italic' },
+    multiTicketNote: { color: Colors.text.tertiary, fontSize: 12, fontWeight: '600' },
 
     centred:     { alignItems: 'center', justifyContent: 'center', padding: Spacing['2xl'], gap: Spacing.md },
     emptyIcon:   { fontSize: 44 },

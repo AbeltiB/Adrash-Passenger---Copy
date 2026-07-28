@@ -1,18 +1,17 @@
 // src/features/agreements/types.ts
 // These mirror exactly what the Stage 1 API returns.
 
-export type AgreementType   = 'Passenger' | 'Driver' | 'General';
+import type { ApiLanguage } from '../../../api/types';
 
-// API language codes — capital first letter, matches Accept-Language header
-// values the backend understands.
-export type AgreementLang = 'En' | 'Am' | 'Om';
+export type AgreementType = 'Passenger' | 'Driver' | 'General';
 
-/** Maps our i18n language codes to the API's expected lang param */
-export const LANG_MAP: Record<string, AgreementLang> = {
-    en: 'En',
-    am: 'Am',
-    om: 'Om',
-};
+// Aliased (not just re-exported) so existing call sites in this feature don't
+// need to know the type moved — the canonical language list/mapping now
+// lives in src/lib/languages.ts (previously this file had its own
+// independent copy of the same { en:'En', am:'Am', om:'Om' } mapping, which
+// risked drifting out of sync with the identical copies in the splash
+// screen and the profile screen's language switcher).
+export type AgreementLang = ApiLanguage;
 
 /**
  * Shape returned by GET /auth/agreements/current?type=Passenger&lang=Am

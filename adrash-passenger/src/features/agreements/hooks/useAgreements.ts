@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../../../api/client';
 import { ENDPOINTS } from '../../../api/endpoints';
+import { toApiLanguage } from '../../../lib/languages';
 import {
-    LANG_MAP,
     type AcceptAgreementRequest,
     type AcceptAgreementResponse,
     type AgreementLang,
@@ -20,11 +20,6 @@ export const agreementKeys = {
 };
 
 type AgreementApiRecord = Record<string, unknown>;
-
-function toAgreementLang(language: string | undefined): AgreementLang {
-    const normalized = language?.split('-')[0] ?? 'en';
-    return LANG_MAP[normalized] ?? 'En';
-}
 
 function unwrapData(value: unknown): AgreementApiRecord {
     if (!value || typeof value !== 'object') return {};
@@ -130,27 +125,44 @@ function normalizeAcceptResponse(value: unknown): AcceptAgreementResponse {
 export function useCurrentAgreement() {
     const { i18n } = useTranslation();
 
-    // Map 'en' | 'am' | 'om'  →  'En' | 'Am' | 'Om'
-    const apiLang = toAgreementLang(i18n.resolvedLanguage ?? i18n.language);
+    // Map 'en' | 'am' | 'om' | 'so' | 'ti' | 'ar'  →  'En' | 'Am' | 'Om' | 'So' | 'Ti' | 'Ar'
+    const apiLang = toApiLanguage(i18n.resolvedLanguage ?? i18n.language);
 
     return useQuery<CurrentAgreementDto>({
         queryKey: agreementKeys.current(apiLang),
         queryFn: async () => {
-            const res = await apiClient.get<unknown>(
-                ENDPOINTS.AGREEMENTS.CURRENT,
-                {
-                    params: {
-                        type: 'Passenger',
-                        lang: apiLang,
-                    },
-                },
-            );
-            return normalizeAgreement(res.data, apiLang);
+            try {
+                const res = await apiClient.get<unknown>(
+                    ENDPOINTS.AGREEMENTS.CURRENT,
+                    { params: { type: 'Passenger', lang: apiLang } },
+                );
+                return normalizeAgreement(res.data, apiLang);
+            } catch (err) {
+                // The legal document may not be translated into this UI
+                // language yet even though the app UI itself is — the app's
+                // translated-string coverage and the backend's translated
+                // legal-document coverage are two separate efforts that can
+                // be at different points at any given time. Don't let an
+                // unrecognised lang code strand onboarding entirely; retry
+                // once in English rather than leaving the user stuck on an
+                // error screen with no way to accept and continue.
+                if (apiLang === 'En') throw err;
+                const res = await apiClient.get<unknown>(
+                    ENDPOINTS.AGREEMENTS.CURRENT,
+                    { params: { type: 'Passenger', lang: 'En' } },
+                );
+                return normalizeAgreement(res.data, 'En');
+            }
         },
-        // Cache for 10 minutes — agreements don't change mid-session
+        // Cache for 10 minutes — agreements don't change mid-session.
+        // Deliberately NOT using placeholderData to carry over the previous
+        // language's cached content: doing so showed the OLD language's
+        // legal text immediately (with no loading indicator, since `data`
+        // was already defined) whenever the user switched languages and
+        // came back to this screen, only silently swapping to the correct
+        // text once the new fetch resolved. A brief, honest loading spinner
+        // beats momentarily presenting the wrong language's terms as current.
         staleTime: 10 * 60 * 1_000,
-        // Keep old data visible while refetching (no flash of loading state)
-        placeholderData: (prev) => prev,
     });
 }
 
@@ -179,7 +191,7 @@ export function useAcceptAgreement() {
         onSuccess: () => {
             // Optimistically mark the cached agreement as signed so the UI
             // doesn't re-fetch before navigation completes.
-            const apiLang = toAgreementLang(i18n.resolvedLanguage ?? i18n.language);
+            const apiLang = toApiLanguage(i18n.resolvedLanguage ?? i18n.language);
 
             queryClient.setQueryData<CurrentAgreementDto>(
                 agreementKeys.current(apiLang),

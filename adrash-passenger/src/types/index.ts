@@ -6,7 +6,7 @@ export type { ApiResponse, ApiError, ApiMeta };
 
 // ─── Localisation ─────────────────────────────────────────────────────────────
 /** Supported UI languages */
-export type Language = 'en' | 'am' | 'om';
+export type Language = 'en' | 'am' | 'om' | 'so' | 'ti' | 'ar';
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 

@@ -32,8 +32,10 @@ import {
     useNotificationPreferences,
     useUpdateNotificationPreferences,
 } from '../../src/features/profile/hooks/useNotificationPreferences';
-import type { ApiLanguage, NotificationPreferenceDto } from '../../src/api/types';
+import type { NotificationPreferenceDto } from '../../src/api/types';
+import type { Language } from '../../src/types';
 import { changeLanguage } from '../../src/lib/i18n';
+import { LANGUAGES, toApiLanguage } from '../../src/lib/languages';
 import { MMKVKeys } from '../../src/constants/mmkvKeys';
 import { writeString, readBoolean, writeBoolean } from '../../src/lib/storage';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
@@ -44,16 +46,6 @@ function initials(name: string | null): string {
     if (!name) return '?';
     return name.split(' ').map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase();
 }
-
-const LANG_OPTIONS: { code: ApiLanguage; label: string }[] = [
-    { code: 'En', label: 'English' },
-    { code: 'Am', label: 'አማርኛ' },
-    { code: 'Om', label: 'Afaan Oromoo' },
-];
-
-const LANG_CODE_MAP: Record<ApiLanguage, 'en' | 'am' | 'om'> = {
-    En: 'en', Am: 'am', Om: 'om',
-};
 
 function SectionTitle({ label }: { label: string }) {
     return <Text style={styles.sectionTitle}>{label}</Text>;
@@ -134,6 +126,16 @@ export default function ProfileTab() {
     const { mutate: logout,        isPending: loggingOut  } = useLogout();
     const { mutate: changePin,     isPending: savingPin   } = usePinSetup();
     const setAuthLanguage = useAuthStore((s) => s.setLanguage);
+    // The language actually active right now, client-side — the source of
+    // truth for what to show as "selected" in the picker below. profile's
+    // preferredLanguage (server) is a best-effort sync target for SMS/
+    // notification language, not the same thing: if that sync ever fails
+    // (e.g. the backend doesn't yet recognise a newly-added language code),
+    // profile.preferredLanguage can lag behind reality indefinitely. Driving
+    // the displayed "current language" from it, as before, meant the picker
+    // could show the OLD language as selected even though the app was
+    // already correctly running in the new one.
+    const localLanguage = useAuthStore((s) => s.preferredLanguage);
     const { mutate: deleteAccount, isPending: deleting    } = useDeleteAccount();
 
     const { data: profile, isLoading: profileLoading, error: profileError, refetch } = useProfile();
@@ -219,14 +221,27 @@ export default function ProfileTab() {
         }
     }
 
-    function applyLanguage(lang: ApiLanguage) {
-        if (lang === profile?.preferredLanguage) { setLangPickerOpen(false); return; }
-        const code = LANG_CODE_MAP[lang];
-        void changeLanguage(code);
-        writeString(MMKVKeys.PREFERRED_LANGUAGE, code);
-        setAuthLanguage(code);
+    function applyLanguage(lang: Language) {
+        if (lang === localLanguage) { setLangPickerOpen(false); return; }
+        void changeLanguage(lang);
+        writeString(MMKVKeys.PREFERRED_LANGUAGE, lang);
+        setAuthLanguage(lang);
         setLangPickerOpen(false);
-        updateProfile({ preferredLanguage: lang });
+        updateProfile(
+            { preferredLanguage: toApiLanguage(lang) },
+            {
+                onError: () => {
+                    // The local UI switch already happened and stays in
+                    // effect — rolling it back here would undo something
+                    // the user explicitly asked for just because a
+                    // secondary background sync failed (most likely because
+                    // the backend doesn't recognise this language code yet).
+                    // Surface a soft notice instead of silently leaving the
+                    // account's SMS-language preference out of sync forever.
+                    Alert.alert(t('common.error'), t('profile.language_sync_error'));
+                },
+            },
+        );
     }
 
     function togglePref(pref: NotificationPreferenceDto) {
@@ -289,7 +304,7 @@ export default function ProfileTab() {
 
     const displayName       = profile.fullName ?? profile.phone ?? '—';
     const avatarLetters     = initials(profile.fullName);
-    const currentLangLabel  = LANG_OPTIONS.find((l) => l.code === profile.preferredLanguage)?.label ?? 'English';
+    const currentLangLabel  = LANGUAGES.find((l) => l.code === localLanguage)?.nativeLabel ?? 'English';
 
     // ── PIN phase label ───────────────────────────────────────────────────────
     const pinPhaseLabel = pinPhase === 'current'
@@ -420,20 +435,20 @@ export default function ProfileTab() {
                     </Pressable>
                     {langPickerOpen && (
                         <View style={styles.inlineLangPicker}>
-                            {LANG_OPTIONS.map((l) => (
+                            {LANGUAGES.map((l) => (
                                 <Pressable
                                     key={l.code}
                                     style={[
                                         styles.inlineLangOpt,
-                                        profile.preferredLanguage === l.code && styles.inlineLangOptActive,
+                                        localLanguage === l.code && styles.inlineLangOptActive,
                                     ]}
                                     onPress={() => applyLanguage(l.code)}
                                 >
                                     <Text style={[
                                         styles.inlineLangOptText,
-                                        profile.preferredLanguage === l.code && styles.inlineLangOptTextActive,
+                                        localLanguage === l.code && styles.inlineLangOptTextActive,
                                     ]}>
-                                        {l.label}
+                                        {l.nativeLabel}
                                     </Text>
                                 </Pressable>
                             ))}

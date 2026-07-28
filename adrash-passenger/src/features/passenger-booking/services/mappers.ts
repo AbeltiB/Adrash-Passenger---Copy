@@ -21,7 +21,7 @@
 // These mappers normalize both shapes (flat API + any already-nested legacy
 // payload) so every screen keeps reading trip.fare / booking.totalFare etc.
 
-import type { BookingDTO, BusDTO, DriverDTO, RouteDTO, TripDTO } from '../dtos/bookingDtos';
+import type { BookingDTO, BusDTO, DriverDTO, PassengerDetailDTO, RouteDTO, TripDTO } from '../dtos/bookingDtos';
 
 type Raw = Record<string, unknown>;
 
@@ -102,6 +102,27 @@ export function mapTrip(raw: unknown): TripDTO {
     });
 }
 
+// Each passenger now carries their OWN individually-verifiable boarding QR
+// (confirmed with the backend team — not one shared QR per booking), so a
+// multi-passenger booking can be shown/downloaded/shared as separate
+// receipts per person instead of one combined ticket. Tried under a few
+// plausible field names since this is a newly-added API field; if the live
+// response uses a different name, this is the one place to correct it.
+function mapPassengerDetail(raw: unknown): PassengerDetailDTO {
+    const r = asRaw(raw);
+    return compact<PassengerDetailDTO>({
+        fullName: str(r.fullName) ?? '',
+        // The booking-detail response can return a masked phone
+        // (phoneMasked) instead of the full number even for the booker's
+        // own view of their own booking — show whichever was actually sent.
+        phone: str(r.phone) ?? str(r.phoneMasked) ?? '',
+        nextOfKinName: str(r.nextOfKinName) ?? '',
+        nextOfKinPhone: str(r.nextOfKinPhone) ?? str(r.nextOfKinPhoneMasked) ?? '',
+        qrCode: str(r.qrCode) ?? str(r.qrCodeData) ?? str(r.ticketQrCode) ?? str(r.boardingPassQr),
+        seatNumber: num(r.seatNumber) ?? num(r.seat),
+    });
+}
+
 export function mapBooking(raw: unknown): BookingDTO {
     const r = asRaw(raw);
 
@@ -122,26 +143,41 @@ export function mapBooking(raw: unknown): BookingDTO {
                 })
               : undefined;
 
+    const seatNumbers = Array.isArray(r.seatNumbers) ? (r.seatNumbers as number[]) : [];
+
+    // Fall back to a positional seat (same order the passengers were
+    // submitted in) only for a passenger entry that didn't carry its own
+    // seatNumber — keeps working even before/without that field existing.
+    const passengerDetails = Array.isArray(r.passengerDetails)
+        ? (r.passengerDetails as unknown[]).map((p, i) => {
+              const mapped = mapPassengerDetail(p);
+              const seatNumber = mapped.seatNumber ?? seatNumbers[i];
+              return seatNumber != null ? { ...mapped, seatNumber } : mapped;
+          })
+        : undefined;
+
     return compact<BookingDTO>({
         id: str(r.id) ?? '',
         bookingReference: str(r.bookingReference) ?? str(r.bookingRef) ?? '',
         tripId: str(r.tripId) ?? '',
         status: (r.status as BookingDTO['status']) ?? 'Pending',
-        seatNumbers: Array.isArray(r.seatNumbers) ? (r.seatNumbers as number[]) : [],
+        seatNumbers,
         pickupLocationId: str(r.pickupLocationId),
         dropoffStopId: str(r.dropoffStopId),
         // Final amount the passenger pays. Backend field is totalFareEtb.
         totalFare: num(r.totalFareEtb) ?? num(r.totalFare) ?? 0,
         serviceFee: num(r.serviceFee),
         rewardsDiscount: num(r.rewardsDiscount),
+        // Booking-level QR is kept for backward compatibility (e.g. a
+        // single-passenger booking has no real need for per-passenger
+        // rendering) but the screens now prefer each passenger's own qrCode
+        // — see passengerDetails below.
         qrCode: str(r.qrCode) ?? str(r.qrCodeData),
         expiresAt: str(r.expiresAt),
         createdAt: str(r.createdAt) ?? '',
         updatedAt: str(r.updatedAt),
         trip,
-        passengerDetails: Array.isArray(r.passengerDetails)
-            ? (r.passengerDetails as BookingDTO['passengerDetails'])
-            : undefined,
+        passengerDetails,
         refundStatus: str(r.refundStatus) ?? null,
         hasReview: typeof r.hasReview === 'boolean' ? r.hasReview : undefined,
     });

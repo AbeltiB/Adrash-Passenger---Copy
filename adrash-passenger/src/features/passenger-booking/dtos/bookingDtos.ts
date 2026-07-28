@@ -6,7 +6,12 @@ export interface TripDTO { id: string; routeId: string; departureTime: string; a
 export interface DriverDTO { id?: string; fullName?: string; name?: string; phone?: string; rating?: number; totalTrips?: number; }
 export interface BusDTO { id?: string; plateNumber?: string; model?: string; capacity?: number; amenities?: string[]; }
 export interface SeatDTO { seatNumber: number; isBooked: boolean; }
-export interface PassengerDetailDTO { fullName: string; phone: string; nextOfKinName: string; nextOfKinPhone: string; }
+// qrCode/seatNumber are only ever present on a booking RESPONSE (a specific
+// passenger's own individually-verifiable boarding QR + assigned seat,
+// confirmed with the backend team to exist per-passenger, not just once per
+// booking) — never sent on the CreateBookingDTO request, where they don't
+// exist yet.
+export interface PassengerDetailDTO { fullName: string; phone: string; nextOfKinName: string; nextOfKinPhone: string; qrCode?: string; seatNumber?: number; }
 export interface CreateBookingDTO { tripId: string; seatNumbers: number[]; pickupLocationId: string; dropoffStopId: string; pointsToRedeem: number; passengerDetails: PassengerDetailDTO[]; }
 export type BookingStatusDTO = 'Pending' | 'Confirmed' | 'CheckedIn' | 'Completed' | 'Cancelled' | 'NoShow';
 export interface BookingDTO { id: string; bookingReference: string; tripId: string; status: BookingStatusDTO; seatNumbers: number[]; pickupLocationId?: string; dropoffStopId?: string; pickupLocation?: { id: string; name: string; description?: string } | null; dropoffStop?: { id: string; name: string } | null; totalFare: number; serviceFee?: number; rewardsDiscount?: number; qrCode?: string; expiresAt?: string; createdAt: string; updatedAt?: string; trip?: TripDTO | null; passengerDetails?: PassengerDetailDTO[]; refundStatus?: string | null; hasReview?: boolean; }

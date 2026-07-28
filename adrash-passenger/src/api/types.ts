@@ -18,8 +18,14 @@ export interface PaginationMeta {
     totalPages?: number;
 }
 
-// ─── Language enum (matches API: "En" | "Am" | "Om") ───────────────────────
-export type ApiLanguage = 'En' | 'Am' | 'Om';
+// ─── Language enum ──────────────────────────────────────────────────────────
+// "En" | "Am" | "Om" are confirmed against the live API. "So" | "Ti" | "Ar"
+// are the client's best-effort codes for the 3 newly-added UI languages —
+// the backend (agreements text, profile preferredLanguage / SMS templates)
+// may not recognize them yet. Call sites that send this to the server treat
+// a rejection as "not supported yet" and degrade gracefully rather than
+// assuming these are confirmed — see src/lib/languages.ts.
+export type ApiLanguage = 'En' | 'Am' | 'Om' | 'So' | 'Ti' | 'Ar';
 
 // ─── UserDto (GET /users/me, PATCH /users/me) ───────────────────────────────
 export type UserRole = 'Passenger' | 'Driver' | 'Admin';

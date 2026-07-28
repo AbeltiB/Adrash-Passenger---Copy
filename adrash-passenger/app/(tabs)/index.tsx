@@ -36,6 +36,14 @@ import { MMKVKeys } from '@/constants/mmkvKeys';
 import { readBoolean } from '@/lib/storage';
 import { PIN_LOGIN_ENABLED } from '@/features/auth/config';
 
+// Server-enforced hard cap — seats on a single booking are allocated
+// automatically, one passenger per seat, and the backend rejects a create
+// request past this count regardless of what the vehicle's own total
+// capacity is (a 44-seat bus and a 12-seat van are both still capped at 6
+// per booking). A larger group is expected to book again for the rest, not
+// be blocked here from starting a valid booking for their first 6.
+const MAX_PASSENGERS_PER_BOOKING = 6;
+
 // ─── Avatar menu ──────────────────────────────────────────────────────────────
 
 function getInitials(name: string | null | undefined): string {
@@ -180,6 +188,7 @@ export default function HomeTab() {
     } = useBookingFlowStore();
 
     const [passengerErr, setPassengerErr] = useState<string | null>(null);
+    const atMaxPassengers = passengersCount >= MAX_PASSENGERS_PER_BOOKING;
     // PIN sign-in is off app-wide right now — don't nudge users to set up a
     // PIN that login won't actually use (see auth/config.ts).
     const [pinBannerVisible, setPinBannerVisible] = useState(
@@ -361,20 +370,28 @@ export default function HomeTab() {
                                 </Text>
                             </View>
                             <Pressable
-                                style={styles.counterBtn}
+                                style={[
+                                    styles.counterBtn,
+                                    atMaxPassengers && styles.counterBtnDisabled,
+                                ]}
+                                disabled={atMaxPassengers}
                                 onPress={() => {
-                                    if (passengersCount >= 60) {
-                                        setPassengerErr(t('home.passengers_max_error'));
-                                    } else {
-                                        setSearch({ passengersCount: passengersCount + 1 });
-                                        setPassengerErr(null);
-                                    }
+                                    setSearch({ passengersCount: passengersCount + 1 });
+                                    setPassengerErr(null);
                                 }}
+                                accessibilityState={{ disabled: atMaxPassengers }}
                             >
-                                <Text style={styles.counterBtnText}>+</Text>
+                                <Text style={[
+                                    styles.counterBtnText,
+                                    atMaxPassengers && styles.counterBtnTextDisabled,
+                                ]}>+</Text>
                             </Pressable>
                         </View>
-                        {passengerErr ? <Text style={styles.passengerErr}>{passengerErr}</Text> : null}
+                        {atMaxPassengers ? (
+                            <Text style={styles.passengerHint}>{t('home.passengers_max_error')}</Text>
+                        ) : passengerErr ? (
+                            <Text style={styles.passengerErr}>{passengerErr}</Text>
+                        ) : null}
                     </View>
 
                     {/* Search CTA */}
@@ -621,10 +638,13 @@ const styles = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
     },
     counterBtnText:   { color: '#fff', fontSize: 22, fontWeight: '700', lineHeight: 22 },
+    counterBtnDisabled:     { backgroundColor: Colors.neutral.gray300 },
+    counterBtnTextDisabled: { color: Colors.neutral.gray500 },
     counterValueWrap: { flex: 1, alignItems: 'center' },
     counterValue:     { fontSize: 22, fontWeight: '900', color: Colors.text.primary },
     counterValueLabel:{ fontSize: 11, color: Colors.text.tertiary, fontWeight: '600' },
     passengerErr:     { color: Colors.semantic.error, fontSize: 11, fontWeight: '600', marginTop: 4 },
+    passengerHint:    { color: Colors.text.tertiary, fontSize: 11, fontWeight: '600', marginTop: 4 },
     error:            { color: Colors.semantic.error, fontWeight: '700', fontSize: 12 },
 
     // ── Search button ──

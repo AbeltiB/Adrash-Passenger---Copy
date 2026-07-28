@@ -30,6 +30,8 @@ import ADRASH_LOGO from '../../assets/Logo Adrash one.png';
 import { Colors, Spacing, BorderRadius } from '../../src/constants';
 import { MMKVKeys } from '../../src/constants/mmkvKeys';
 import { changeLanguage } from '../../src/lib/i18n';
+import { LANGUAGES, toApiLanguage } from '../../src/lib/languages';
+import type { Language } from '../../src/types';
 import { writeString } from '../../src/lib/storage';
 import { useAuthStore } from '../../src/features/auth/store/authStore';
 import { apiClient, refreshAccessToken } from '../../src/api/client';
@@ -41,22 +43,19 @@ import {
     isTokenExpired,
 } from '../../src/features/auth/utils/token';
 
-type Lang = 'en' | 'am' | 'om';
-
-// Maps i18n language codes to the format the agreements API expects
-const AGREEMENT_LANG: Record<string, 'En' | 'Am' | 'Om'> = {
-    en: 'En', am: 'Am', om: 'Om',
-};
-
-const LANGUAGES: { code: Lang; native: string; label: string }[] = [
-    { code: 'en', native: 'English',      label: 'English'  },
-    { code: 'am', native: 'አማርኛ',         label: 'Amharic'  },
-    { code: 'om', native: 'Afaan Oromoo', label: 'Oromiffa' },
-];
-
 export default function SplashScreen() {
-    const { t } = useTranslation();
-    const [selected, setSelected] = useState<Lang>('en');
+    const { t, i18n } = useTranslation();
+    // Seeded from the language actually active right now (i18n is the live
+    // source of truth), not a hardcoded default. Previously this always
+    // started at 'en' on every mount — harmless the first time the app ever
+    // opens, but wrong the moment this screen is revisited (e.g. the user
+    // picks Amharic, moves on to the agreement screen, taps "I do not
+    // agree", and lands back here): the app was still correctly running in
+    // Amharic, but the radio list showed English selected because this local
+    // state silently reset while the real language didn't.
+    const [selected, setSelected] = useState<Language>(() => (
+        (i18n.resolvedLanguage ?? i18n.language) as Language
+    ) || 'en');
     const [checking, setChecking] = useState(true);
 
     const hasAcceptedAgreement = useAuthStore((s) => s.hasAcceptedAgreement);
@@ -90,7 +89,7 @@ export default function SplashScreen() {
         // the user last accepted. On any network error let them in —
         // the 403 interceptor will catch it on the next request.
         try {
-            const lang = AGREEMENT_LANG[preferredLanguage] ?? 'En';
+            const lang = toApiLanguage(preferredLanguage);
             const res  = await apiClient.get<unknown>(
                 ENDPOINTS.AGREEMENTS.CURRENT,
                 { params: { type: 'Passenger', lang } },
@@ -180,7 +179,7 @@ export default function SplashScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const handleSelectLanguage = useCallback(async (lang: Lang) => {
+    const handleSelectLanguage = useCallback(async (lang: Language) => {
         setSelected(lang);
         await changeLanguage(lang);
         writeString(MMKVKeys.PREFERRED_LANGUAGE, lang);
@@ -226,7 +225,7 @@ export default function SplashScreen() {
                             accessibilityLabel={l.label}
                         >
                             <Text style={[styles.langText, active && styles.langTextActive]}>
-                                {l.native}
+                                {l.nativeLabel}
                             </Text>
                             {active && <Text style={styles.check}>✓</Text>}
                         </Pressable>

@@ -17,7 +17,7 @@
     "@tanstack/react-query": "^5.100.8",
     "axios": "^1.16.0",
     "date-fns": "^4.1.0",
-    "expo": "~54.0.35",
+    "expo": "~54.0.36",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "~6.0.21",
     "expo-linking": "~8.0.12",
@@ -61,7 +61,9 @@
       "origin": false
     },
     "install": {
-      "exclude": ["eslint-config-expo"]
+      "exclude": [
+        "eslint-config-expo"
+      ]
     }
   },
   "overrides": {

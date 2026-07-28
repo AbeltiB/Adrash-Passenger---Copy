@@ -116,7 +116,7 @@
         "date_time": "GUYYAA FI YEROO",
         "passengers": "KONKOLAATAA",
         "passengers_min_error": "Xiqqaa nama 1 barbaachisaa",
-        "passengers_max_error": "Heddumminni namaa 60 ni gaha",
+        "passengers_max_error": "Galmee tokkoof hedduun namaa 6 qofa. Teessoo dabalataa barbaaddaa? Warra hafeef irra deebi'ii galmaa'aa.",
         "search_trips": "Imala Barbaadi",
         "origin_destination_same": "Ka'umsi fi galmeen adda ta'uu qabu.",
         "matching_routes": "Karaalee walfakkaatan",
@@ -334,7 +334,8 @@
         "pin_changed": "PIN milkaa'inaan haaromfame",
         "pin_wrong": "PIN ammaa sirrii miti. Irra deebi'i yaali.",
         "terms_conditions": "Seeraa fi Iccitii",
-        "terms_conditions_sub": "Seerota keenya fi iccitii dhuunfaa dubbiifadhu"
+        "terms_conditions_sub": "Seerota keenya fi iccitii dhuunfaa dubbiifadhu",
+        "language_sync_error": "Filannoo afaan kee giddu-galeessa keetti olkaa'uu hin dandeenye — beeksisonni SMS hanga kun sirraa'utti afaan duraanii tiin dhufuu danda'u. Appiin ammaan tana afaan haaraa keetiin hojjechaa jira."
     },
     "errors": {
         "generic": "Wanti tokko dogoggore. Irra deebi'i yaali.",

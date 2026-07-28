@@ -116,7 +116,7 @@
         "date_time": "ቀን እና ሰዓት",
         "passengers": "ተሳፋሪዎች",
         "passengers_min_error": "ቢያንስ 1 ተሳፋሪ ያስፈልጋል",
-        "passengers_max_error": "ከፍተኛ 60 ተሳፋሪዎች",
+        "passengers_max_error": "በአንድ ምዝገባ ከፍተኛ 6 ተሳፋሪዎች ብቻ። ተጨማሪ መቀመጫ ይፈልጋሉ? ለቀሪው ቡድንዎ እንደገና ይመዝገቡ።",
         "search_trips": "ጉዞ ፈልግ",
         "origin_destination_same": "መነሻ እና መድረሻ ሊለያዩ ይገባቸዋል።",
         "matching_routes": "ተዛማጅ መስመሮች",
@@ -334,7 +334,8 @@
         "pin_changed": "ፒን በተሳካ ሁኔታ ተዘምኗል",
         "pin_wrong": "ያሁኑ ፒን ትክክል አይደለም። እንደገና ይሞክሩ።",
         "terms_conditions": "ውሎች እና ፖሊሲ",
-        "terms_conditions_sub": "ውሎቻችን እና የግላዊነት ፖሊሲ ያንብቡ"
+        "terms_conditions_sub": "ውሎቻችን እና የግላዊነት ፖሊሲ ያንብቡ",
+        "language_sync_error": "የቋንቋ ምርጫዎ ወደ መለያዎ ሊቀመጥ አልቻለም — የSMS ማሳወቂያዎች ይህ እስኪስተካከል ድረስ በቀድሞው ቋንቋ ሊደርሱ ይችላሉ። መተግበሪያው አሁን በአዲሱ ቋንቋዎ እየሰራ ነው።"
     },
     "errors": {
         "generic": "ችግር ተፈጥሯል። እንደገና ይሞክሩ።",

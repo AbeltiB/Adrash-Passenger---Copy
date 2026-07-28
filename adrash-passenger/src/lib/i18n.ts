@@ -4,16 +4,14 @@ import { initReactI18next } from 'react-i18next';
 import en from '../../assets/locales/en.json';
 import am from '../../assets/locales/am.json';
 import om from '../../assets/locales/om.json';
+import so from '../../assets/locales/so.json';
+import ti from '../../assets/locales/ti.json';
+import ar from '../../assets/locales/ar.json';
 import type { Language } from '../types';
+import { DEFAULT_LANGUAGE, LANGUAGES } from './languages';
 
-// Default language — will be overridden by stored preference
-const DEFAULT_LANGUAGE: Language = 'en';
-
-export const SUPPORTED_LANGUAGES = [
-  { code: 'en' as const, label: 'English', nativeLabel: 'English' },
-  { code: 'am' as const, label: 'Amharic', nativeLabel: 'አማርኛ' },
-  { code: 'om' as const, label: 'Oromiffa', nativeLabel: 'Afaan Oromoo' },
-];
+// Re-exported for existing call sites; canonical list now lives in languages.ts.
+export const SUPPORTED_LANGUAGES = LANGUAGES;
 
 /**
  * Initialise i18next once at app startup.
@@ -41,6 +39,9 @@ export function initI18n(savedLanguage?: string): void {
       en: { translation: en },
       am: { translation: am },
       om: { translation: om },
+      so: { translation: so },
+      ti: { translation: ti },
+      ar: { translation: ar },
     },
     interpolation: {
       escapeValue: false,

@@ -237,7 +237,12 @@ export default function ResultsScreen() {
         return [...visible].sort((a, b) => {
             if (sort === 'earliest') return +new Date(a.departureTime) - +new Date(b.departureTime);
             if (sort === 'cheapest') return (a.fare ?? 999999) - (b.fare ?? 999999);
-            return (b.availableSeats ?? 999) - (a.availableSeats ?? 999);
+            // Unknown seat count must sort as worst-case (below even a
+            // confirmed 0), the same way unknown fare above sorts as most
+            // expensive — not sort to the TOP of "Most seats" as if absence
+            // of data meant abundance. -1 is below any real availableSeats
+            // value (which is never negative).
+            return (b.availableSeats ?? -1) - (a.availableSeats ?? -1);
         });
     }, [query.data, sort, flow.selectedRoute, flow.origin, flow.destination]);
 

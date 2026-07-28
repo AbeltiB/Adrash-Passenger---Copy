@@ -1,9 +1,15 @@
 // app/(tabs)/booking/confirmation.tsx
-// Booking confirmed — full receipt screen with image + PDF download.
+// Booking confirmed — one full receipt PER PASSENGER, each independently
+// downloadable/shareable. Confirmed with the backend team: every passenger
+// on a booking has their own individually-verifiable boarding QR (not one
+// QR shared across the whole booking), since a group can split up and board
+// at different pickup points. Payment stays a single shared transaction —
+// only the boarding pass is per-person.
 
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
+import type { RefObject } from 'react';
 import {
     ActivityIndicator,
     Pressable,
@@ -65,30 +71,34 @@ const rowStyles = StyleSheet.create({
     value: { color: '#111827', fontSize: 13, fontWeight: '700', textAlign: 'right', flex: 1 },
 });
 
-// ── Receipt card (full, capturable) ──────────────────────────────────────────
+// ── Receipt card (full, capturable) — ONE passenger's own boarding pass ──────
 
 interface ReceiptCardProps {
-    bookingRef:      string;
-    qrData:          string | null;
-    origin:          string;
-    destination:     string;
+    bookingRef:         string;
+    qrData:             string | null;
+    passengerName:      string;
+    passengerIndex:     number;
+    passengerCount:     number;
+    seat:               string;
+    origin:             string;
+    destination:        string;
     departureTime:      string;
     departureEthiopian: string;
     driverName:         string | null;
-    busLabel:        string | null;
-    pickup:          string;
-    dropoff:         string;
-    seats:           string;
-    passengers:      Array<{ name: string; phone: string; seat: string }>;
-    subtotal:        number;
-    serviceFee:      number;
-    rewardsDiscount: number;
-    totalFare:       number;
-    paymentMethod:   string;
-    purchasedAt:     string;
+    busLabel:           string | null;
+    pickup:             string;
+    dropoff:            string;
+    subtotal:           number;
+    serviceFee:         number;
+    rewardsDiscount:    number;
+    totalFare:          number;
+    paymentMethod:      string;
+    purchasedAt:        string;
 }
 
 function ReceiptCard(p: ReceiptCardProps) {
+    const isGroup = p.passengerCount > 1;
+
     return (
         <View style={rcStyles.card}>
             {/* Brand header */}
@@ -99,6 +109,13 @@ function ReceiptCard(p: ReceiptCardProps) {
                 <View style={rcStyles.badge}>
                     <Text style={rcStyles.badgeText}>✓  BOOKING CONFIRMED</Text>
                 </View>
+                {isGroup && (
+                    <View style={rcStyles.groupBadge}>
+                        <Text style={rcStyles.groupBadgeText}>
+                            Passenger {p.passengerIndex} of {p.passengerCount}
+                        </Text>
+                    </View>
+                )}
             </View>
 
             {/* Ref + purchase date */}
@@ -118,13 +135,21 @@ function ReceiptCard(p: ReceiptCardProps) {
                 <Text style={rcStyles.routeText}>{p.origin}  →  {p.destination}</Text>
             </View>
 
-            {/* QR code — only ever the server-issued signed payload, never a
-                fallback built from the booking reference printed above. */}
+            {/* This passenger + seat */}
+            <View style={rcStyles.passengerBar}>
+                <Text style={rcStyles.passengerName}>{p.passengerName}</Text>
+                <Text style={rcStyles.passengerSeat}>Seat {p.seat}</Text>
+            </View>
+
+            {/* QR code — only ever this passenger's own server-issued,
+                HMAC-signed payload, never a fallback built from the booking
+                reference printed above (forgeable) or another passenger's
+                QR (would board the wrong person). */}
             <View style={rcStyles.qrSection}>
                 {p.qrData ? (
                     <>
                         <QRCode value={p.qrData} size={180} padding={10} />
-                        <Text style={rcStyles.qrPrompt}>Show to your driver at boarding</Text>
+                        <Text style={rcStyles.qrPrompt}>This passenger's own boarding pass — show at boarding</Text>
                     </>
                 ) : (
                     <View style={rcStyles.qrPending}>
@@ -150,34 +175,16 @@ function ReceiptCard(p: ReceiptCardProps) {
                 <Text style={rcStyles.secTitle}>BOARDING</Text>
                 <InfoRow label="Pickup point" value={p.pickup}  />
                 <InfoRow label="Drop-off"     value={p.dropoff} />
-                <InfoRow label="Seat(s)"      value={p.seats}   />
             </View>
 
-            {/* Passengers */}
-            {p.passengers.length > 0 && (
-                <View style={rcStyles.section}>
-                    <Text style={rcStyles.secTitle}>
-                        PASSENGERS ({p.passengers.length})
-                    </Text>
-                    {p.passengers.map((ps, i) => (
-                        <View key={i} style={rcStyles.paxRow}>
-                            <Text style={rcStyles.paxName}>
-                                {i + 1}.  {ps.name}
-                            </Text>
-                            <View style={rcStyles.seatBadge}>
-                                <Text style={rcStyles.seatBadgeText}>Seat {ps.seat}</Text>
-                            </View>
-                        </View>
-                    ))}
-                </View>
-            )}
-
-            {/* Fare */}
+            {/* Fare — shared across the whole booking, paid as one transaction */}
             <View style={rcStyles.section}>
-                <Text style={rcStyles.secTitle}>FARE BREAKDOWN</Text>
+                <Text style={rcStyles.secTitle}>
+                    {isGroup ? `FARE BREAKDOWN — GROUP TOTAL (${p.passengerCount} PASSENGERS)` : 'FARE BREAKDOWN'}
+                </Text>
                 {p.subtotal > 0 && (
                     <InfoRow
-                        label={`Fare (${p.passengers.length} seat${p.passengers.length !== 1 ? 's' : ''})`}
+                        label={`Fare (${p.passengerCount} seat${p.passengerCount !== 1 ? 's' : ''})`}
                         value={`ETB ${p.subtotal.toFixed(2)}`}
                     />
                 )}
@@ -193,9 +200,10 @@ function ReceiptCard(p: ReceiptCardProps) {
                     </View>
                 )}
                 <View style={rcStyles.totalRow}>
-                    <Text style={rcStyles.totalLabel}>TOTAL PAID</Text>
+                    <Text style={rcStyles.totalLabel}>{isGroup ? 'TOTAL PAID (WHOLE GROUP)' : 'TOTAL PAID'}</Text>
                     <Text style={rcStyles.totalValue}>ETB {p.totalFare.toFixed(2)}</Text>
                 </View>
+                {isGroup && <InfoRow label="Paid together as" value="One transaction" />}
             </View>
 
             {/* Payment */}
@@ -211,7 +219,8 @@ function ReceiptCard(p: ReceiptCardProps) {
             {/* Footer */}
             <View style={rcStyles.footer}>
                 <Text style={rcStyles.footerText}>
-                    Present your QR code or reference number when boarding.
+                    This is {p.passengerName}'s official Adrash digital travel receipt.{'\n'}
+                    Present this QR code or the booking reference when boarding.
                 </Text>
                 <Text style={rcStyles.footerBrand}>ADRASH  ·  አድራሽ  ·  adrash.et</Text>
             </View>
@@ -237,6 +246,11 @@ const rcStyles = StyleSheet.create({
         borderRadius: 24, paddingVertical: 5, paddingHorizontal: 18, marginTop: 10,
     },
     badgeText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+    groupBadge: {
+        backgroundColor: 'rgba(255,255,255,0.14)',
+        borderRadius: 24, paddingVertical: 4, paddingHorizontal: 14, marginTop: 8,
+    },
+    groupBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 
     refBar: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -257,11 +271,19 @@ const rcStyles = StyleSheet.create({
     },
     routeText: { color: BLUE, fontSize: 18, fontWeight: '900' },
 
+    passengerBar: {
+        paddingVertical: 12, paddingHorizontal: 20,
+        alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+        backgroundColor: '#fff',
+    },
+    passengerName: { color: '#111827', fontSize: 16, fontWeight: '800' },
+    passengerSeat: { color: BLUE, fontSize: 12, fontWeight: '700', marginTop: 2 },
+
     qrSection: {
         paddingVertical: 20, alignItems: 'center', gap: 10,
         backgroundColor: '#fff',
     },
-    qrPrompt: { color: '#6B7280', fontSize: 12, fontWeight: '600' },
+    qrPrompt: { color: '#6B7280', fontSize: 12, fontWeight: '600', textAlign: 'center', paddingHorizontal: 20 },
     qrPending: {
         width: 180, height: 180, borderRadius: 12,
         borderWidth: 1.5, borderColor: '#E5E7EB', borderStyle: 'dashed',
@@ -284,16 +306,6 @@ const rcStyles = StyleSheet.create({
         letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8,
     },
 
-    paxRow: {
-        flexDirection: 'row', justifyContent: 'space-between',
-        alignItems: 'center', paddingVertical: 6,
-        borderBottomWidth: 1, borderBottomColor: '#F5F5F5',
-    },
-    paxName:      { color: '#111827', fontWeight: '500', fontSize: 13 },
-    seatBadge:    { backgroundColor: '#E8F2FA', borderRadius: 6,
-                    paddingVertical: 2, paddingHorizontal: 8 },
-    seatBadgeText:{ color: BLUE, fontWeight: '700', fontSize: 12 },
-
     totalRow: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
         marginTop: 10, paddingTop: 10,
@@ -312,6 +324,8 @@ const rcStyles = StyleSheet.create({
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
+type DownloadState = { index: number; kind: 'image' | 'pdf' } | null;
+
 export default function ConfirmationScreen() {
     const { i18n }       = useTranslation();
     const lang           = i18n.language ?? 'en';
@@ -320,13 +334,6 @@ export default function ConfirmationScreen() {
     const { data: liveBooking } = useBookingDetail(storedBooking?.id);
     const booking = liveBooking ?? storedBooking;
 
-    // The QR must be the server-issued, HMAC-signed payload (booking.qrCode).
-    // It must NEVER fall back to the plaintext booking reference — that value
-    // is also printed on this same screen, so anyone who reads or photographs
-    // it could regenerate an identical-looking QR and forge a boarding pass.
-    // When qrCode isn't present yet, qrData is left null and the QR section
-    // shows a "not ready" state instead (see below) rather than a fake code.
-    const qrData      = booking?.qrCode ?? null;
     const bookingRef  = booking?.bookingReference ?? '—';
     const origin      = flow.origin || booking?.trip?.route?.originCity || '—';
     const destination = flow.destination || booking?.trip?.route?.destinationCity || '—';
@@ -343,20 +350,10 @@ export default function ConfirmationScreen() {
     const pickup  = booking?.pickupLocation?.name ?? flow.selectedPickup?.name ?? '—';
     const dropoff = booking?.dropoffStop?.name ?? flow.selectedDropoff?.name ?? '—';
 
-    const seatsArr  = booking?.seatNumbers?.length ? booking.seatNumbers : flow.selectedSeats;
-    const seats     = seatsArr.join(', ') || '—';
+    const seatsArr = booking?.seatNumbers?.length ? booking.seatNumbers : flow.selectedSeats;
 
-    const paxRaw   = booking?.passengerDetails?.length
-                        ? booking.passengerDetails
-                        : flow.passengerDetails;
-    const passengers = paxRaw.map((p, i) => ({
-        name:  p.fullName,
-        phone: p.phone ?? '',
-        seat:  String(seatsArr[i] ?? '—'),
-    }));
-
-    const subtotal       = Math.max(0, (booking?.totalFare ?? 0) - (booking?.serviceFee ?? 0) + (booking?.rewardsDiscount ?? 0));
-    const serviceFee     = booking?.serviceFee     ?? 0;
+    const subtotal        = Math.max(0, (booking?.totalFare ?? 0) - (booking?.serviceFee ?? 0) + (booking?.rewardsDiscount ?? 0));
+    const serviceFee      = booking?.serviceFee     ?? 0;
     const rewardsDiscount = booking?.rewardsDiscount ?? 0;
     const totalFare       = booking?.totalFare ?? 0;
 
@@ -367,63 +364,88 @@ export default function ConfirmationScreen() {
     const paymentMethod = partnerInfo?.label ?? flow.selectedPaymentMethod ?? 'Mobile Payment';
     const purchasedAt   = safePurchaseDate(booking?.createdAt, lang);
 
-    const receiptProps: ReceiptCardProps = {
+    const departureTime      = safeFormatDateTime(trip?.departureTime, lang);
+    const departureEthiopian = safeFormatEthiopian(trip?.departureTime);
+
+    // Each passenger already carries their own qrCode/seatNumber once the
+    // booking is Confirmed (see mapBooking); before that (or if the live
+    // query hasn't resolved yet), fall back to the flow store's own
+    // passenger list from just before submission, which has neither field
+    // yet — the "QR not ready" state on each card handles that gracefully.
+    const paxRaw = booking?.passengerDetails?.length ? booking.passengerDetails : flow.passengerDetails;
+    const passengerCount = paxRaw.length;
+
+    const receipts: ReceiptCardProps[] = paxRaw.map((p, i) => ({
         bookingRef,
-        qrData,
+        qrData: p.qrCode ?? null,
+        passengerName: p.fullName || `Passenger ${i + 1}`,
+        passengerIndex: i + 1,
+        passengerCount,
+        seat: String(p.seatNumber ?? seatsArr[i] ?? '—'),
         origin,
         destination,
-        departureTime:      safeFormatDateTime(trip?.departureTime, lang),
-        departureEthiopian: safeFormatEthiopian(trip?.departureTime),
+        departureTime,
+        departureEthiopian,
         driverName,
         busLabel,
         pickup,
         dropoff,
-        seats,
-        passengers,
         subtotal,
         serviceFee,
         rewardsDiscount,
         totalFare,
         paymentMethod,
         purchasedAt,
-    };
+    }));
 
-    const ticketRef = useRef<View>(null);
-    const [downloading, setDownloading] = useState<'image' | 'pdf' | null>(null);
+    const ticketRefs = useRef<(View | null)[]>([]);
+    const [downloading, setDownloading] = useState<DownloadState>(null);
 
     function done() {
         flow.resetFlow();
         router.replace('/(tabs)/my-trips');
     }
 
-    async function downloadImage() {
-        if (!ticketRef.current) return;
-        setDownloading('image');
+    async function downloadImage(index: number) {
+        const node = ticketRefs.current[index];
+        if (!node) return;
+        setDownloading({ index, kind: 'image' });
         try {
-            await saveTicketAsImage(ticketRef, origin, destination);
+            await saveTicketAsImage(
+                { current: node } as RefObject<View>,
+                bookingRef,
+                receipts[index]?.passengerName ?? '',
+                origin,
+                destination,
+            );
         } finally {
             setDownloading(null);
         }
     }
 
-    async function downloadPDF() {
-        setDownloading('pdf');
+    async function downloadPDF(index: number) {
+        const r = receipts[index];
+        if (!r) return;
+        setDownloading({ index, kind: 'pdf' });
         const data: TicketData = {
             bookingRef,
+            passengerName:      r.passengerName,
+            passengerIndex:     r.passengerIndex,
+            passengerCount:     r.passengerCount,
+            seat:               r.seat,
+            qrCode:             r.qrData,
             origin,
             destination,
-            departureTime:      safeFormatDateTime(trip?.departureTime, lang),
-            departureEthiopian: safeFormatEthiopian(trip?.departureTime),
+            departureTime,
+            departureEthiopian,
             driverName,
             busLabel,
             pickup,
             dropoff,
-            seats,
             subtotal,
             serviceFee,
             rewardsDiscount,
             totalFare,
-            passengers,
             paymentMethod,
             purchasedAt,
         };
@@ -481,37 +503,53 @@ export default function ConfirmationScreen() {
                     </View>
                     <Text style={styles.title}>Booking Confirmed!</Text>
                     <Text style={styles.subtitle}>
-                        Your ticket is ready. Show the QR code to board your bus.
+                        {passengerCount > 1
+                            ? `${passengerCount} tickets are ready — each passenger has their own QR code below.`
+                            : 'Your ticket is ready. Show the QR code to board your bus.'}
                     </Text>
 
-                    {/* ── Full receipt card (captured for image) ── */}
-                    <View ref={ticketRef} collapsable={false}>
-                        <ReceiptCard {...receiptProps} />
-                    </View>
+                    {/* ── One full receipt per passenger, each independently
+                          downloadable — a group can split up and board at
+                          different pickup points, so each person needs their
+                          own boarding pass, not one shared QR. ── */}
+                    {receipts.map((receipt, i) => {
+                        const isDownloadingThis = (kind: 'image' | 'pdf') =>
+                            downloading?.index === i && downloading.kind === kind;
 
-                    {/* ── Download buttons ── */}
-                    <View style={styles.downloadRow}>
-                        <Pressable
-                            style={[styles.dlBtn, downloading === 'image' && styles.dlBtnDisabled]}
-                            onPress={() => void downloadImage()}
-                            disabled={downloading !== null}
-                        >
-                            {downloading === 'image'
-                                ? <ActivityIndicator color={Colors.brand.primary} size="small" />
-                                : <Text style={styles.dlBtnText}>⬇  Save as Image</Text>
-                            }
-                        </Pressable>
-                        <Pressable
-                            style={[styles.dlBtn, downloading === 'pdf' && styles.dlBtnDisabled]}
-                            onPress={() => void downloadPDF()}
-                            disabled={downloading !== null}
-                        >
-                            {downloading === 'pdf'
-                                ? <ActivityIndicator color={Colors.brand.primary} size="small" />
-                                : <Text style={styles.dlBtnText}>⬇  Save as PDF</Text>
-                            }
-                        </Pressable>
-                    </View>
+                        return (
+                            <View key={`${receipt.passengerName}-${i}`} style={styles.receiptBlock}>
+                                <View
+                                    ref={(r) => { ticketRefs.current[i] = r; }}
+                                    collapsable={false}
+                                >
+                                    <ReceiptCard {...receipt} />
+                                </View>
+
+                                <View style={styles.downloadRow}>
+                                    <Pressable
+                                        style={[styles.dlBtn, isDownloadingThis('image') && styles.dlBtnDisabled]}
+                                        onPress={() => void downloadImage(i)}
+                                        disabled={downloading !== null}
+                                    >
+                                        {isDownloadingThis('image')
+                                            ? <ActivityIndicator color={Colors.brand.primary} size="small" />
+                                            : <Text style={styles.dlBtnText}>⬇  Save as Image</Text>
+                                        }
+                                    </Pressable>
+                                    <Pressable
+                                        style={[styles.dlBtn, isDownloadingThis('pdf') && styles.dlBtnDisabled]}
+                                        onPress={() => void downloadPDF(i)}
+                                        disabled={downloading !== null}
+                                    >
+                                        {isDownloadingThis('pdf')
+                                            ? <ActivityIndicator color={Colors.brand.primary} size="small" />
+                                            : <Text style={styles.dlBtnText}>⬇  Save as PDF</Text>
+                                        }
+                                    </Pressable>
+                                </View>
+                            </View>
+                        );
+                    })}
 
                     {/* ── Done button ── */}
                     <Pressable
@@ -546,6 +584,8 @@ const styles = StyleSheet.create({
     checkmark: { color: Colors.semantic.success, fontSize: 44, fontWeight: '900' },
     title:     { textAlign: 'center', fontSize: 26, fontWeight: '900', color: Colors.text.primary },
     subtitle:  { textAlign: 'center', color: Colors.text.tertiary, fontSize: 14, lineHeight: 20 },
+
+    receiptBlock: { gap: Spacing.sm },
 
     downloadRow: { flexDirection: 'row', gap: Spacing.sm },
     dlBtn: {

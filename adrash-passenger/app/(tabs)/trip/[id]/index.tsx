@@ -1,8 +1,15 @@
 // app/(tabs)/trip/[id]/index.tsx
 // Trip detail + ticket screen. Shown from My Trips → View ticket.
 // APIs: GET /bookings/{id} (booking + trip + passenger details)
+//
+// Each passenger on the booking has their own individually-verifiable
+// boarding QR (confirmed with the backend team — not one QR shared across
+// the whole booking), since a group can split up and board at different
+// pickup points. Shared trip/driver/bus/payment info stays shown once on
+// this page; only the boarding pass itself is repeated per passenger.
 
 import { useRef, useState } from 'react';
+import type { RefObject } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
     ActivityIndicator,
@@ -21,14 +28,30 @@ import { QRCode } from '@/components/QRCode';
 import { saveTicketAsImage, saveTicketAsPDF, type TicketData } from '@/lib/ticketDownload';
 import { formatDateTime, formatEthiopianDateTime } from '@/utils/date';
 
-// ─── QR display ────────────────────────────────────────────────────────────────
+// ─── Per-passenger boarding pass ───────────────────────────────────────────────
 
-function QRDisplay({ data, bookingRef }: { data: string | null; bookingRef: string }) {
+function PassengerTicket({
+    data, bookingRef, passengerName, passengerPhone, seat, passengerIndex, passengerCount,
+}: {
+    data:            string | null;
+    bookingRef:      string;
+    passengerName:   string;
+    passengerPhone:  string;
+    seat:            string;
+    passengerIndex:  number;
+    passengerCount:  number;
+}) {
     return (
         <View style={styles.qrWrapper}>
             <View style={styles.perforation} />
             <View style={styles.qrCard}>
                 <Text style={styles.qrBrand}>አድራሽ  ·  ADRASH</Text>
+                {passengerCount > 1 && (
+                    <Text style={styles.qrPassengerBadge}>Passenger {passengerIndex} of {passengerCount}</Text>
+                )}
+                <Text style={styles.qrPassengerName}>{passengerName}</Text>
+                {passengerPhone ? <Text style={styles.qrPassengerPhone}>{passengerPhone}</Text> : null}
+                <Text style={styles.qrPassengerSeat}>Seat {seat}</Text>
                 {data ? (
                     <QRCode value={data} size={200} padding={12} />
                 ) : (
@@ -37,7 +60,9 @@ function QRDisplay({ data, bookingRef }: { data: string | null; bookingRef: stri
                         <Text style={styles.qrPendingSub}>Pull to refresh, or check back shortly.</Text>
                     </View>
                 )}
-                <Text style={styles.qrPrompt}>Show this to your driver</Text>
+                <Text style={styles.qrPrompt}>
+                    {passengerCount > 1 ? "This passenger's own boarding pass" : 'Show this to your driver'}
+                </Text>
                 <View style={styles.qrDivider} />
                 <Text style={styles.qrRefLabel}>BOOKING REFERENCE</Text>
                 <Text style={styles.qrRef}>{bookingRef}</Text>
@@ -80,13 +105,15 @@ function StatusBar({ status }: { status: BookingStatusDTO }) {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
+type DownloadState = { index: number; kind: 'image' | 'pdf' } | null;
+
 export default function TripDetailScreen() {
-    const { id } = useLocalSearchParams<{ id: string }>();
+    const { id, fromTab } = useLocalSearchParams<{ id: string; fromTab?: 'upcoming' | 'active' | 'past' }>();
     const query = useBookingDetail(id);
     const booking = query.data;
 
-    const ticketRef = useRef<View>(null);
-    const [downloading, setDownloading] = useState<'image' | 'pdf' | null>(null);
+    const ticketRefs = useRef<(View | null)[]>([]);
+    const [downloading, setDownloading] = useState<DownloadState>(null);
 
     // Called unconditionally (before the loading/error early returns below) so
     // hook order stays stable across renders — `enabled` inside the hook itself
@@ -130,16 +157,12 @@ export default function TripDetailScreen() {
     const origin      = route?.originCity ?? '—';
     const destination = route?.destinationCity ?? '—';
     const depTime     = safeFmt(trip?.departureTime);
+    const depTimeEth  = safeFmt(trip?.departureTime, formatEthiopianDateTime);
     const driverName  = driver?.fullName ?? driver?.name ?? null;
     const busLabel    = bus
         ? [bus.model, bus.plateNumber].filter(Boolean).join('  ·  ') || null
         : null;
     const seatsArr = booking.seatNumbers ?? [];
-
-    // Must be the server-issued, HMAC-signed payload — never the plaintext
-    // bookingReference, which is printed right below it on this same card and
-    // could otherwise be used to forge a matching-looking (but unsigned) QR.
-    const qrData       = booking.qrCode ?? null;
     const isInProgress = trip?.status === 'InProgress';
     const isCompleted  = booking.status === 'Completed';
 
@@ -150,40 +173,73 @@ export default function TripDetailScreen() {
     const pickupName = booking.pickupLocation?.name
         ?? routeBundle.data?.pickups?.find((p) => p.id === booking.pickupLocationId)?.name
         ?? null;
+    const dropoffName = booking.dropoffStop?.name ?? destination;
 
-    async function downloadImage() {
-        if (!ticketRef.current) return;
-        setDownloading('image');
-        try { await saveTicketAsImage(ticketRef, origin, destination); }
-        finally { setDownloading(null); }
+    // Each passenger already carries their own qrCode/seatNumber once the
+    // booking is Confirmed (see mapBooking). If passengerDetails is somehow
+    // empty (shouldn't happen for a real booking), fall back to the one
+    // legacy booking-level QR as a single generic ticket rather than showing
+    // nothing at all.
+    const paxList = booking.passengerDetails ?? [];
+    const passengerCount = paxList.length;
+    const tickets = passengerCount > 0
+        ? paxList.map((p, i) => ({
+              passengerName:  p.fullName || `Passenger ${i + 1}`,
+              passengerPhone: p.phone ?? '',
+              seat:           String(p.seatNumber ?? seatsArr[i] ?? '—'),
+              qrData:         p.qrCode ?? null,
+          }))
+        : [{
+              passengerName:  '',
+              passengerPhone: '',
+              seat:           seatsArr.join(', ') || '—',
+              qrData:         booking.qrCode ?? null,
+          }];
+    const ticketCount = tickets.length;
+
+    async function downloadImage(index: number) {
+        const node = ticketRefs.current[index];
+        if (!node || !booking) return;
+        setDownloading({ index, kind: 'image' });
+        try {
+            await saveTicketAsImage(
+                { current: node } as RefObject<View>,
+                booking.bookingReference,
+                tickets[index]?.passengerName || `Passenger${index + 1}`,
+                origin,
+                destination,
+            );
+        } finally {
+            setDownloading(null);
+        }
     }
 
-    async function downloadPDF() {
+    async function downloadPDF(index: number) {
         if (!booking) return;
-        setDownloading('pdf');
-        const bk = booking;
+        const t = tickets[index];
+        if (!t) return;
+        setDownloading({ index, kind: 'pdf' });
         const data: TicketData = {
-            bookingRef:      bk.bookingReference,
+            bookingRef:         booking.bookingReference,
+            passengerName:      t.passengerName || `Passenger ${index + 1}`,
+            passengerIndex:     index + 1,
+            passengerCount:     ticketCount,
+            seat:               t.seat,
+            qrCode:             t.qrData,
             origin,
             destination,
             departureTime:      depTime,
-            departureEthiopian: safeFmt(trip?.departureTime, formatEthiopianDateTime),
+            departureEthiopian: depTimeEth,
             driverName,
             busLabel,
             pickup:          pickupName ?? '—',
-            dropoff:         bk.dropoffStop?.name ?? destination,
-            seats:           seatsArr.join(', ') || '—',
-            subtotal:        Math.max(0, (bk.totalFare ?? 0) - (bk.serviceFee ?? 0) + (bk.rewardsDiscount ?? 0)),
-            serviceFee:      bk.serviceFee ?? 0,
-            rewardsDiscount: bk.rewardsDiscount ?? 0,
-            totalFare:       bk.totalFare ?? 0,
-            passengers:      (bk.passengerDetails ?? []).map((p, i) => ({
-                name:  p.fullName,
-                phone: p.phone ?? '',
-                seat:  String(seatsArr[i] ?? '—'),
-            })),
+            dropoff:         dropoffName,
+            subtotal:        Math.max(0, (booking.totalFare ?? 0) - (booking.serviceFee ?? 0) + (booking.rewardsDiscount ?? 0)),
+            serviceFee:      booking.serviceFee ?? 0,
+            rewardsDiscount: booking.rewardsDiscount ?? 0,
+            totalFare:       booking.totalFare ?? 0,
             paymentMethod:   'Mobile Payment',
-            purchasedAt:     safeFmt(bk.createdAt),
+            purchasedAt:     safeFmt(booking.createdAt),
         };
         try { await saveTicketAsPDF(data); }
         finally { setDownloading(null); }
@@ -195,10 +251,23 @@ export default function TripDetailScreen() {
             <ScrollView contentContainerStyle={styles.content}>
                 {/* ── Header ── */}
                 <View style={styles.header}>
-                    <Pressable onPress={() => router.back()} style={styles.backBtn}>
+                    <Pressable
+                        onPress={() => router.replace({
+                            pathname: '/(tabs)/my-trips',
+                            // This screen is a hidden (href: null) route sharing the
+                            // bottom-tabs navigator with My Trips, not a screen in its
+                            // own stack — plain router.back() here doesn't return to
+                            // My Trips, it falls through to the tabs navigator's
+                            // default tab (Home). Since this screen's only real entry
+                            // point IS My Trips (see file header), navigate there
+                            // explicitly, restoring whichever tab it was opened from.
+                            params: { tab: fromTab ?? 'upcoming' },
+                        })}
+                        style={styles.backBtn}
+                    >
                         <Text style={styles.back}>←</Text>
                     </Pressable>
-                    <Text style={styles.headerTitle}>My Ticket</Text>
+                    <Text style={styles.headerTitle}>My Ticket{ticketCount > 1 ? 's' : ''}</Text>
                     <View style={{ width: 36 }} />
                 </View>
 
@@ -207,32 +276,55 @@ export default function TripDetailScreen() {
                     <StatusBar status={booking.status} />
                 )}
 
-                {/* ── QR ticket (capturable) ── */}
-                <View ref={ticketRef} collapsable={false} style={styles.captureWrapper}>
-                    <QRDisplay data={qrData} bookingRef={booking.bookingReference} />
-                </View>
+                {/* ── One boarding pass per passenger, each independently
+                      downloadable — a group can split up and board at
+                      different pickup points, so each person needs their
+                      own ticket, not one shared QR. ── */}
+                {tickets.map((t, i) => {
+                    const isDownloadingThis = (kind: 'image' | 'pdf') =>
+                        downloading?.index === i && downloading.kind === kind;
 
-                {/* ── Download buttons ── */}
-                <View style={styles.downloadRow}>
-                    <Pressable
-                        style={[styles.dlBtn, downloading === 'image' && styles.dlBtnDisabled]}
-                        onPress={() => void downloadImage()}
-                        disabled={downloading !== null}
-                    >
-                        {downloading === 'image'
-                            ? <ActivityIndicator color={Colors.brand.primary} size="small" />
-                            : <Text style={styles.dlBtnText}>⬇ Save as Image</Text>}
-                    </Pressable>
-                    <Pressable
-                        style={[styles.dlBtn, downloading === 'pdf' && styles.dlBtnDisabled]}
-                        onPress={() => void downloadPDF()}
-                        disabled={downloading !== null}
-                    >
-                        {downloading === 'pdf'
-                            ? <ActivityIndicator color={Colors.brand.primary} size="small" />
-                            : <Text style={styles.dlBtnText}>⬇ Save as PDF</Text>}
-                    </Pressable>
-                </View>
+                    return (
+                        <View key={`${t.passengerName}-${i}`} style={styles.ticketBlock}>
+                            <View
+                                ref={(r) => { ticketRefs.current[i] = r; }}
+                                collapsable={false}
+                                style={styles.captureWrapper}
+                            >
+                                <PassengerTicket
+                                    data={t.qrData}
+                                    bookingRef={booking.bookingReference}
+                                    passengerName={t.passengerName}
+                                    passengerPhone={t.passengerPhone}
+                                    seat={t.seat}
+                                    passengerIndex={i + 1}
+                                    passengerCount={ticketCount}
+                                />
+                            </View>
+
+                            <View style={styles.downloadRow}>
+                                <Pressable
+                                    style={[styles.dlBtn, isDownloadingThis('image') && styles.dlBtnDisabled]}
+                                    onPress={() => void downloadImage(i)}
+                                    disabled={downloading !== null}
+                                >
+                                    {isDownloadingThis('image')
+                                        ? <ActivityIndicator color={Colors.brand.primary} size="small" />
+                                        : <Text style={styles.dlBtnText}>⬇ Save as Image</Text>}
+                                </Pressable>
+                                <Pressable
+                                    style={[styles.dlBtn, isDownloadingThis('pdf') && styles.dlBtnDisabled]}
+                                    onPress={() => void downloadPDF(i)}
+                                    disabled={downloading !== null}
+                                >
+                                    {isDownloadingThis('pdf')
+                                        ? <ActivityIndicator color={Colors.brand.primary} size="small" />
+                                        : <Text style={styles.dlBtnText}>⬇ Save as PDF</Text>}
+                                </Pressable>
+                            </View>
+                        </View>
+                    );
+                })}
 
                 {/* ── Route + time ── */}
                 <View style={styles.routeCard}>
@@ -314,7 +406,9 @@ export default function TripDetailScreen() {
 
                 {/* ── Payment summary ── */}
                 <View style={styles.infoCard}>
-                    <Text style={styles.infoCardTitle}>Payment</Text>
+                    <Text style={styles.infoCardTitle}>
+                        {ticketCount > 1 ? `Payment — Group total (${ticketCount} passengers)` : 'Payment'}
+                    </Text>
                     <View style={styles.payRow}>
                         <Text style={styles.payLabel}>Total paid</Text>
                         <Text style={styles.payValue}>ETB {(booking.totalFare ?? 0).toFixed(2)}</Text>
@@ -327,20 +421,10 @@ export default function TripDetailScreen() {
                             </Text>
                         </View>
                     ) : null}
+                    {ticketCount > 1 && (
+                        <Text style={styles.payGroupNote}>Paid together as one transaction</Text>
+                    )}
                 </View>
-
-                {/* ── Passengers ── */}
-                {booking.passengerDetails && booking.passengerDetails.length > 0 && (
-                    <View style={styles.infoCard}>
-                        <Text style={styles.infoCardTitle}>Passengers</Text>
-                        {booking.passengerDetails.map((p, i) => (
-                            <View key={i} style={[styles.passengerRow, i > 0 && styles.passengerDivider]}>
-                                <Text style={styles.passengerName}>{p.fullName}</Text>
-                                <Text style={styles.passengerPhone}>{p.phone}</Text>
-                            </View>
-                        ))}
-                    </View>
-                )}
 
                 {/* ── Actions ── */}
                 <View style={styles.actions}>
@@ -394,6 +478,7 @@ const styles = StyleSheet.create({
     inner:     { flex: 1, backgroundColor: Colors.background.secondary },
     content:   { gap: Spacing.md, paddingBottom: Spacing['2xl'] },
 
+    ticketBlock:    { gap: Spacing.sm },
     captureWrapper: { backgroundColor: Colors.background.secondary },
     downloadRow:    { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg },
     dlBtn: {
@@ -452,6 +537,14 @@ const styles = StyleSheet.create({
     },
     qrCard:       { backgroundColor: Colors.background.primary, padding: Spacing.lg, alignItems: 'center', gap: Spacing.sm, ...Shadow.md },
     qrBrand:      { fontWeight: '900', fontSize: 13, color: Colors.brand.primary, letterSpacing: 1 },
+    qrPassengerBadge: {
+        fontSize: 11, fontWeight: '700', color: Colors.text.tertiary,
+        backgroundColor: Colors.background.secondary, borderRadius: BorderRadius.full,
+        paddingHorizontal: 10, paddingVertical: 3,
+    },
+    qrPassengerName:  { fontSize: 16, fontWeight: '800', color: Colors.text.primary, marginTop: 4 },
+    qrPassengerPhone: { fontSize: 12, color: Colors.text.tertiary, marginTop: 1 },
+    qrPassengerSeat:  { fontSize: 13, fontWeight: '700', color: Colors.brand.primary, marginTop: 1 },
     qrPendingBox: {
         width: 200, height: 200, borderRadius: 12,
         borderWidth: 1.5, borderColor: Colors.border.medium, borderStyle: 'dashed',
@@ -459,7 +552,7 @@ const styles = StyleSheet.create({
     },
     qrPendingText: { color: Colors.text.secondary, fontSize: 13, fontWeight: '700', textAlign: 'center' },
     qrPendingSub:  { color: Colors.text.tertiary, fontSize: 11, textAlign: 'center' },
-    qrPrompt:     { color: Colors.text.secondary, fontSize: 13, fontWeight: '600' },
+    qrPrompt:     { color: Colors.text.secondary, fontSize: 13, fontWeight: '600', textAlign: 'center' },
     qrDivider:    { width: '100%', height: 1, backgroundColor: Colors.border.light },
     qrRefLabel:   { color: Colors.text.tertiary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
     qrRef:        { fontFamily: 'monospace', fontSize: 20, fontWeight: '900', color: Colors.brand.primary, letterSpacing: 2 },
@@ -500,11 +593,7 @@ const styles = StyleSheet.create({
     payRow:    { flexDirection: 'row', justifyContent: 'space-between' },
     payLabel:  { color: Colors.text.secondary, fontSize: 14 },
     payValue:  { fontWeight: '800', color: Colors.text.primary, fontSize: 14 },
-
-    passengerRow:     { paddingVertical: Spacing.sm },
-    passengerDivider: { borderTopWidth: 1, borderTopColor: Colors.border.light },
-    passengerName:    { fontWeight: '700', color: Colors.text.primary, fontSize: 14 },
-    passengerPhone:   { color: Colors.text.tertiary, fontSize: 12, marginTop: 2 },
+    payGroupNote: { color: Colors.text.tertiary, fontSize: 12, fontStyle: 'italic', marginTop: 2 },
 
     actions:  { marginHorizontal: Spacing.lg, gap: Spacing.sm },
     trackBtn: { backgroundColor: Colors.brand.primary, borderRadius: BorderRadius.lg, paddingVertical: 15, alignItems: 'center' },

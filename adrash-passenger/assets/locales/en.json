@@ -116,7 +116,7 @@
         "date_time": "DATE & TIME",
         "passengers": "PASSENGERS",
         "passengers_min_error": "Minimum 1 passenger",
-        "passengers_max_error": "Maximum 60 passengers",
+        "passengers_max_error": "Max 6 passengers per booking. Need more seats? Book again for the rest of your group.",
         "search_trips": "Search Trips",
         "origin_destination_same": "Origin and destination must be different.",
         "matching_routes": "Matching routes",
@@ -334,7 +334,8 @@
         "pin_changed": "PIN updated successfully",
         "pin_wrong": "Incorrect current PIN. Please try again.",
         "terms_conditions": "Terms & Conditions",
-        "terms_conditions_sub": "View our terms and privacy policy"
+        "terms_conditions_sub": "View our terms and privacy policy",
+        "language_sync_error": "Could not save your language preference to your account — SMS notifications may still arrive in the previous language until this is fixed. The app is now running in your new language."
     },
     "errors": {
         "generic": "Something went wrong. Please try again.",
