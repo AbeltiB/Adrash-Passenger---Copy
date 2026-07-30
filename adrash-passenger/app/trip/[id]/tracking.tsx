@@ -289,6 +289,9 @@ export default function TrackingScreen() {
                             initialViewState={{ center: initialCoord, zoom: 13 }}
                         />
 
+                        {/* Passenger's own position, distinct from the bus/pickup/dropoff pins */}
+                        <MapLibreGL.UserLocation animated accuracy heading />
+
                         {/* Route polyline */}
                         {routeGeoJSON && (
                             <MapLibreGL.GeoJSONSource id="route-src" data={routeGeoJSON}>
