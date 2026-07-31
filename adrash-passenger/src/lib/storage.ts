@@ -1,6 +1,6 @@
 // src/lib/storage.ts
 
-import { MMKV } from 'react-native-mmkv';
+import { MMKV } from '@bsky.app/react-native-mmkv';
 
 /**
  * react-native-mmkv is not bundled in Expo Go. Creating an MMKV instance there
